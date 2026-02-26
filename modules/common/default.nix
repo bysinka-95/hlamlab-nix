@@ -12,4 +12,9 @@
   };
 
   environment.systemPackages = with pkgs; [ nano git curl ];
+
+  imports = [
+    ./users.nix
+    ./network
+  ];
 }

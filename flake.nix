@@ -11,9 +11,13 @@
       # Home Manager
       home-manager.url = "github:nix-community/home-manager";
       home-manager.inputs.nixpkgs.follows = "nixpkgs";
+
+      # sops-nix for secrets management
+      sops-nix.url = "github:Mic92/sops-nix";
+      sops-nix.inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    outputs = { self, nixpkgs, disko, home-manager, ... }: {
+    outputs = { self, nixpkgs, disko, home-manager, sops-nix, ... }: {
       nixosConfigurations = {
 
         # 1. The Simulation (Proxmox VM)
@@ -22,6 +26,7 @@
           modules = [
             disko.nixosModules.disko
             home-manager.nixosModules.home-manager
+            sops-nix.nixosModules.sops
 
             ./hosts/playground/configuration.nix
           ];

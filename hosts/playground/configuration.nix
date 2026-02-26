@@ -1,12 +1,8 @@
-{
-  config,
-  modulesPath,
-  pkgs,
-  ...
-}:
+{ modulesPath, ... }:
 
 {
   imports = [
+    ../../modules/secrets
     ../../modules/common
     ./disk-config.nix
     ./hardware-configuration.nix
@@ -34,7 +30,7 @@
     extraGroups = [ "wheel" "networkmanager" ];
     hashedPassword = "$6$jpPlddmu.tNy0i5N$fk1GPeQs.MknesNIEj0KmnsW9/9lKdg/XOk10B3WZpwAITfFr.3Km0/D3E5smjslj/RORzdkd7hODZKj37A8J."; # Set with mkpasswd -m sha-512
     openssh.authorizedKeys.keys = [
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH5cl6RrQsY3tQ0GY8XmN7dWC0SSifxwbMuBl7T/yufW hoholms@hoholmsmac.local"
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH5cl6RrQsY3tQ0GY8XmN7dWC0SSifxwbMuBl7T/yufW hoholms@hoholmsmac.local"
     ];
   };
 
