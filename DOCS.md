@@ -10,7 +10,8 @@ infrastructure.
 - **[README.md](README.md)** - Main documentation covering:
     - Repository structure and layout
     - Prerequisites and initial setup
-    - Service descriptions (OpenCloud, Traefik, Cloudflare Tunnel)
+    - Service descriptions (Traefik, Cloudflare Tunnel)
+    - Container management
     - Deployment workflows
     - Troubleshooting basics
 
@@ -29,6 +30,12 @@ infrastructure.
     - Age key generation
     - Encrypting/decrypting secrets
     - What to commit vs what to keep private
+
+- **[modules/containers/README.md](modules/containers/README.md)** - Container management:
+    - Container structure and networking
+    - Daily operations (start, stop, login, logs)
+    - Adding new service containers
+    - Best practices
 
 ## 🚀 Quick Start Path
 
@@ -58,6 +65,23 @@ nix run nixpkgs#nixos-rebuild -- switch \
 sops secrets/secrets.yaml
 ```
 
+### Manage Containers
+
+```bash
+# See modules/containers/README.md
+machinectl list
+sudo nixos-container root-login <name>
+```
+
+### Add a New Service
+
+1. Create container module in `modules/containers/`
+2. Add DNS entry in `modules/containers/default.nix`
+3. Add Traefik router in `modules/common/traefik.nix`
+4. Deploy
+
+Full details in [modules/common/network/README.md](modules/common/network/README.md) → "Adding New Services"
+
 ## 🔒 Security & Privacy
 
 ### What's Tracked (safe to commit):
@@ -85,10 +109,12 @@ See [modules/secrets/README.md](modules/secrets/README.md#secrets-vs-configurati
 | README.md                        | Setting up new hosts, deploying changes, general reference              |
 | modules/common/network/README.md | Configuring Cloudflare Tunnel, adding services, troubleshooting routing |
 | modules/secrets/README.md        | Managing encrypted secrets, setting up sops-nix                         |
+| modules/containers/README.md     | Working with NixOS containers, container troubleshooting                |
 
 ## 💡 Tips
 
 - All documentation uses `yourdomain` as a placeholder - replace with your actual domain
+- Container IPs start at 10.0.0.2 and increment for each service
 - Always test with `--dry-run` first when making major configuration changes
 - Check service logs with `journalctl -u <service-name> -f`
 

@@ -12,6 +12,7 @@ the eventual host migration.
 - `modules/common/local.nix`: **Configuration variables** (domain, tunnel ID) - **edit for your setup**.
 - `modules/common/secrets/`: sops-nix configuration for encrypted secrets management.
 - `modules/common/network/`: Network services (Traefik reverse proxy, Cloudflare Tunnel).
+- `modules/containers/`: Self-contained service modules (each with container + traefik + DNS).
 - `hosts/playground/`
     - `configuration.nix`: System config (boot, networking, SSH, root keys, base packages, home-manager for root).
     - `disk-config.nix`: Disko layout for `/dev/sda` (GPT + ESP + ext4 root).

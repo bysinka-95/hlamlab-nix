@@ -124,17 +124,26 @@ Here's how the certificates work together:
 - **Ingress**: Routes `*.yourdomain` → `https://localhost:443` (Traefik)
 - **mTLS**: Uses `/var/lib/cloudflared/origin-ca.pem` to verify Traefik's certificate
 
-### 2. Traefik Configuration
+### 2. Traefik Core Configuration
 
-- **File**: `modules/common/traefik.nix`
-- **Entry Points**:
-    - HTTP (`:80`) → Redirects to HTTPS
-    - HTTPS (`:443`) → Requires Cloudflare mTLS
-- **Configuration**: Native Nix via `dynamicConfigOptions` (no YAML files)
-- **Routers**:
-    - `traefik.yourdomain` → Traefik Dashboard (with basic auth)
+- **File**: `modules/common/network/traefik.nix`
+- **Contains**: Core configuration only
+    - Entry Points (HTTP :80 → HTTPS :443)
+    - Shared middlewares (security-headers, rate-limit, dashboard-auth)
+    - Dashboard router
+    - TLS/mTLS configuration
+- **Does NOT contain**: Service-specific routers/middlewares/services
 
-### 3. Service Configuration
+### 3. Service-Specific Configuration
+
+Services are self-contained in their own directories under `modules/containers/`:
+
+- **Example**: `modules/containers/myservice/`
+    - `container.nix` - Container definition (10.0.0.x:port)
+    - `traefik.nix` - Service-specific Traefik config (router, middleware, backend)
+    - `default.nix` - Imports both + DNS entry
+- **Public URL**: `https://myservice.yourdomain`
+- **Internal**: Accessible at `http://myservice:port` from host
 
 ## Setup Steps
 
@@ -221,7 +230,7 @@ nix run nixpkgs#nixos-rebuild -- switch \
 
 4. **Test service access**:
    ```sh
-   curl -I https://opencloud.yourdomain.com
+   curl -I https://myservice.yourdomain.com
    curl -I https://traefik.yourdomain.com
    ```
 
@@ -270,9 +279,16 @@ sudo -u traefik cat /var/lib/traefik/certs/origin.crt | head -1
 
 ### Traefik can't find routes
 
-- **Check configuration**: Routes are defined in `modules/common/traefik.nix` under `dynamicConfigOptions`
+- **Check service config**: Routes are defined in `modules/containers/<service>/traefik.nix` for each service
+- **Check core config**: Core Traefik config is in `modules/common/network/traefik.nix`
 - **Check logs**: `sudo journalctl -u traefik -n 50`
 - **Verify service**: `sudo systemctl status traefik`
+
+### Service returns 404 or 502
+
+- **Check container**: `machinectl list | grep myservice`
+- **Check container networking**: `ping -c 1 10.0.0.x`
+- **Test direct access**: `curl http://10.0.0.x:port` (from host)
 
 ### Can't access from internet
 
@@ -282,41 +298,130 @@ sudo -u traefik cat /var/lib/traefik/certs/origin.crt | head -1
 
 ## Adding New Services
 
-To add a new service (e.g., `nextcloud.yourdomain`):
+Services are modular and self-contained. To add a new service:
 
-1. Create a new service
+### 1. Create Service Directory
 
-2. Add router and service in `modules/common/traefik.nix` under `dynamicConfigOptions`:
-   ```nix
-   dynamicConfigOptions = {
-     http = {
-       routers = {
-         # ...existing routers...
-         nextcloud = {
-           rule = "Host(`nextcloud.${vars.domain}`)";
-           entryPoints = [ "https" ];
-           service = "nextcloud";
-           tls = {};
-           middlewares = [ "security-headers" ];
-         };
-       };
-       
-       services = {
-         # ...existing services...
-         nextcloud = {
-           loadBalancer = {
-             servers = [
-               { url = "http://nextcloud:80"; }
-             ];
-             passHostHeader = true;
-           };
-         };
-       };
-     };
-   };
-   ```
+```bash
+mkdir -p modules/containers/myservice
+```
 
-3. Rebuild and deploy
+### 2. Create `container.nix`
+
+```nix
+{ ... }:
+let
+  vars = import ../../common/local.nix;
+in
+{
+  containers.myservice = {
+    autoStart = true;
+    privateNetwork = true;
+    hostAddress = "10.0.0.1";
+    localAddress = "10.0.0.3";  # Next available IP
+
+    config = { pkgs, ... }: {
+      networking.firewall.allowedTCPPorts = [ 8080 ];
+      
+      services.myservice = {
+        enable = true;
+        # ... service configuration
+      };
+
+      system.stateVersion = "26.05";
+    };
+  };
+}
+```
+
+### 3. Create `traefik.nix`
+
+```nix
+{ ... }:
+let
+  vars = import ../../common/local.nix;
+in
+{
+  services.traefik.dynamicConfigOptions = {
+    http = {
+      # Service-specific middleware (optional)
+      middlewares = {
+        myservice-headers = {
+          headers = {
+            sslRedirect = true;
+            frameDeny = true;
+          };
+        };
+      };
+
+      # Router
+      routers = {
+        myservice = {
+          rule = "Host(`myservice.${vars.domain}`)";
+          entryPoints = [ "https" ];
+          service = "myservice";
+          tls = {};
+          middlewares = [ "security-headers" ];  # Use shared middleware
+        };
+      };
+
+      # Backend service
+      services = {
+        myservice = {
+          loadBalancer = {
+            servers = [
+              { url = "http://myservice:8080"; }
+            ];
+            passHostHeader = true;
+          };
+        };
+      };
+    };
+  };
+}
+```
+
+### 4. Create `default.nix`
+
+```nix
+# MyService Module
+
+{ ... }:
+{
+  imports = [
+    ./container.nix
+    ./traefik.nix
+  ];
+
+  # DNS entry for internal resolution
+  networking.hosts = {
+    "10.0.0.3" = [ "myservice" ];
+  };
+}
+```
+
+### 5. Import in `modules/containers/default.nix`
+
+```nix
+imports = [
+  ./service-a
+  ./myservice  # Add this line - folder import
+];
+```
+
+### 6. Deploy
+
+```bash
+nix run nixpkgs#nixos-rebuild -- switch \
+  --flake .#playground \
+  --target-host hlamnix@<ip> \
+  --build-host hlamnix@<ip> \
+  --sudo \
+  --ask-sudo-password
+```
+
+See [modules/containers/README.md](../../containers/README.md) for detailed documentation on the modular service
+structure.
 
 ## Security Notes
 

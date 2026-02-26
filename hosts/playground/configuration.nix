@@ -4,6 +4,7 @@
   imports = [
     ../../modules/secrets
     ../../modules/common
+    ../../modules/containers
     ./disk-config.nix
     ./hardware-configuration.nix
     (modulesPath + "/installer/scan/not-detected.nix")
