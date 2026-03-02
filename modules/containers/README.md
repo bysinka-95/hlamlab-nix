@@ -16,10 +16,11 @@ modules/containers/
 
 ## Example: Current Services
 
-| Service   | IP       | Port | URL                  |
-|-----------|----------|------|----------------------|
-| service-a | 10.0.0.2 | 8080 | service-a.yourdomain |
-| service-b | 10.0.0.3 | 3000 | service-b.yourdomain |
+| Service   | IP        | Port | URL                        | Storage                     |
+|-----------|-----------|------|----------------------------|-----------------------------|
+| opencloud | 10.0.0.2  | 9200 | opencloud.yourdomain       | `/var/lib/opencloud` (host) |
+| immich    | 10.0.0.3  | 2283 | immich.yourdomain          | `/var/lib/immich` (host)    |
+| -         | 10.0.0.4+ | -    | Available for new services | -                           |
 
 ## Adding a New Service
 
@@ -113,11 +114,47 @@ sudo nixos-container run <name> -- journalctl -u <service> -f
 sudo nixos-container start/stop <name>
 ```
 
+## External Storage (Persistent Data)
+
+For stateful services (databases, media storage), use **bind mounts** to store data on the host filesystem:
+
+**Benefits:**
+
+- Data survives container recreation/updates
+- Easy to backup from host
+- Can use host storage features (RAID, ZFS, etc.)
+- Simple to replicate to other machines
+
+**Example** (from Immich):
+
+```nix
+containers.myservice = {
+  # ...
+  bindMounts = {
+    "/var/lib/mydata" = {
+      hostPath = "/var/lib/mydata";  # Host directory
+      isReadOnly = false;
+    };
+  };
+};
+
+# Create host directory with proper permissions
+systemd.tmpfiles.rules = [
+  "d /var/lib/mydata 0750 <uid> <gid> -"
+];
+```
+
+**Backup Strategy:**
+
+- Host directories under `/var/lib/` are easy to snapshot (rsync, ZFS snapshots, etc.)
+- Container state is ephemeral; persistent data lives on host
+- Can mount network storage (NFS, CIFS) for redundancy
+
 ## IP Allocation
 
 - 10.0.0.1 - Host gateway (reserved)
-- 10.0.0.2 - service-a
-- 10.0.0.3 - service-b
+- 10.0.0.2 - opencloud
+- 10.0.0.3 - immich
 - 10.0.0.4+ - Available for new services
 
 ## Best Practices

@@ -10,5 +10,6 @@
   # Import service modules (each directory contains container + traefik + DNS)
   imports = [
     ./opencloud
+    ./immich
   ];
 }

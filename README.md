@@ -34,6 +34,7 @@ the eventual host migration.
 Before deploying, edit the configuration file with your values:
 
 **Edit `modules/common/local.nix`**:
+
 ```nix
 {
   domain = "yourdomain.com";           # Your domain name
@@ -41,7 +42,8 @@ Before deploying, edit the configuration file with your values:
 }
 ```
 
-**Note**: This file is tracked by git. If publishing this config publicly, use dummy placeholder values (e.g., "example.com", "00000000-0000-0000-0000-000000000000") and document that users should update them.
+**Note**: This file is tracked by git. If publishing this config publicly, use dummy placeholder values (e.g., "
+example.com", "00000000-0000-0000-0000-000000000000") and document that users should update them.
 
 ## Services: Traefik Reverse Proxy
 
@@ -64,6 +66,56 @@ Before deploying, edit the configuration file with your values:
 - Credentials managed via sops-nix (encrypted in `secrets/secrets.yaml`)
 
 For detailed setup instructions, see [modules/common/network/README.md](modules/common/network/README.md).
+
+## Services: Containerized Applications
+
+Each service runs in an isolated NixOS container with its own network namespace (10.0.0.x). Services are accessed via
+Traefik reverse proxy.
+
+**Current Services:**
+
+### OpenCloud
+
+- **URL**: https://opencloud.yourdomain
+- **Container IP**: 10.0.0.2:9200
+- **Features**: Identity and access management platform
+- **Storage**: `/var/lib/opencloud` (host bind mount for persistence)
+- **Important**: OpenCloud requires a valid TLS reverse proxy. Initial admin password is located in the container at
+  `/etc/opencloud/opencloud.yaml` under `idm.service_user_passwords.admin_password`.
+
+```bash
+# Get initial admin password:
+sudo nixos-container root-login opencloud
+cat /etc/opencloud/opencloud.yaml | grep -A 2 admin_password
+```
+
+### Immich
+
+- **URL**: https://immich.yourdomain
+- **Container IP**: 10.0.0.3:2283
+- **Features**: Self-hosted photo and video management
+- **Storage**: `/var/lib/immich` (host bind mount for persistence)
+- **Components**: PostgreSQL (with vector extensions), Redis, ML face detection
+- **Backup Strategy**: Photos/videos stored in host filesystem for easy snapshots
+
+**Container Management:**
+
+```bash
+# List all containers
+machinectl list
+
+# Login to a container
+sudo nixos-container root-login <name>
+
+# Check container status
+systemctl status container@<name>
+
+# View service logs
+sudo nixos-container run <name> -- journalctl -u <service> -f
+```
+
+For detailed container documentation and how to add new services,
+see [modules/containers/README.md](modules/containers/README.md).
 
 ## Bootstrap a fresh host (example: playground VM)
 
