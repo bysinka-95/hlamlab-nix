@@ -9,6 +9,7 @@
 
   # Import service modules (each directory contains container + traefik + DNS)
   imports = [
+    ./container-limits.nix
     ./opencloud
     ./immich
   ];

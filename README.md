@@ -7,11 +7,12 @@ the eventual host migration.
 
 ## Repo layout
 
-- `flake.nix`: Inputs (nixpkgs, disko, home-manager, sops-nix) and `nixosConfigurations` outputs.
+- `flake.nix`: Inputs (nixpkgs, disko, home-manager, sops-nix, disko-zfs) and `nixosConfigurations` outputs.
 - `modules/common/`: Shared defaults (nix settings, allowUnfree, SSH policy, base packages, secrets).
 - `modules/common/local.nix`: **Configuration variables** (domain, tunnel ID) - **edit for your setup**.
 - `modules/common/secrets/`: sops-nix configuration for encrypted secrets management.
 - `modules/common/network/`: Network services (Traefik reverse proxy, Cloudflare Tunnel).
+- `modules/common/zfs/`: ZFS configuration (declarative datasets, snapshots, monitoring).
 - `modules/containers/`: Self-contained service modules (each with container + traefik + DNS).
 - `hosts/playground/`
     - `configuration.nix`: System config (boot, networking, SSH, root keys, base packages, home-manager for root).
@@ -79,7 +80,7 @@ Traefik reverse proxy.
 - **URL**: https://opencloud.yourdomain
 - **Container IP**: 10.0.0.2:9200
 - **Features**: Identity and access management platform
-- **Storage**: `/var/lib/opencloud` (host bind mount for persistence)
+- **Storage**: `/var/lib/services/opencloud` (host bind mount for persistence)
 - **Important**: OpenCloud requires a valid TLS reverse proxy. Initial admin password is located in the container at
   `/etc/opencloud/opencloud.yaml` under `idm.service_user_passwords.admin_password`.
 
@@ -94,7 +95,7 @@ cat /etc/opencloud/opencloud.yaml | grep -A 2 admin_password
 - **URL**: https://immich.yourdomain
 - **Container IP**: 10.0.0.3:2283
 - **Features**: Self-hosted photo and video management
-- **Storage**: `/var/lib/immich` (host bind mount for persistence)
+- **Storage**: `/var/lib/services/immich` (host bind mount for persistence)
 - **Components**: PostgreSQL (with vector extensions), Redis, ML face detection
 - **Backup Strategy**: Photos/videos stored in host filesystem for easy snapshots
 
@@ -113,6 +114,13 @@ systemctl status container@<name>
 # View service logs
 sudo nixos-container run <name> -- journalctl -u <service> -f
 ```
+
+**Storage Isolation & Resource Limits:**
+
+For advanced storage isolation with disk quotas, compression, snapshots, and CPU/RAM limits, see:
+
+- **[ZFS Module Documentation](modules/common/zfs/README.md)** - Complete ZFS guide
+- **[Resource Management](modules/containers/README.md#container-resource-limits)** - Resource management guide
 
 For detailed container documentation and how to add new services,
 see [modules/containers/README.md](modules/containers/README.md).

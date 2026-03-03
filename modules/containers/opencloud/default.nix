@@ -10,7 +10,7 @@
 #   container.nix - Container definition with external storage
 #   traefik.nix   - Traefik routing configuration
 #
-# Storage: /var/lib/opencloud on host → mounted in container
+# Storage: /var/lib/services/opencloud on host → mounted in container as /var/lib/opencloud
 # This ensures state and user data survive container recreation
 #
 # Usage: Import this directory from modules/containers/default.nix

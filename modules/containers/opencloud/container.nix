@@ -14,7 +14,7 @@ in
     # This makes OpenCloud state persist across container recreation
     bindMounts = {
       "/var/lib/opencloud" = {
-        hostPath = "/var/lib/opencloud";
+        hostPath = "/var/lib/services/opencloud";
         isReadOnly = false;
       };
     };
@@ -39,7 +39,8 @@ in
   # This directory will be bind-mounted into the container
   # Ownership will be managed by the container's opencloud user automatically
   systemd.tmpfiles.rules = [
-    "d /var/lib/opencloud 0755 root root -"
+    "d /var/lib/services 0755 root root -"
+    "d /var/lib/services/opencloud 0755 root root -"
   ];
 }
 

@@ -10,7 +10,7 @@
 #   container.nix - Container definition with external storage
 #   traefik.nix   - Traefik routing configuration
 #
-# Storage: /var/lib/immich on host → mounted in container
+# Storage: /var/lib/services/immich on host → mounted in container as /var/lib/immich
 # This ensures photos/videos survive container recreation
 #
 # Usage: Import this directory from modules/containers/default.nix

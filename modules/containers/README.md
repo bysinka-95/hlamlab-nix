@@ -6,21 +6,142 @@ Each service is self-contained in its own directory with container definition, T
 
 ```
 modules/containers/
-├── default.nix        # NAT + imports all services
-├── service-a/         # Example: Self-contained service module
-│   ├── default.nix    # Imports container + traefik + DNS
-│   ├── container.nix  # NixOS container
-│   └── traefik.nix    # Traefik routing
+├── default.nix           # NAT + imports all services
+├── container-limits.nix  # Optional: CPU/RAM/I/O resource limits
+├── service-a/            # Example: Self-contained service module
+│   ├── default.nix       # Imports container + traefik + DNS
+│   ├── container.nix     # NixOS container
+│   └── traefik.nix       # Traefik routing
 └── README.md
 ```
 
-## Example: Current Services
+## Container Resource Limits
 
-| Service   | IP        | Port | URL                        | Storage                     |
-|-----------|-----------|------|----------------------------|-----------------------------|
-| opencloud | 10.0.0.2  | 9200 | opencloud.yourdomain       | `/var/lib/opencloud` (host) |
-| immich    | 10.0.0.3  | 2283 | immich.yourdomain          | `/var/lib/immich` (host)    |
-| -         | 10.0.0.4+ | -    | Available for new services | -                           |
+**File:** `container-limits.nix`
+
+This optional module adds systemd-based resource limits to prevent containers from consuming excessive CPU, RAM, or I/O
+resources.
+
+### Features
+
+- **CPU limits**: Restrict cores/percentage per container
+- **Memory limits**: Hard and soft memory caps
+- **I/O limits**: Control disk read/write priorities
+- **Process limits**: Max number of processes/threads
+
+### Current Configuration
+
+**OpenCloud:**
+
+- CPU: 1 core max (100%)
+- RAM: 2GB hard limit, 1.5GB soft limit
+- I/O: Standard priority
+- Processes: 512 max
+
+**Immich:**
+
+- CPU: 2 cores max (200%)
+- RAM: 4GB hard limit, 3GB soft limit
+- I/O: High priority (for media uploads)
+- Processes: 1024 max
+
+### Monitoring Resource Usage
+
+```bash
+# Live resource monitor (shows all containers)
+systemd-cgtop
+
+# Sort by CPU
+systemd-cgtop --order=cpu
+
+# Sort by memory
+systemd-cgtop --order=memory
+
+# Check specific container status
+systemctl status container@opencloud
+
+# Check if limits are being hit
+journalctl -u container@immich | grep -i "memory\|cpu\|limit"
+```
+
+### Adjusting Limits
+
+**Temporary adjustment (until reboot):**
+
+```bash
+sudo systemctl set-property container@opencloud CPUQuota=200%
+sudo systemctl set-property container@immich MemoryMax=8G
+```
+
+**Permanent adjustment:**
+
+Edit `modules/containers/container-limits.nix`:
+
+```nix
+systemd.services."container@myservice" = {
+  serviceConfig = {
+    CPUQuota = "150%";      # 1.5 CPU cores
+    MemoryMax = "3G";       # 3GB hard limit
+    MemoryHigh = "2.5G";    # 2.5GB soft limit (starts throttling)
+    IOWeight = 150;         # I/O priority (1-10000)
+    TasksMax = 768;         # Max processes
+  };
+};
+```
+
+Then rebuild to apply permanently.
+
+### Adding Limits for New Services
+
+When adding a new service, also add its limits in `container-limits.nix`:
+
+```nix
+systemd.services."container@myservice" = {
+  serviceConfig = {
+    CPUQuota = "50%";       # Half a core
+    MemoryMax = "1G";       # 1GB max
+    IOWeight = 100;         # Standard priority
+    TasksMax = 256;         # Light service
+  };
+};
+```
+
+### Resource Limit Examples
+
+**Light service (cache, simple API):**
+
+```nix
+CPUQuota = "50%";          # Half core
+MemoryMax = "512M";        # 512MB
+IOWeight = 50;             # Low priority
+TasksMax = 256;
+```
+
+**Medium service (web app, database):**
+
+```nix
+CPUQuota = "100%";         # 1 core
+MemoryMax = "2G";          # 2GB
+IOWeight = 100;            # Normal priority
+TasksMax = 512;
+```
+
+**Heavy service (ML, media processing):**
+
+```nix
+CPUQuota = "200%";         # 2 cores
+MemoryMax = "4G";          # 4GB
+IOWeight = 200;            # High priority
+TasksMax = 1024;
+```
+
+## Current Services
+
+| Service   | IP        | Port | URL                        | Storage                              |
+|-----------|-----------|------|----------------------------|--------------------------------------|
+| opencloud | 10.0.0.2  | 9200 | opencloud.yourdomain       | `/var/lib/services/opencloud` (host) |
+| immich    | 10.0.0.3  | 2283 | immich.yourdomain          | `/var/lib/services/immich` (host)    |
+| -         | 10.0.0.4+ | -    | Available for new services | -                                    |
 
 ## Adding a New Service
 
@@ -125,14 +246,14 @@ For stateful services (databases, media storage), use **bind mounts** to store d
 - Can use host storage features (RAID, ZFS, etc.)
 - Simple to replicate to other machines
 
-**Example** (from Immich):
+**Example**:
 
 ```nix
 containers.myservice = {
   # ...
   bindMounts = {
     "/var/lib/mydata" = {
-      hostPath = "/var/lib/mydata";  # Host directory
+      hostPath = "/var/lib/services/mydata";  # Host directory under services/
       isReadOnly = false;
     };
   };
@@ -140,13 +261,14 @@ containers.myservice = {
 
 # Create host directory with proper permissions
 systemd.tmpfiles.rules = [
-  "d /var/lib/mydata 0750 <uid> <gid> -"
+  "d /var/lib/services 0755 root root -"
+  "d /var/lib/services/mydata 0755 root root -"
 ];
 ```
 
 **Backup Strategy:**
 
-- Host directories under `/var/lib/` are easy to snapshot (rsync, ZFS snapshots, etc.)
+- Host directories under `/var/lib/services/` are easy to snapshot (rsync, ZFS snapshots, etc.)
 - Container state is ephemeral; persistent data lives on host
 - Can mount network storage (NFS, CIFS) for redundancy
 
@@ -164,10 +286,24 @@ systemd.tmpfiles.rules = [
 3. Use `../../common/local.nix` for domain variable
 4. Services must bind to `0.0.0.0` to be accessible
 5. Update IP allocation table when adding services
+6. Use bind mounts for persistent data (see External Storage section above)
+7. Consider ZFS datasets and resource limits for production
+
+## Advanced Topics
+
+### Storage Isolation & Resource Limits
+
+**In this directory:**
+
+- **[container-limits.nix](./container-limits.nix)** - CPU/RAM/I/O limits (see section above)
+
+**See also:**
+
+- **ZFS Datasets**: Per-service disk quotas, compression, snapshots, replication
+    - See: [modules/common/zfs/README.md](../common/zfs/README.md)
 
 ## Related Documentation
 
 - [Main README](../../README.md)
 - [Network README](../common/network/README.md)
-- [Secrets README](../../modules/secrets/README.md)
-
+- [Secrets README](../secrets/README.md)

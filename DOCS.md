@@ -37,6 +37,20 @@ infrastructure.
     - Adding new service containers
     - Best practices
 
+- **[modules/common/network/README.md](modules/common/network/README.md)** - Network services:
+    - Cloudflare Tunnel + Traefik integration
+    - mTLS configuration
+    - Adding new services behind Traefik
+
+- **[modules/common/zfs/README.md](modules/common/zfs/README.md)** ZFS storage:
+    - Declarative dataset management with disko-zfs
+    - Automatic snapshot scheduling
+    - ZFS scrubbing and monitoring
+    - Management commands and best practices
+    - Compression, quotas, and reservations
+    - Adding new service containers
+    - Best practices
+
 ## 🚀 Quick Start Path
 
 1. **First-time setup**: Start with [README.md](README.md) → "Initial Configuration"
@@ -100,7 +114,8 @@ Full details in [modules/common/network/README.md](modules/common/network/README
 - `~/.config/sops/age/keys.txt` or `~/Library/Application Support/sops/age/keys.txt` - Your age private keys
 - Any unencrypted secret files
 
-See [modules/secrets/README.md](modules/secrets/README.md#secrets-vs-configuration-variables) → "Secrets vs Configuration Variables" for details.
+See [modules/secrets/README.md](modules/secrets/README.md#secrets-vs-configuration-variables) → "Secrets vs
+Configuration Variables" for details.
 
 ## 🎯 Document Purpose Guide
 

@@ -2,35 +2,43 @@
   description = "Hlamnix (a.k.a. Hlamlab 3.0)";
 
   inputs = {
-      nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
-      # Disko is required for nix-anywhere to partition the disk automatically
-      disko.url = "github:nix-community/disko";
-      disko.inputs.nixpkgs.follows = "nixpkgs";
+    # Disko is required for nix-anywhere to partition the disk automatically
+    disko.url = "github:nix-community/disko";
+    disko.inputs.nixpkgs.follows = "nixpkgs";
 
-      # Home Manager
-      home-manager.url = "github:nix-community/home-manager";
-      home-manager.inputs.nixpkgs.follows = "nixpkgs";
-
-      # sops-nix for secrets management
-      sops-nix.url = "github:Mic92/sops-nix";
-      sops-nix.inputs.nixpkgs.follows = "nixpkgs";
+    # disko-zfs for declarative ZFS dataset management
+    disko-zfs = {
+      url = "github:numtide/disko-zfs";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.disko.follows = "disko";
     };
 
-    outputs = { self, nixpkgs, disko, home-manager, sops-nix, ... }: {
-      nixosConfigurations = {
+    # Home Manager
+    home-manager.url = "github:nix-community/home-manager";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
-        # 1. The Simulation (Proxmox VM)
-        playground = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = [
-            disko.nixosModules.disko
-            home-manager.nixosModules.home-manager
-            sops-nix.nixosModules.sops
+    # sops-nix for secrets management
+    sops-nix.url = "github:Mic92/sops-nix";
+    sops-nix.inputs.nixpkgs.follows = "nixpkgs";
+  };
 
-            ./hosts/playground/configuration.nix
-          ];
-        };
+  outputs = { self, nixpkgs, disko, disko-zfs, home-manager, sops-nix, ... }: {
+    nixosConfigurations = {
+
+      # 1. The Simulation (Proxmox VM)
+      playground = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          disko.nixosModules.disko
+          disko-zfs.nixosModules.default
+          home-manager.nixosModules.home-manager
+          sops-nix.nixosModules.sops
+
+          ./hosts/playground/configuration.nix
+        ];
       };
     };
+  };
 }

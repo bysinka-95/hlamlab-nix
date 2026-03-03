@@ -16,5 +16,6 @@
   imports = [
     ./users.nix
     ./network
+    ./zfs
   ];
 }

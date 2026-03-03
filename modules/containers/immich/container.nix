@@ -14,7 +14,7 @@ in
     # This makes photos/videos survive container recreation
     bindMounts = {
       "/var/lib/immich" = {
-        hostPath = "/var/lib/immich";
+        hostPath = "/var/lib/services/immich";
         isReadOnly = false;
       };
     };
@@ -74,7 +74,8 @@ in
   # This directory will be bind-mounted into the container
   # Ownership will be managed by the container's immich user automatically
   systemd.tmpfiles.rules = [
-    "d /var/lib/immich 0755 root root -"
+    "d /var/lib/services 0755 root root -"
+    "d /var/lib/services/immich 0755 root root -"
   ];
 }
 

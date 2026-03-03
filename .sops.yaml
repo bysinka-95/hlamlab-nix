@@ -1,6 +1,6 @@
 keys:
   - &admin_mac age1tayhzuek77fz3upl660utx6pn9fhzck9fe77lzqe5vwellrafytswluxzh
-  - &playground age1hj57uhyxzetaq8djkndpep479hq84azgsuv6dmg3n5j44pfp5qkqkslt3v
+  - &playground age100pgd0f5wwjxjvyyrdrtzzjp8y0wy9wendhjuwyf0kegn9n5dcyq6m8sak
 creation_rules:
   - path_regex: modules/secrets/secrets\.yaml$
     key_groups:
