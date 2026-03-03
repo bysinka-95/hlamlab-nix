@@ -1,8 +1,194 @@
-# Cloudflare Tunnel + Traefik + TLS Setup
+# Network Services Module
 
-This document explains how to configure Cloudflare Tunnel with Traefik reverse proxy and mTLS authentication.
+This module provides all networking services including SSH access, local hostname resolution, and external access via
+Cloudflare Tunnel and Traefik.
 
-## Architecture
+## Overview
+
+This module includes:
+
+- **SSH Server**: Secure remote access
+- **mDNS/Avahi**: Local hostname resolution (`.local` domains)
+- **Traefik**: Reverse proxy for services
+- **Cloudflare Tunnel**: Secure external access with mTLS
+
+---
+
+## Table of Contents
+
+1. [SSH Configuration](#ssh-configuration)
+2. [mDNS/Avahi (Local Hostname Resolution)](#mdnsavahi-local-hostname-resolution)
+3. [Cloudflare Tunnel + Traefik Setup](#cloudflare-tunnel--traefik-setup)
+4. [Required Certificates](#required-certificates)
+5. [Adding New Services](#adding-new-services)
+
+---
+
+## Module Structure
+
+```
+modules/common/network/
+├── default.nix       # SSH + mDNS configuration + imports
+├── traefik.nix       # Traefik reverse proxy configuration
+├── cloudflared.nix   # Cloudflare Tunnel configuration
+└── README.md         # This file
+```
+
+**What each file does:**
+
+| File              | Purpose                                                   |
+|-------------------|-----------------------------------------------------------|
+| `default.nix`     | SSH server, mDNS/Avahi, and imports other network modules |
+| `traefik.nix`     | Reverse proxy with mTLS, dashboard, middleware            |
+| `cloudflared.nix` | Cloudflare Tunnel for secure external access              |
+
+---
+
+## SSH Configuration
+
+### What's Configured
+
+```nix
+services.openssh = {
+  enable = true;
+  settings = {
+    PermitRootLogin = "no";           # Root login disabled
+    PasswordAuthentication = true;    # Password auth enabled
+  };
+};
+```
+
+### Security Settings
+
+- **Root login disabled** - Must use regular user account
+- **SSH key authentication** - Configured per-user in `configuration.nix`
+- **Password authentication enabled** - For initial setup and recovery
+
+### Connecting via SSH
+
+```bash
+# Using IP address
+ssh hlamnix@192.168.100.194
+
+# Using hostname (after mDNS is enabled)
+ssh hlamnix@playground.local
+```
+
+### Adding SSH Keys
+
+SSH keys are configured per-user in [hosts/playground/configuration.nix](../../../hosts/playground/configuration.nix):
+
+```nix
+users.users.hlamnix = {
+  openssh.authorizedKeys.keys = [
+    "ssh-ed25519 AAAAC3Nza... your-key-here"
+  ];
+};
+```
+
+---
+
+## mDNS/Avahi (Local Hostname Resolution)
+
+### What's Configured
+
+```nix
+services.avahi = {
+  enable = true;
+  nssmdns4 = true;  # Enable mDNS for IPv4
+  publish = {
+    enable = true;          # Publish services
+    addresses = true;       # Publish IP address
+    domain = true;          # Publish domain
+    hinfo = true;           # Publish host info
+    userServices = true;    # Allow user services
+    workstation = true;     # Publish as workstation
+  };
+};
+```
+
+### What It Does
+
+Enables **hostname-based access** on your local network without needing DNS configuration:
+
+```bash
+# Instead of remembering IP addresses:
+ssh hlamnix@192.168.100.194
+
+# Use the hostname:
+ssh hlamnix@playground.local
+
+# Works for nixos-rebuild too:
+nixos-rebuild switch --target-host hlamnix@playground.local ...
+```
+
+### How It Works
+
+- **mDNS** (Multicast DNS) allows devices to discover each other on local networks
+- **Avahi** is the Linux implementation (like Apple's Bonjour)
+- Your system broadcasts its hostname as `<hostname>.local`
+- Works automatically - no router/DNS configuration needed
+
+### Requirements
+
+**On macOS (your machine):**
+
+- Built-in support (Bonjour) - works out of the box
+
+**On Linux clients:**
+
+```bash
+# Ubuntu/Debian
+sudo apt install avahi-daemon libnss-mdns
+
+# Arch
+sudo pacman -S avahi nss-mdns
+```
+
+**On Windows clients:**
+
+- Install Bonjour Print Services or iTunes (includes Bonjour)
+- Or just use IP addresses
+
+### Testing
+
+```bash
+# Test hostname resolution
+ping playground.local
+
+# Should respond with your VM's IP (e.g., 192.168.100.194)
+```
+
+### Troubleshooting
+
+**Can't resolve .local hostname:**
+
+1. Check Avahi is running:
+   ```bash
+   ssh hlamnix@<ip>
+   systemctl status avahi-daemon
+   ```
+
+2. Ensure `.local` suffix:
+   ```bash
+   ping playground.local  # Not just "playground"
+   ```
+
+3. Wait 30 seconds after boot for Avahi to broadcast
+
+**Works from Mac but not Linux:**
+
+Install mDNS support and check `/etc/nsswitch.conf`:
+
+```
+hosts: files mdns4_minimal [NOTFOUND=return] dns
+```
+
+---
+
+## Cloudflare Tunnel + Traefik Setup
+
+### Architecture
 
 ```
 Internet → Cloudflare Tunnel (cloudflared) → Traefik (HTTPS:443) → Services
@@ -425,9 +611,9 @@ structure.
 
 ## Security Notes
 
-- ✅ All traffic between Cloudflare and Traefik is encrypted (HTTPS + mTLS)
-- ✅ mTLS verification is enabled - only Cloudflare can connect to Traefik
-- ✅ Secrets are encrypted with sops-nix and never committed as plaintext
-- ✅ Traefik dashboard is protected with basic authentication
-- ✅ Internal services are isolated on private network (10.0.0.0/24)
-- ✅ HTTP automatically redirects to HTTPS
+- All traffic between Cloudflare and Traefik is encrypted (HTTPS + mTLS)
+- mTLS verification is enabled - only Cloudflare can connect to Traefik
+- Secrets are encrypted with sops-nix and never committed as plaintext
+- Traefik dashboard is protected with basic authentication
+- Internal services are isolated on private network (10.0.0.0/24)
+- HTTP automatically redirects to HTTPS
