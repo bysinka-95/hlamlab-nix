@@ -1,309 +1,180 @@
-# Container Services - Modular Structure
+# Container Services
 
-Each service is self-contained in its own directory with container definition, Traefik routing, and DNS configuration.
+Each service is self-contained: container definition, Traefik routing, and DNS in its own directory.
 
 ## Structure
 
 ```
 modules/containers/
 ├── default.nix           # NAT + imports all services
-├── container-limits.nix  # Optional: CPU/RAM/I/O resource limits
-├── service-a/            # Example: Self-contained service module
-│   ├── default.nix       # Imports container + traefik + DNS
-│   ├── container.nix     # NixOS container
-│   └── traefik.nix       # Traefik routing
+├── container-limits.nix  # systemd CPU/RAM/I/O limits per container
+├── <service>/
+│   ├── default.nix       # imports + DNS entry (networking.hosts)
+│   ├── container.nix     # NixOS container definition
+│   └── traefik.nix       # Traefik router + backend
 └── README.md
 ```
 
-## Container Resource Limits
-
-**File:** `container-limits.nix`
-
-This optional module adds systemd-based resource limits to prevent containers from consuming excessive CPU, RAM, or I/O
-resources.
-
-### Features
-
-- **CPU limits**: Restrict cores/percentage per container
-- **Memory limits**: Hard and soft memory caps
-- **I/O limits**: Control disk read/write priorities
-- **Process limits**: Max number of processes/threads
-
-### Current Configuration
-
-**OpenCloud:**
-
-- CPU: 1 core max (100%)
-- RAM: 2GB hard limit, 1.5GB soft limit
-- I/O: Standard priority
-- Processes: 512 max
-
-**Immich:**
-
-- CPU: 2 cores max (200%)
-- RAM: 4GB hard limit, 3GB soft limit
-- I/O: High priority (for media uploads)
-- Processes: 1024 max
-
-### Monitoring Resource Usage
-
-```bash
-# Live resource monitor (shows all containers)
-systemd-cgtop
-
-# Sort by CPU
-systemd-cgtop --order=cpu
-
-# Sort by memory
-systemd-cgtop --order=memory
-
-# Check specific container status
-systemctl status container@opencloud
-
-# Check if limits are being hit
-journalctl -u container@immich | grep -i "memory\|cpu\|limit"
-```
-
-### Adjusting Limits
-
-**Temporary adjustment (until reboot):**
-
-```bash
-sudo systemctl set-property container@opencloud CPUQuota=200%
-sudo systemctl set-property container@immich MemoryMax=8G
-```
-
-**Permanent adjustment:**
-
-Edit `modules/containers/container-limits.nix`:
-
-```nix
-systemd.services."container@myservice" = {
-  serviceConfig = {
-    CPUQuota = "150%";      # 1.5 CPU cores
-    MemoryMax = "3G";       # 3GB hard limit
-    MemoryHigh = "2.5G";    # 2.5GB soft limit (starts throttling)
-    IOWeight = 150;         # I/O priority (1-10000)
-    TasksMax = 768;         # Max processes
-  };
-};
-```
-
-Then rebuild to apply permanently.
-
-### Adding Limits for New Services
-
-When adding a new service, also add its limits in `container-limits.nix`:
-
-```nix
-systemd.services."container@myservice" = {
-  serviceConfig = {
-    CPUQuota = "50%";       # Half a core
-    MemoryMax = "1G";       # 1GB max
-    IOWeight = 100;         # Standard priority
-    TasksMax = 256;         # Light service
-  };
-};
-```
-
-### Resource Limit Examples
-
-**Light service (cache, simple API):**
-
-```nix
-CPUQuota = "50%";          # Half core
-MemoryMax = "512M";        # 512MB
-IOWeight = 50;             # Low priority
-TasksMax = 256;
-```
-
-**Medium service (web app, database):**
-
-```nix
-CPUQuota = "100%";         # 1 core
-MemoryMax = "2G";          # 2GB
-IOWeight = 100;            # Normal priority
-TasksMax = 512;
-```
-
-**Heavy service (ML, media processing):**
-
-```nix
-CPUQuota = "200%";         # 2 cores
-MemoryMax = "4G";          # 4GB
-IOWeight = 200;            # High priority
-TasksMax = 1024;
-```
-
-## Current Services
-
-| Service   | IP        | Port | URL                        | Storage                              |
-|-----------|-----------|------|----------------------------|--------------------------------------|
-| opencloud | 10.0.0.2  | 9200 | opencloud.yourdomain       | `/var/lib/services/opencloud` (host) |
-| immich    | 10.0.0.3  | 2283 | immich.yourdomain          | `/var/lib/services/immich` (host)    |
-| -         | 10.0.0.4+ | -    | Available for new services | -                                    |
+---
 
 ## Adding a New Service
 
-1. **Create directory**: `mkdir -p modules/containers/myservice`
+**All 6 steps are required.** Do step 1 first, before touching any Nix files.
 
-2. **Create `container.nix`**:
+### 1. Update `README.md § Current Services`
+
+Add a row to the **Application Containers** table (IP, port, URL, storage path, CPU, RAM, ZFS quota/reservation) and
+update the **ZFS Datasets** table. This is the single source of truth for service metadata.
+
+### 2. Create `modules/containers/<name>/`
+
+**`container.nix`** skeleton:
 
 ```nix
 { ... }:
-let
-  vars = import ../../common/local.nix;
-in
+let vars = import ../../common/local.nix; in
 {
   containers.myservice = {
     autoStart = true;
     privateNetwork = true;
     hostAddress = "10.0.0.1";
-    localAddress = "10.0.0.4";  # Next available IP
-    
-    config = { pkgs, ... }: {
-      services.myservice.enable = true;
-      networking.firewall.allowedTCPPorts = [ 8080 ];
+    localAddress = "10.0.0.N";  # next available — check README.md
+    bindMounts."/var/lib/myservice".hostPath = "/var/lib/services/myservice";
+    config = { ... }: {
+      services.myservice = { enable = true; listenAddress = "0.0.0.0"; };
+      networking.firewall.allowedTCPPorts = [ <port> ];
       system.stateVersion = "26.05";
     };
   };
+  systemd.tmpfiles.rules = [ "d /var/lib/services/myservice 0755 root root -" ];
 }
 ```
 
-3. **Create `traefik.nix`**:
+**`traefik.nix`** skeleton:
 
 ```nix
 { ... }:
-let
-  vars = import ../../common/local.nix;
-in
+let vars = import ../../common/local.nix; in
 {
-  services.traefik.dynamicConfigOptions = {
-    http = {
-      routers.myservice = {
-        rule = "Host(`myservice.${vars.domain}`)";
-        entryPoints = [ "https" ];
-        service = "myservice";
-        tls = {};
-      };
-      services.myservice.loadBalancer.servers = [
-        { url = "http://myservice:8080"; }
-      ];
+  services.traefik.dynamicConfigOptions.http = {
+    routers.myservice = {
+      rule = "Host(`myservice.${vars.domain}`)";
+      entryPoints = [ "https" ]; service = "myservice"; tls = {};
+      middlewares = [ "security-headers" ];
     };
+    services.myservice.loadBalancer.servers = [{ url = "http://myservice:<port>"; }];
   };
 }
 ```
 
-4. **Create `default.nix`**:
+**`default.nix`**:
 
 ```nix
-{ ... }:
-{
+{ ... }: {
   imports = [ ./container.nix ./traefik.nix ];
-  networking.hosts."10.0.0.4" = [ "myservice" ];
+  networking.hosts."10.0.0.N" = [ "myservice" ];
 }
 ```
 
-5. **Import in `modules/containers/default.nix`**:
+### 3. Register in parent
+
+Add `./myservice` to the imports list in [`modules/containers/default.nix`](default.nix).
+
+### 4. Add resource limits
+
+Add to [`container-limits.nix`](container-limits.nix):
 
 ```nix
-imports = [
-  ./service-a
-  ./service-b
-  ./myservice  # Add this
-];
+systemd.services."container@myservice".serviceConfig = {
+  CPUQuota = "100%"; MemoryMax = "2G"; MemoryHigh = "1.5G"; IOWeight = 100; TasksMax = 512;
+};
 ```
 
-6. **Deploy**
+See [Resource Limits](#resource-limits) below for sizing guidance.
+
+### 5. Add ZFS dataset
+
+Add to [`hosts/playground/disk-config.nix`](../../hosts/playground/disk-config.nix) under
+`disko.devices.zpool.tank.datasets`:
+
+```nix
+"services/myservice" = {
+  type = "zfs_fs";
+  options = {
+    mountpoint = "/var/lib/services/myservice";
+    quota = "100G"; reservation = "20G";
+    compression = "lz4"; atime = "off";
+    "com.sun:auto-snapshot" = "true";
+  };
+};
+```
+
+### 6. Add sanoid snapshot schedule
+
+Add to `modules/common/zfs/default.nix` under `services.sanoid.datasets`:
+
+```nix
+"tank/services/myservice" = {
+  hourly = 24; daily = 7; weekly = 4; monthly = 12;
+  autosnap = true; autoprune = true;
+};
+```
+
+---
+
+## Current Services
+
+See [main README](../../README.md#current-services) — IPs, ports, URLs, storage, resource limits, ZFS datasets.
+
+---
 
 ## Container Management
 
 ```bash
-# List containers
-machinectl list
-
-# Login to container
-sudo nixos-container root-login <name>
-
-# Check status
-systemctl status container@<name>
-
-# View logs
-sudo nixos-container run <name> -- journalctl -u <service> -f
-
-# Start/stop
+machinectl list                                           # list containers
+sudo nixos-container root-login <name>                    # shell into container
+systemctl status container@<name>                         # status
+sudo nixos-container run <name> -- journalctl -u <svc> -f # live logs
 sudo nixos-container start/stop <name>
 ```
 
-## External Storage (Persistent Data)
+---
 
-For stateful services (databases, media storage), use **bind mounts** to store data on the host filesystem:
+## Resource Limits
 
-**Benefits:**
+**File:** [`container-limits.nix`](container-limits.nix) — systemd-based CPU/RAM/I/O limits.
 
-- Data survives container recreation/updates
-- Easy to backup from host
-- Can use host storage features (RAID, ZFS, etc.)
-- Simple to replicate to other machines
-
-**Example**:
-
-```nix
-containers.myservice = {
-  # ...
-  bindMounts = {
-    "/var/lib/mydata" = {
-      hostPath = "/var/lib/services/mydata";  # Host directory under services/
-      isReadOnly = false;
-    };
-  };
-};
-
-# Create host directory with proper permissions
-systemd.tmpfiles.rules = [
-  "d /var/lib/services 0755 root root -"
-  "d /var/lib/services/mydata 0755 root root -"
-];
+```bash
+systemd-cgtop --order=memory                              # live usage
+journalctl -u container@<name> | grep -i "memory\|limit"  # check if limits hit
 ```
 
-**Backup Strategy:**
+**Temporary override:**
 
-- Host directories under `/var/lib/services/` are easy to snapshot (rsync, ZFS snapshots, etc.)
-- Container state is ephemeral; persistent data lives on host
-- Can mount network storage (NFS, CIFS) for redundancy
+```bash
+sudo systemctl set-property container@opencloud CPUQuota=200%
+```
 
-## IP Allocation
+**Permanent** — edit `container-limits.nix`:
 
-- 10.0.0.1 - Host gateway (reserved)
-- 10.0.0.2 - opencloud
-- 10.0.0.3 - immich
-- 10.0.0.4+ - Available for new services
+```nix
+systemd.services."container@myservice".serviceConfig = {
+  CPUQuota = "100%"; MemoryMax = "2G"; MemoryHigh = "1.5G"; IOWeight = 100; TasksMax = 512;
+};
+```
 
-## Best Practices
+**Sizing guide:** Light (API/cache): 50% CPU, 512M RAM · Medium (web/db): 100%, 2G · Heavy (ML/media): 200%, 4G+
 
-1. Use folder imports (`./servicename`)
-2. Keep everything self-contained in service directory
-3. Use `../../common/local.nix` for domain variable
-4. Services must bind to `0.0.0.0` to be accessible
-5. Update IP allocation table when adding services
-6. Use bind mounts for persistent data (see External Storage section above)
-7. Consider ZFS datasets and resource limits for production
+---
 
-## Advanced Topics
+## Persistent Storage
 
-### Storage Isolation & Resource Limits
+Use bind mounts to `/var/lib/services/<name>` on the host (ZFS dataset). Data survives container rebuilds.
 
-**In this directory:**
+```nix
+# container.nix
+bindMounts."/var/lib/myservice" = { hostPath = "/var/lib/services/myservice"; isReadOnly = false; };
+systemd.tmpfiles.rules = [ "d /var/lib/services/myservice 0755 root root -" ];
+```
 
-- **[container-limits.nix](./container-limits.nix)** - CPU/RAM/I/O limits (see section above)
-
-**See also:**
-
-- **ZFS Datasets**: Per-service disk quotas, compression, snapshots, replication
-    - See: [modules/common/zfs/README.md](../common/zfs/README.md)
-
-## Related Documentation
-
-- [Main README](../../README.md)
-- [Network README](../common/network/README.md)
-- [Secrets README](../secrets/README.md)
+See [ZFS README](../common/zfs/README.md) for dataset creation and snapshot management.
