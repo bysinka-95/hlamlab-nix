@@ -15,6 +15,14 @@ infrastructure.
     - Deployment workflows
     - Troubleshooting basics
 
+- **[INSTALLATION.md](INSTALLATION.md)** - Complete installation guide:
+    - Pre-installation preparation (local.nix, SSH keys, sops)
+    - Installation process with nixos-anywhere
+    - Post-installation configuration
+    - Architecture-specific notes (ARM to x86_64)
+    - Verification steps and troubleshooting
+    - Step-by-step checklist
+
 ### Specific Guides
 
 - **[modules/common/network/README.md](modules/common/network/README.md)** - Detailed setup for:
@@ -51,13 +59,6 @@ infrastructure.
     - Adding new service containers
     - Best practices
 
-## 🚀 Quick Start Path
-
-1. **First-time setup**: Start with [README.md](README.md) → "Initial Configuration"
-2. **Configure secrets**: Follow [modules/secrets/README.md](modules/secrets/README.md)
-3. **Deploy**: Use deployment commands in [README.md](README.md)
-4. **Add services**: Use [modules/common/network/README.md](modules/common/network/README.md) → "Adding New Services"
-
 ## 📖 Common Tasks
 
 ### Deploy/Update Configuration
@@ -76,7 +77,7 @@ nix run nixpkgs#nixos-rebuild -- switch \
 
 ```bash
 # See modules/secrets/README.md
-sops secrets/secrets.yaml
+sops modules/secrets/secrets.yaml
 ```
 
 ### Manage Containers
@@ -89,12 +90,7 @@ sudo nixos-container root-login <name>
 
 ### Add a New Service
 
-1. Create container module in `modules/containers/`
-2. Add DNS entry in `modules/containers/default.nix`
-3. Add Traefik router in `modules/common/traefik.nix`
-4. Deploy
-
-Full details in [modules/common/network/README.md](modules/common/network/README.md) → "Adding New Services"
+Full details in [modules/common/network/README.md](modules/common/network/README.md#adding-new-services) → "Adding New Services"
 
 ## 🔒 Security & Privacy
 
@@ -107,7 +103,7 @@ Full details in [modules/common/network/README.md](modules/common/network/README
 
 ### What's Encrypted (safe to commit):
 
-- `secrets/secrets.yaml` - All sensitive credentials (encrypted with sops-nix)
+- `modules/secrets/secrets.yaml` - All sensitive credentials (encrypted with sops-nix)
 
 ### What's Private (NEVER commit):
 
@@ -117,27 +113,9 @@ Full details in [modules/common/network/README.md](modules/common/network/README
 See [modules/secrets/README.md](modules/secrets/README.md#secrets-vs-configuration-variables) → "Secrets vs
 Configuration Variables" for details.
 
-## 🎯 Document Purpose Guide
-
-| Document                         | Use When                                                                |
-|----------------------------------|-------------------------------------------------------------------------|
-| README.md                        | Setting up new hosts, deploying changes, general reference              |
-| modules/common/network/README.md | Configuring Cloudflare Tunnel, adding services, troubleshooting routing |
-| modules/secrets/README.md        | Managing encrypted secrets, setting up sops-nix                         |
-| modules/containers/README.md     | Working with NixOS containers, container troubleshooting                |
-
 ## 💡 Tips
 
 - All documentation uses `yourdomain` as a placeholder - replace with your actual domain
 - Container IPs start at 10.0.0.2 and increment for each service
 - Always test with `--dry-run` first when making major configuration changes
 - Check service logs with `journalctl -u <service-name> -f`
-
-## 🔄 Keeping Documentation Updated
-
-When adding new features:
-
-1. Update the relevant subsystem README (network/, secrets/)
-2. Add to main README.md if it affects general usage
-3. Update modules/common/network/README.md if it involves routing/services
-4. Keep this DOCS.md overview in sync

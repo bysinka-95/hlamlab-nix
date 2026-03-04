@@ -125,25 +125,17 @@ For advanced storage isolation with disk quotas, compression, snapshots, and CPU
 For detailed container documentation and how to add new services,
 see [modules/containers/README.md](modules/containers/README.md).
 
-## Bootstrap a fresh host (example: playground VM)
+## Installation
 
-1. (Optional) Update the disk layout in `hosts/playground/disk-config.nix` to match the target device.
-2. Set the `hlamnix` password hash in `hosts/playground/configuration.nix`:
-   ```sh
-   mkpasswd -m sha-512
-   ```
-   Paste the result into `hashedPassword` for `hlamnix`.
-3. Install remotely with nixos-anywhere (runs disko + config):
-   ```sh
-   nix run github:nix-community/nixos-anywhere -- \
-     --flake '.#playground' \
-     --generate-hardware-config nixos-generate-config ./hosts/playground/hardware-configuration.nix \
-     --target-host nixos@<playground-ip>
-   ```
-    - Replace `<playground-ip>` with the VM IP.
-    - After install, the host will reboot into the flake-defined system.
+**For complete installation instructions, see: [INSTALLATION.md](INSTALLATION.md)**
 
-## Rebuild / deploy changes
+The installation guide covers:
+- **Pre-installation**: Configuration preparation, SSH keys, secrets setup
+- **Installation**: Running nixos-anywhere with correct flags
+- **Post-installation**: Essential configuration and verification
+- **Troubleshooting**: Common issues and solutions
+
+## Rebuild / Deploy Changes
 
 Run from the repo root after editing configs:
 
@@ -172,7 +164,7 @@ nix run nixpkgs#nixos-rebuild -- switch \
 
 ## Disk layout (disko)
 
-- Current layout: GPT on `/dev/sda`, 1M BIOS boot (EF02), 512M ESP at `/boot` (vfat), remaining ext4 root at `/`.
+- Current layout: GPT on `/dev/sda`, 1M BIOS boot (EF02), 512M ESP at `/boot` (vfat), and ZFS pool.
 - To change disks or sizes, edit `hosts/<host>/disk-config.nix`; nixos-anywhere will partition/format accordingly.
 
 ## SSH keys and access
@@ -185,59 +177,6 @@ nix run nixpkgs#nixos-rebuild -- switch \
 ## Secrets management (sops-nix)
 
 This repo uses `sops-nix` with age encryption for secure secrets (cloudflared credentials, API tokens, etc.).
-
-**First-time setup after deploying a host:**
-
-1. Get the host's age public key (sops-nix auto-generates it from the SSH host key):
-   ```sh
-   ssh hlamnix@<playground-ip> "sudo cat /var/lib/sops-nix/key.txt | grep 'public key:' | cut -d: -f2 | tr -d ' '"
-   ```
-
-2. Create `.sops.yaml` in the repo root (replace keys with your actual values):
-   ```yaml
-   keys:
-     - &admin age1your_personal_age_key_here
-     - &playground age1host_key_from_step1_here
-   creation_rules:
-     - path_regex: secrets/secrets\.yaml$
-       key_groups:
-         - age:
-             - *admin
-             - *playground
-   ```
-
-3. Install sops locally and generate your personal age key:
-   ```sh
-   nix-shell -p sops ssh-to-age
-   
-   # Linux/NixOS:
-   mkdir -p ~/.config/sops/age
-   ssh-to-age -private-key -i ~/.ssh/id_ed25519 > ~/.config/sops/age/keys.txt
-   
-   # macOS (nix-darwin):
-   mkdir -p "$HOME/Library/Application Support/sops/age"
-   ssh-to-age -private-key -i ~/.ssh/id_ed25519 > "$HOME/Library/Application Support/sops/age/keys.txt"
-   
-   # Get your public key for .sops.yaml:
-   ssh-to-age < ~/.ssh/id_ed25519.pub
-   ```
-
-4. Edit `secrets/secrets.yaml` with sops and add your cloudflared credentials:
-   ```sh
-   sops secrets/secrets.yaml
-   ```
-   Replace the placeholder with:
-   ```yaml
-   cloudflared-credentials: |
-     {"AccountTag":"xxx","TunnelSecret":"xxx","TunnelID":"xxx"}
-   ```
-
-5. Commit and deploy:
-   ```sh
-   git add secrets/secrets.yaml .sops.yaml
-   git commit -m "Add encrypted secrets"
-   # Then run nixos-rebuild to deploy
-   ```
 
 For detailed instructions, see [modules/secrets/README.md](modules/secrets/README.md).
 
@@ -260,5 +199,5 @@ For detailed instructions, see [modules/secrets/README.md](modules/secrets/READM
 
 - Root SSH login is already disabled; consider moving to key-only access for `hlamnix` once the password is confirmed
   working.
-- Secrets are now managed with sops-nix; never commit unencrypted secrets to git.
+- Secrets are managed with sops-nix; never commit unencrypted secrets to git.
 - Add automated checks (CI) to run `nix flake check` on changes.
