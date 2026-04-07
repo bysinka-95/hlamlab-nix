@@ -19,7 +19,7 @@
 
   # Set ZFS host ID (required, must be unique per machine)
   # Generate with: head -c 8 /etc/machine-id
-  networking.hostId = "79c95f6f"; # REPLACE with actual host ID after install
+   networking.hostId = "5a03dc44"; # TODO: REPLACE with actual host ID during install
 
   # ZFS scrub (data integrity check) weekly
   services.zfs.autoScrub = {

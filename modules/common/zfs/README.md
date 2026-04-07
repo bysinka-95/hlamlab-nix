@@ -4,24 +4,35 @@ Declarative ZFS dataset management via Disko and disko-zfs.
 
 - **Single source of truth**: all datasets in [
   `hosts/playground/disk-config.nix`](../../../hosts/playground/disk-config.nix)
-- **Automatic management**: disko-zfs applies changes on every `nixos-rebuild switch` — no manual `zfs create`
+- **Automatic management**: disko-zfs applies changes on every `nixos-rebuild switch` — no manual
+  `zfs create`
 - **Snapshots**: hourly/daily/weekly/monthly via sanoid
 - **Compression**: lz4; **Integrity**: weekly scrubbing
 
 ---
 
-## Quick Start (post-install)
+## Quick Start
+
+1. During installation, read host ID from the target machine (installer shell):
 
 ```bash
-# 1. Get host ID
-ssh hlamnix@<ip> "head -c 8 /etc/machine-id"
+head -c 8 /etc/machine-id; echo
+```
 
-# 2. Set it in modules/common/zfs/default.nix:
+2. Set it in [`modules/common/zfs/default.nix`](./default.nix) **before first install**:
+
+```nix
 networking.hostId = "a1b2c3d4";
+```
 
-# 3. Deploy
+3. Install/deploy
+
+```bash
 nix run nixpkgs#nixos-rebuild -- switch --flake .#playground --target-host hlamnix@<ip> ...
 ```
+
+Important: do not change `networking.hostId` after the initial install. If it changes later, `tank`
+may fail to import during boot.
 
 ---
 
@@ -119,8 +130,13 @@ For automated replication, add `services.syncoid` in `modules/common/zfs/default
 
 **Dataset not mounting** — `sudo zfs mount tank/services/myservice`; check `zfs get mountpoint`.
 
+**Pool not importing at boot (`tank/root` unavailable)** — verify `networking.hostId` was set before
+first install and has not changed since.
+
 **Quota exceeded** — increase `quota` in `disk-config.nix`, then `nixos-rebuild switch`.
 
-**Snapshot space** — `zfs list -t snapshot -o name,used -s used`; destroy old ones with `zfs destroy`.
+**Snapshot space** — `zfs list -t snapshot -o name,used -s used`; destroy old ones with
+`zfs destroy`.
 
-**New dataset not created** — check syntax in `disk-config.nix`, verify disko-zfs in `flake.nix`, check rebuild output.
+**New dataset not created** — check syntax in `disk-config.nix`, verify disko-zfs in `flake.nix`,
+check rebuild output.

@@ -37,7 +37,22 @@ Check [`hosts/playground/disk-config.nix`](hosts/playground/disk-config.nix) —
 target machine uses a different disk (e.g., NVMe drives often show as `/dev/nvme0n1`), update the device path
 accordingly.
 
-### 5. Set up secrets
+### 5. Set ZFS host ID (before first install)
+
+Read the host ID from the target machine during installation, then set it in [`modules/common/zfs/default.nix`](modules/common/zfs/default.nix) **before** running `nixos-anywhere`.
+
+```bash
+# On the target machine (installer shell)
+head -c 8 /etc/machine-id; echo
+```
+
+```nix
+networking.hostId = "<8-hex-chars>";
+```
+
+> Important: do not change this value after initial installation. If the pool was created/imported with a different host ID, changing `networking.hostId` later can prevent `tank` from importing at boot.
+
+### 6. Set up secrets
 
 **Generate your age key:**
 
@@ -89,7 +104,7 @@ cloudflare-origin-ca: |
 
 Real certificates are added post-install. See [network README](modules/common/network/README.md#required-certificates).
 
-### 6. Validate
+### 7. Validate
 
 ```bash
 nix flake check
@@ -104,7 +119,8 @@ Boot the target machine with the [NixOS installer ISO](https://nixos.org/downloa
 ```bash
 # On target machine:
 ip a          # note IP
-sudo passwd   # set temporary root password for nixos-anywhere SSH
+passwd        # set temporary root password for nixos-anywhere SSH
+head -c 8 /etc/machine-id; echo # save this for networking.hostId (Part 1, step 5)
 ```
 
 From your local machine:
@@ -138,15 +154,7 @@ Add the printed `age1...` key to `.sops.yaml` as `&playground`, then:
 nix run nixpkgs#sops -- updatekeys modules/secrets/secrets.yaml
 ```
 
-### 3. Set ZFS host ID
-
-```bash
-ssh hlamnix@<target-ip> "head -c 8 /etc/machine-id"
-```
-
-Set `networking.hostId = "<output>";` in [`modules/common/zfs/default.nix`](modules/common/zfs/default.nix).
-
-### 4. Deploy
+### 3. Deploy
 
 ```bash
 nix run nixpkgs#nixos-rebuild -- switch \
@@ -156,10 +164,20 @@ nix run nixpkgs#nixos-rebuild -- switch \
   --sudo --ask-sudo-password
 ```
 
-### 5. Update real secrets
+### 4. Update real secrets
 
 Replace placeholder values in secrets with actual Cloudflare certificates and tunnel credentials.
 See [network README](modules/common/network/README.md#required-certificates).
+
+After secrets are updated and deployed, reboot once or restart the affected services.
+
+```bash
+# Option A: simplest and safest
+ssh hlamnix@<target-ip> "sudo reboot"
+
+# Option B: restart only related services
+ssh hlamnix@<target-ip> "sudo systemctl restart cloudflared traefik"
+```
 
 ---
 
@@ -185,7 +203,6 @@ systemctl status traefik                       # (on host)
 `~/Library/Application Support/sops/age/keys.txt`; Linux: `~/.config/sops/age/keys.txt`).
 Check key is in `.sops.yaml` (`grep age1 .sops.yaml`), then re-run `sops updatekeys`.
 
-**ZFS pool not importing** — `sudo zpool import -f tank`. Verify `networking.hostId` matches
-`head -c 8 /etc/machine-id`.
+**ZFS pool not importing** — `sudo zpool import -f tank`. Verify `networking.hostId` was set before first install and has not changed since installation.
 
 **Disk errors** — `sudo wipefs -a /dev/sda` (⚠ destroys all data), then re-run nixos-anywhere.
