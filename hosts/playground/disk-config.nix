@@ -140,6 +140,18 @@
             };
           };
 
+          "services/collabora" = {
+            type = "zfs_fs";
+            options = {
+              mountpoint = "/var/lib/services/collabora";
+              quota = "20G";
+              reservation = "5G";
+              compression = "lz4";
+              atime = "off";
+              "com.sun:auto-snapshot" = "true";
+            };
+          };
+
           # Snapshots storage
           "backups" = {
             type = "zfs_fs";

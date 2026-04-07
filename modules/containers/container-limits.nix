@@ -53,6 +53,20 @@
     };
   };
 
+  # Resource limits for Collabora container
+  systemd.services."container@collabora" = {
+    serviceConfig = {
+      CPUQuota = "100%";
+      CPUWeight = 120;
+
+      MemoryMax = "1500M";
+      MemoryHigh = "1G";
+
+      IOWeight = 120;
+      TasksMax = 512;
+    };
+  };
+
   # Template for future services
   # systemd.services."container@myservice" = {
   #   serviceConfig = {

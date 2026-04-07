@@ -52,6 +52,16 @@
         autoprune = true;
       };
 
+      # Collabora snapshots
+      "tank/services/collabora" = {
+        hourly = 24;
+        daily = 7;
+        weekly = 4;
+        monthly = 12;
+        autosnap = true;
+        autoprune = true;
+      };
+
       # Template for future services
       # "tank/services/myservice" = {
       #   hourly = 24;

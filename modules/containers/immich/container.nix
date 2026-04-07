@@ -39,8 +39,6 @@ in
         database = {
           enable = true;
           createDB = true;
-          enableVectors = true; # pgvecto.rs for similarity search
-          enableVectorChord = true; # New full-text search extension
           host = "/run/postgresql"; # Unix socket
           name = "immich";
           user = "immich";

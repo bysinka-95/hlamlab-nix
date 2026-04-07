@@ -12,5 +12,6 @@
     ./container-limits.nix
     ./opencloud
     ./immich
+    ./collabora
   ];
 }

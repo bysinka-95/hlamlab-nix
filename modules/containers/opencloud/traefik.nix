@@ -8,7 +8,7 @@ in
     http = {
       # OpenCloud-specific middleware
       middlewares = {
-        security-headers-opencloud = {
+        opencloud-headers = {
           headers = {
             sslRedirect = true;
             frameDeny = true;
@@ -24,8 +24,8 @@ in
           rule = "Host(`opencloud.${vars.domain}`)";
           entryPoints = [ "https" ];
           service = "opencloud";
-          tls = {};
-          middlewares = [ "security-headers-opencloud" ];
+          tls = { };
+          middlewares = [ "opencloud-headers" ];
         };
       };
 
@@ -34,7 +34,7 @@ in
         opencloud = {
           loadBalancer = {
             servers = [
-              { url = "https://opencloud:9200"; }
+              { url = "http://opencloud:9200"; }
             ];
             passHostHeader = true;
           };
