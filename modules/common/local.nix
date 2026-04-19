@@ -10,4 +10,5 @@
 {
   domain = "yourdomain.com";
   tunnelId = "00000000-0000-0000-0000-000000000000";
+  hostId = "1a23bc45" # ZFS Host ID
 }

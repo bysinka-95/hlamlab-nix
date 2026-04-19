@@ -12,6 +12,9 @@
 # Usage: Import this directory from configuration.nix
 
 { pkgs, ... }:
+let
+  vars = import ../local.nix;
+in
 {
   # Enable ZFS support
   boot.supportedFilesystems = [ "zfs" ];
@@ -19,7 +22,7 @@
 
   # Set ZFS host ID (required, must be unique per machine)
   # Generate with: head -c 8 /etc/machine-id
-   networking.hostId = "5a03dc44"; # TODO: REPLACE with actual host ID during install
+  networking.hostId = vars.hostId;
 
   # ZFS scrub (data integrity check) weekly
   services.zfs.autoScrub = {
@@ -54,6 +57,16 @@
 
       # Collabora snapshots
       "tank/services/collabora" = {
+        hourly = 24;
+        daily = 7;
+        weekly = 4;
+        monthly = 12;
+        autosnap = true;
+        autoprune = true;
+      };
+
+      # Authentik snapshots
+      "tank/services/authentik" = {
         hourly = 24;
         daily = 7;
         weekly = 4;

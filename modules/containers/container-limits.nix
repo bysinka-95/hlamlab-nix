@@ -67,6 +67,25 @@
     };
   };
 
+  # Resource limits for Authentik container
+  systemd.services."container@authentik" = {
+    serviceConfig = {
+      # CPU limits
+      CPUQuota = "200%"; # Max 2 CPU cores
+      CPUWeight = 150;
+
+      # Memory limits
+      MemoryMax = "4G"; # Hard limit: 4GB
+      MemoryHigh = "3G"; # Soft limit: 3G
+
+      # Disk I/O limits
+      IOWeight = 150;
+
+      # Process limits
+      TasksMax = 512;
+    };
+  };
+
   # Template for future services
   # systemd.services."container@myservice" = {
   #   serviceConfig = {

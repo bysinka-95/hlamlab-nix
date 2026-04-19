@@ -22,14 +22,18 @@
     # sops-nix for secrets management
     sops-nix.url = "github:Mic92/sops-nix";
     sops-nix.inputs.nixpkgs.follows = "nixpkgs";
+
+    # authentik-nix for SSO/OIDC
+    authentik-nix.url = "github:nix-community/authentik-nix";
   };
 
-  outputs = { self, nixpkgs, disko, disko-zfs, home-manager, sops-nix, ... }: {
+  outputs = { self, nixpkgs, disko, disko-zfs, home-manager, sops-nix, authentik-nix, ... }@inputs: {
     nixosConfigurations = {
 
       # 1. The Simulation (Proxmox VM)
       playground = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
+        specialArgs = { inherit inputs; };
         modules = [
           disko.nixosModules.disko
           disko-zfs.nixosModules.default

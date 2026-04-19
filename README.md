@@ -56,9 +56,10 @@ the eventual host migration.
 | opencloud | 10.0.0.2:9200      | https://opencloud.yourdomain                                | /var/lib/services/opencloud | 100% | 1.5G → 2G        | 50G / 10G       |
 | immich    | 10.0.0.3:2283      | https://immich.yourdomain                                   | /var/lib/services/immich    | 200% | 3G → 4G          | 300G / 10G      |
 | collabora | 10.0.0.4:9980      | https://collabora.yourdomain                                | /var/lib/services/collabora | 100% | 1G → 1.5G        | 20G / 5G        |
-| —         | 10.0.0.5+          | —                                                           | —                           | —    | —                | —               |
+| authentik | 10.0.0.5:9000      | https://auth.yourdomain                                     | /var/lib/services/authentik | 200% | 2G → 4G          | 20G / 5G        |
+| —         | 10.0.0.6+          | —                                                           | —                           | —    | —                | —               |
 
-**IP 10.0.0.1** is reserved for the host gateway. **Next available:** 10.0.0.5.
+**IP 10.0.0.1** is reserved for the host gateway. **Next available:** 10.0.0.6.
 
 ### ZFS Datasets
 
@@ -71,6 +72,7 @@ the eventual host migration.
 | tank/services/opencloud | /var/lib/services/opencloud | 50G   | 10G         | lz4         |
 | tank/services/immich    | /var/lib/services/immich    | 300G  | 10G         | lz4         |
 | tank/services/collabora | /var/lib/services/collabora | 20G   | 5G          | lz4         |
+| tank/services/authentik | /var/lib/services/authentik | 20G   | 5G          | lz4         |
 | tank/backups            | /var/backups                | —     | —           | gzip        |
 
 For ZFS management commands, snapshot operations, and adding new datasets, see

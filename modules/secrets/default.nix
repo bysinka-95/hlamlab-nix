@@ -40,6 +40,11 @@
         mode = "0400";
         path = "/var/lib/traefik/certs/origin.key";
       };
+      # Authentik environment file for database/redis passwords and secret key
+      authentik-env = {
+        # Readable only by root (systemd reads EnvironmentFile before dropping privileges)
+        mode = "0400";
+      };
     };
   };
 }

@@ -152,6 +152,18 @@
             };
           };
 
+          "services/authentik" = {
+            type = "zfs_fs";
+            options = {
+              mountpoint = "/var/lib/services/authentik";
+              quota = "20G";
+              reservation = "5G";
+              compression = "lz4";
+              atime = "off";
+              "com.sun:auto-snapshot" = "true";
+            };
+          };
+
           # Snapshots storage
           "backups" = {
             type = "zfs_fs";
