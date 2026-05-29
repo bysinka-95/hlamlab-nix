@@ -1,4 +1,4 @@
-{ ... }:
+{ config, ... }:
 let
   vars = import ../../common/local.nix;
 in
@@ -17,10 +17,20 @@ in
         hostPath = "/var/lib/services/immich";
         isReadOnly = false;
       };
+      "/run/secrets/immich-oidc-client-secret" = {
+        hostPath = config.sops.secrets.immich-oidc-client-secret.path;
+        isReadOnly = true;
+      };
     };
 
     config = { pkgs, ... }: {
       networking.firewall.allowedTCPPorts = [ 2283 ]; # Immich default port
+
+      # Systemd-resolved running on the host (127.0.0.53) is unreachable from
+      # inside the isolated container network, causing DNS resolution to fail.
+      # Hardcoding public nameservers allows the container to resolve domains
+      # and reach external services or identity providers.
+      networking.nameservers = [ "1.1.1.1" "1.0.0.1" ];
 
       # Immich service with full stack (app + DB + Redis + ML)
       services.immich = {
@@ -33,7 +43,24 @@ in
         mediaLocation = "/var/lib/immich";
 
         # External domain for publicly shared links
-        settings.server.externalDomain = "https://immich.${vars.domain}";
+        settings = {
+          server.externalDomain = "https://immich.${vars.domain}";
+
+          # Native OIDC login via Kanidm.
+          oauth = {
+            enabled = true;
+            issuerUrl = "https://auth.${vars.domain}/oauth2/openid/immich";
+            clientId = "immich";
+            clientSecret._secret = "/run/secrets/immich-oidc-client-secret";
+            scope = "openid email profile";
+            autoRegister = true;
+            autoLaunch = false;
+            buttonText = "Login with Kanidm";
+
+            # Kanidm supports PKCE and standard auth methods
+            tokenEndpointAuthMethod = "client_secret_basic";
+          };
+        };
 
         # Integrated PostgreSQL database
         database = {
@@ -64,7 +91,7 @@ in
       # Enable Redis service (required by Immich)
       services.redis.servers."".enable = true;
 
-      system.stateVersion = "26.05";
+      system.stateVersion = "25.11";
     };
   };
 

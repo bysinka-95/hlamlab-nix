@@ -39,26 +39,29 @@ in
 
           OC_ADD_RUN_SERVICES = "collaboration";
 
-          COLLABORATION_APP_NAME = "Office";
-          COLLABORATION_APP_PRODUCT = "Collabora";
-          COLLABORATION_APP_ADDR = "https://collabora.${vars.domain}";
-          COLLABORATION_APP_INSECURE = "false";
-          COLLABORATION_WOPI_SRC = "https://opencloud.${vars.domain}";
-          COLLABORATION_APP_PROOF_DISABLE = "true";
+          # Native OIDC integration with Kanidm.
+          OC_OIDC_ISSUER = "https://auth.${vars.domain}/oauth2/openid/opencloud";
+          OC_OIDC_CLIENT_ID = "opencloud";
+          WEB_OIDC_CLIENT_ID = "opencloud";
+          WEB_OIDC_SCOPE = "openid profile email groups";
+          PROXY_OIDC_REWRITE_WELLKNOWN = "true";
+          PROXY_AUTOPROVISION_ACCOUNTS = "true";
+
+          # Keeps OpenCloud CSP IDP placeholders aligned with Kanidm.
+          IDP_DOMAIN = "auth.${vars.domain}";
         };
         settings = {
-          # TODO: Fix in the future to use the structured format instead of env vars
-          #          collaboration = {
-          #            app = {
-          #              name = "Office";
-          #              product = "Collabora";
-          #              addr = "https://collabora.${vars.domain}";
-          #              insecure = false;
-          #            };
-          #            wopi = {
-          #              src = "https://opencloud.${vars.domain}";
-          #            };
-          #          };
+          collaboration = {
+            app = {
+              name = "Office";
+              product = "Collabora";
+              addr = "https://collabora.${vars.domain}";
+              insecure = false;
+            };
+            wopi = {
+              src = "https://opencloud.${vars.domain}";
+            };
+          };
           csp = {
             directives = {
               child-src = [ "'self'" ];
@@ -106,7 +109,7 @@ in
       };
 
 
-      system.stateVersion = "26.05";
+      system.stateVersion = "25.11";
     };
   };
 

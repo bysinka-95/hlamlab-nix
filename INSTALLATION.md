@@ -100,14 +100,8 @@ cloudflare-origin-ca: |
   -----BEGIN CERTIFICATE-----
   placeholder
   -----END CERTIFICATE-----
-authentik-env: |
-  # REQUIRED: A secret key used for cookie signing and unique user IDs.
-  # Generate one securely by running: openssl rand -base64 60
-  AUTHENTIK_SECRET_KEY=placeholder
-
-  # OPTIONAL BUT RECOMMENDED: Set the initial password for the 'akadmin' user.
-  # If you don't set this, you'll have to use the setup flow at /if/flow/initial-setup/
-  AUTHENTIK_BOOTSTRAP_PASSWORD=placeholder
+kanidm-admin-password: "placeholder"
+immich-oidc-client-secret: "placeholder"
 ```
 
 Real certificates are added post-install. See [network README](modules/common/network/README.md#required-certificates).

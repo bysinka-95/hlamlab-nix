@@ -65,8 +65,8 @@ in
         autoprune = true;
       };
 
-      # Authentik snapshots
-      "tank/services/authentik" = {
+      # Kanidm snapshots
+      "tank/services/kanidm" = {
         hourly = 24;
         daily = 7;
         weekly = 4;

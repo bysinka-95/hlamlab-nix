@@ -67,16 +67,16 @@
     };
   };
 
-  # Resource limits for Authentik container
-  systemd.services."container@authentik" = {
+  # Resource limits for Kanidm container
+  systemd.services."container@kanidm" = {
     serviceConfig = {
       # CPU limits
-      CPUQuota = "200%"; # Max 2 CPU cores
+      CPUQuota = "100%"; # Max 1 CPU core
       CPUWeight = 150;
 
       # Memory limits
-      MemoryMax = "4G"; # Hard limit: 4GB
-      MemoryHigh = "3G"; # Soft limit: 3G
+      MemoryMax = "1G"; # Hard limit: 1GB
+      MemoryHigh = "512M"; # Soft limit: 512M
 
       # Disk I/O limits
       IOWeight = 150;

@@ -12,7 +12,7 @@ in
         service = "immich";
         entryPoints = [ "https" ];
         tls = { };
-        middlewares = [ "security-headers" ]; # Use shared middleware from traefik.nix
+        middlewares = [ "security-headers" ];
       };
 
       # Service: Backend configuration

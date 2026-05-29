@@ -77,7 +77,6 @@
           acltype = "posixacl"; # POSIX ACLs
           xattr = "sa"; # Extended attributes
           atime = "off"; # Don't update access time (performance)
-          "com.sun:auto-snapshot" = "false";
         };
 
         # ZFS datasets
@@ -96,7 +95,6 @@
             options = {
               mountpoint = "/nix";
               atime = "off";
-              "com.sun:auto-snapshot" = "false";
             };
           };
 
@@ -121,10 +119,9 @@
             options = {
               mountpoint = "/var/lib/services/opencloud";
               quota = "50G";
-              reservation = "10G";
+              reservation = "1G";
               compression = "lz4";
               atime = "off";
-              "com.sun:auto-snapshot" = "true";
             };
           };
 
@@ -133,10 +130,9 @@
             options = {
               mountpoint = "/var/lib/services/immich";
               quota = "300G";
-              reservation = "10G";
+              reservation = "1G";
               compression = "lz4";
               atime = "off";
-              "com.sun:auto-snapshot" = "true";
             };
           };
 
@@ -148,19 +144,17 @@
               reservation = "5G";
               compression = "lz4";
               atime = "off";
-              "com.sun:auto-snapshot" = "true";
             };
           };
 
-          "services/authentik" = {
+          "services/kanidm" = {
             type = "zfs_fs";
             options = {
-              mountpoint = "/var/lib/services/authentik";
-              quota = "20G";
-              reservation = "5G";
+              mountpoint = "/var/lib/services/kanidm";
+              quota = "10G";
+              reservation = "1G";
               compression = "lz4";
               atime = "off";
-              "com.sun:auto-snapshot" = "true";
             };
           };
 
@@ -171,7 +165,6 @@
             options = {
               mountpoint = "/var/backups";
               compression = "gzip"; # High compression for backups
-              "com.sun:auto-snapshot" = "false";
             };
           };
 
@@ -184,7 +177,6 @@
           #     reservation = "20G";      # Guaranteed space
           #     compression = "lz4";      # Enable compression
           #     atime = "off";            # Performance
-          #     "com.sun:auto-snapshot" = "true";  # Enable snapshots
           #   };
           # };
         };

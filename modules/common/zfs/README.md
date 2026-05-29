@@ -49,7 +49,6 @@ Edit [`hosts/playground/disk-config.nix`](../../../hosts/playground/disk-config.
     reservation = "20G";
     compression = "lz4";
     atime = "off";
-    "com.sun:auto-snapshot" = "true";
   };
 };
 ```

@@ -43,7 +43,7 @@ let vars = import ../../common/local.nix; in
     config = { ... }: {
       services.myservice = { enable = true; listenAddress = "0.0.0.0"; };
       networking.firewall.allowedTCPPorts = [ <port> ];
-      system.stateVersion = "26.05";
+      system.stateVersion = "25.11";
     };
   };
   systemd.tmpfiles.rules = [ "d /var/lib/services/myservice 0755 root root -" ];
@@ -104,7 +104,6 @@ Add to [`hosts/playground/disk-config.nix`](../../hosts/playground/disk-config.n
     mountpoint = "/var/lib/services/myservice";
     quota = "100G"; reservation = "20G";
     compression = "lz4"; atime = "off";
-    "com.sun:auto-snapshot" = "true";
   };
 };
 ```
@@ -125,6 +124,10 @@ Add to `modules/common/zfs/default.nix` under `services.sanoid.datasets`:
 ## Current Services
 
 See [main README](../../README.md#current-services) — IPs, ports, URLs, storage, resource limits, ZFS datasets.
+
+## Kanidm Declarative Provisioning
+
+Manage Kanidm users, groups, and OAuth2 systems in `modules/containers/kanidm/container.nix` under the `services.kanidm.provision` block. Changes are applied automatically on deploy.
 
 ---
 

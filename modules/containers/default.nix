@@ -13,6 +13,6 @@
     ./opencloud
     ./immich
     ./collabora
-    ./authentik
+    ./kanidm
   ];
 }
