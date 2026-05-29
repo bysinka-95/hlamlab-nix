@@ -3,7 +3,6 @@
   imports = [
     ./container.nix
     ./traefik.nix
+    ./host.nix
   ];
-
-  networking.hosts."10.0.0.5" = [ "kanidm" ];
 }

@@ -11,9 +11,7 @@
   imports = [
     ./container.nix
     ./traefik.nix
+    ./host.nix
   ];
-
-  # DNS entry: Allows Traefik to reach "http://collabora" instead of "10.0.0.4"
-  networking.hosts."10.0.0.4" = [ "collabora" ];
 }
 

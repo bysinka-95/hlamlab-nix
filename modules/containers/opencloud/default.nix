@@ -20,11 +20,7 @@
   imports = [
     ./container.nix
     ./traefik.nix
+    ./host.nix
   ];
-
-  # Add DNS entry for internal resolution (host → container)
-  networking.hosts = {
-    "10.0.0.2" = [ "opencloud" ];
-  };
 }
 

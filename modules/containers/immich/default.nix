@@ -20,9 +20,7 @@
   imports = [
     ./container.nix
     ./traefik.nix
+    ./host.nix
   ];
-
-  # DNS entry: Allows Traefik to reach "http://immich" instead of "10.0.0.3"
-  networking.hosts."10.0.0.3" = [ "immich" ];
 }
 

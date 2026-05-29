@@ -147,11 +147,13 @@ nix run nixpkgs#nixos-rebuild -- switch \
 
 ## Documentation
 
-| File                                                                 | Contents                                                                       |
-|----------------------------------------------------------------------|--------------------------------------------------------------------------------|
-| [README.md](README.md)                                               | Repo layout, current services (IPs, ports, URLs, ZFS datasets), deploy command |
-| [INSTALLATION.md](INSTALLATION.md)                                   | Fresh install: pre-install config, nixos-anywhere, post-install, verification  |
-| [modules/common/network/README.md](modules/common/network/README.md) | SSH, mDNS, Traefik + Cloudflare Tunnel, mTLS certificates                      |
-| [modules/common/zfs/README.md](modules/common/zfs/README.md)         | ZFS datasets, snapshots, backup/replication, management commands               |
-| [modules/containers/README.md](modules/containers/README.md)         | Container structure, service skeletons, resource limits, persistent storage    |
-| [modules/secrets/README.md](modules/secrets/README.md)               | sops-nix setup, age keys, secrets vs config variables                          |
+See the full [documentation index](DOCS.md) for module-specific guides.
+
+| File | Contents |
+| :--- | :--- |
+| [README.md](README.md) | Repo layout, current services (IPs, ports, URLs, ZFS datasets), deploy command |
+| [INSTALLATION.md](INSTALLATION.md) | Fresh install: pre-install config, nixos-anywhere, post-install, verification |
+| [modules/common/network/README.md](modules/common/network/README.md) | SSH, mDNS, Traefik + Cloudflare Tunnel, mTLS certificates |
+| [modules/common/zfs/README.md](modules/common/zfs/README.md) | ZFS datasets, snapshots, backup/replication, management commands |
+| [modules/containers/README.md](modules/containers/README.md) | Container structure, service skeletons, resource limits, persistent storage |
+| [modules/secrets/README.md](modules/secrets/README.md) | sops-nix setup, age keys, secrets vs config variables |

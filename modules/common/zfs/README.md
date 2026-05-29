@@ -38,28 +38,29 @@ may fail to import during boot.
 
 ## Adding a Service Dataset
 
-Edit [`hosts/playground/disk-config.nix`](../../../hosts/playground/disk-config.nix):
+When adding a new service, its ZFS dataset and sanoid schedule are defined directly in its `host.nix` file (e.g. `modules/containers/<name>/host.nix`). The disko-zfs module will automatically pick them up during rebuild.
 
 ```nix
-"services/myservice" = {
-  type = "zfs_fs";
-  options = {
-    mountpoint = "/var/lib/services/myservice";
-    quota = "100G";
-    reservation = "20G";
-    compression = "lz4";
-    atime = "off";
+{ ... }:
+{
+  # ZFS Dataset
+  disko.devices.zpool.tank.datasets."services/myservice" = {
+    type = "zfs_fs";
+    options = {
+      mountpoint = "/var/lib/services/myservice";
+      quota = "100G";
+      reservation = "20G";
+      compression = "lz4";
+      atime = "off";
+    };
   };
-};
-```
 
-Then add a sanoid schedule in [`modules/common/zfs/default.nix`](default.nix):
-
-```nix
-services.sanoid.datasets."tank/services/myservice" = {
-  hourly = 24; daily = 7; weekly = 4; monthly = 12;
-  autosnap = true; autoprune = true;
-};
+  # Sanoid Snapshot Schedule
+  services.sanoid.datasets."tank/services/myservice" = {
+    hourly = 24; daily = 7; weekly = 4; monthly = 12;
+    autosnap = true; autoprune = true;
+  };
+}
 ```
 
 Deploy and verify: `zfs list tank/services/myservice`

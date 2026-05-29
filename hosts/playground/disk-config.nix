@@ -112,52 +112,6 @@
             options.mountpoint = "/var/lib/services";
           };
 
-          # Service datasets (managed by disko-zfs)
-          # disko-zfs automatically applies changes when you rebuild
-          "services/opencloud" = {
-            type = "zfs_fs";
-            options = {
-              mountpoint = "/var/lib/services/opencloud";
-              quota = "50G";
-              reservation = "1G";
-              compression = "lz4";
-              atime = "off";
-            };
-          };
-
-          "services/immich" = {
-            type = "zfs_fs";
-            options = {
-              mountpoint = "/var/lib/services/immich";
-              quota = "300G";
-              reservation = "1G";
-              compression = "lz4";
-              atime = "off";
-            };
-          };
-
-          "services/collabora" = {
-            type = "zfs_fs";
-            options = {
-              mountpoint = "/var/lib/services/collabora";
-              quota = "20G";
-              reservation = "5G";
-              compression = "lz4";
-              atime = "off";
-            };
-          };
-
-          "services/kanidm" = {
-            type = "zfs_fs";
-            options = {
-              mountpoint = "/var/lib/services/kanidm";
-              quota = "10G";
-              reservation = "1G";
-              compression = "lz4";
-              atime = "off";
-            };
-          };
-
           # Snapshots storage
           "backups" = {
             type = "zfs_fs";

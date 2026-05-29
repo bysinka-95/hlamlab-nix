@@ -33,75 +33,13 @@ in
   # Automatic snapshots using sanoid
   services.sanoid = {
     enable = true;
-
-    datasets = {
-      # OpenCloud snapshots
-      "tank/services/opencloud" = {
-        hourly = 24; # Keep 24 hourly snapshots
-        daily = 7; # Keep 7 daily snapshots
-        weekly = 4; # Keep 4 weekly snapshots
-        monthly = 12; # Keep 12 monthly snapshots
-        autosnap = true;
-        autoprune = true;
-      };
-
-      # Immich snapshots
-      "tank/services/immich" = {
-        hourly = 24;
-        daily = 7;
-        weekly = 4;
-        monthly = 12;
-        autosnap = true;
-        autoprune = true;
-      };
-
-      # Collabora snapshots
-      "tank/services/collabora" = {
-        hourly = 24;
-        daily = 7;
-        weekly = 4;
-        monthly = 12;
-        autosnap = true;
-        autoprune = true;
-      };
-
-      # Kanidm snapshots
-      "tank/services/kanidm" = {
-        hourly = 24;
-        daily = 7;
-        weekly = 4;
-        monthly = 12;
-        autosnap = true;
-        autoprune = true;
-      };
-
-      # Template for future services
-      # "tank/services/myservice" = {
-      #   hourly = 24;
-      #   daily = 7;
-      #   weekly = 4;
-      #   monthly = 3;
-      #   autosnap = true;
-      #   autoprune = true;
-      # };
-    };
+    datasets = {};
   };
 
   # Syncoid for replication (optional, for backing up to remote ZFS)
   # services.syncoid = {
   #   enable = true;
-  #   commands = {
-  #     "backup-opencloud" = {
-  #       source = "tank/services/opencloud";
-  #       target = "backup-server:backup-tank/opencloud";
-  #       recursive = true;
-  #     };
-  #     "backup-immich" = {
-  #       source = "tank/services/immich";
-  #       target = "backup-server:backup-tank/immich";
-  #       recursive = true;
-  #     };
-  #   };
+  #   commands = {};
   # };
 
   # ZFS monitoring and alerts

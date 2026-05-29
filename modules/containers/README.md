@@ -17,19 +17,32 @@ modules/containers/
 
 ---
 
-## Adding a New Service
+# Container Service Modules
 
-**All 6 steps are required.** Do step 1 first, before touching any Nix files.
+All services run in native NixOS containers, isolated from the host.
 
-### 1. Update `README.md § Current Services`
+## Service Anatomy
 
-Add a row to the **Application Containers** table (IP, port, URL, storage path, CPU, RAM, ZFS quota/reservation) and
-update the **ZFS Datasets** table. This is the single source of truth for service metadata.
+Each service resides in `modules/containers/<name>/` and consists of 4 files:
 
-### 2. Create `modules/containers/<name>/`
+| File | Responsibility |
+| :--- | :--- |
+| `container.nix` | Container definition: `autoStart`, `privateNetwork`, bind mounts, `config` block. |
+| `traefik.nix` | Traefik reverse proxy routing: `routers`, `services` (dynamic config). |
+| `host.nix` | Host-level integrations: DNS, ZFS dataset, sanoid schedule, resource limits. |
+| `default.nix` | Module imports (glues the 3 files above together). |
 
-**`container.nix`** skeleton:
+## Adding a Service
 
+**Follow these 3 steps:**
+
+### 1. Update `README.md`
+Add the new service to the **Application Containers** table in the main [`README.md`](../../README.md). Assign an available IP.
+
+### 2. Create the Module
+In `modules/containers/<name>/`, create the 4 required files (skeletons provided in code blocks below).
+
+**`container.nix`** (App configuration):
 ```nix
 { ... }:
 let vars = import ../../common/local.nix; in
@@ -38,7 +51,7 @@ let vars = import ../../common/local.nix; in
     autoStart = true;
     privateNetwork = true;
     hostAddress = "10.0.0.1";
-    localAddress = "10.0.0.N";  # next available — check README.md
+    localAddress = "10.0.0.N"; # Check main README.md
     bindMounts."/var/lib/myservice".hostPath = "/var/lib/services/myservice";
     config = { ... }: {
       services.myservice = { enable = true; listenAddress = "0.0.0.0"; };
@@ -50,8 +63,7 @@ let vars = import ../../common/local.nix; in
 }
 ```
 
-**`traefik.nix`** skeleton:
-
+**`traefik.nix`** (Reverse proxy):
 ```nix
 { ... }:
 let vars = import ../../common/local.nix; in
@@ -67,56 +79,51 @@ let vars = import ../../common/local.nix; in
 }
 ```
 
-**`default.nix`**:
-
+**`host.nix`** (Host integration):
 ```nix
-{ ... }: {
-  imports = [ ./container.nix ./traefik.nix ];
+{ ... }:
+{
   networking.hosts."10.0.0.N" = [ "myservice" ];
+
+  # ZFS Dataset
+  disko.devices.zpool.tank.datasets."services/myservice" = {
+    type = "zfs_fs";
+    options = {
+      mountpoint = "/var/lib/services/myservice";
+      quota = "50G"; reservation = "10G"; compression = "lz4"; atime = "off";
+    };
+  };
+
+  # Snapshots
+  services.sanoid.datasets."tank/services/myservice" = {
+    hourly = 24; daily = 7; weekly = 4; monthly = 12;
+    autosnap = true; autoprune = true;
+  };
+
+  # Limits
+  systemd.services."container@myservice".serviceConfig = {
+    CPUQuota = "100%"; MemoryMax = "2G"; MemoryHigh = "1.5G"; IOWeight = 100; TasksMax = 512;
+  };
 }
 ```
 
-### 3. Register in parent
+**`default.nix`** (Import):
+```nix
+{ ... }: { imports = [ ./container.nix ./traefik.nix ./host.nix ]; }
+```
 
+### 3. Register
 Add `./myservice` to the imports list in [`modules/containers/default.nix`](default.nix).
 
-### 4. Add resource limits
+---
 
-Add to [`container-limits.nix`](container-limits.nix):
+## Container Operations
 
-```nix
-systemd.services."container@myservice".serviceConfig = {
-  CPUQuota = "100%"; MemoryMax = "2G"; MemoryHigh = "1.5G"; IOWeight = 100; TasksMax = 512;
-};
-```
-
-See [Resource Limits](#resource-limits) below for sizing guidance.
-
-### 5. Add ZFS dataset
-
-Add to [`hosts/playground/disk-config.nix`](../../hosts/playground/disk-config.nix) under
-`disko.devices.zpool.tank.datasets`:
-
-```nix
-"services/myservice" = {
-  type = "zfs_fs";
-  options = {
-    mountpoint = "/var/lib/services/myservice";
-    quota = "100G"; reservation = "20G";
-    compression = "lz4"; atime = "off";
-  };
-};
-```
-
-### 6. Add sanoid snapshot schedule
-
-Add to `modules/common/zfs/default.nix` under `services.sanoid.datasets`:
-
-```nix
-"tank/services/myservice" = {
-  hourly = 24; daily = 7; weekly = 4; monthly = 12;
-  autosnap = true; autoprune = true;
-};
+```bash
+machinectl list                                           # list containers
+sudo nixos-container root-login <name>                    # shell into container
+systemctl status container@<name>                         # status
+sudo nixos-container run <name> -- journalctl -u <svc> -f # live logs
 ```
 
 ---

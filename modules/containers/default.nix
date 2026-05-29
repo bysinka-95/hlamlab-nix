@@ -7,9 +7,8 @@
     externalInterface = lib.mkDefault "ens18"; # adjust if your host NIC differs
   };
 
-  # Import service modules (each directory contains container + traefik + DNS)
+  # Import service modules (each directory contains container + traefik + DNS + host integration)
   imports = [
-    ./container-limits.nix
     ./opencloud
     ./immich
     ./collabora
