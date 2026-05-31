@@ -39,29 +39,37 @@ in
 
           OC_ADD_RUN_SERVICES = "collaboration";
 
-          # Native OIDC integration with Kanidm.
-          OC_OIDC_ISSUER = "https://auth.${vars.domain}/oauth2/openid/opencloud";
+          COLLABORATION_APP_NAME = "Office";
+          COLLABORATION_APP_PRODUCT = "Collabora";
+          COLLABORATION_APP_ADDR = "https://collabora.${vars.domain}";
+          COLLABORATION_APP_INSECURE = "false";
+          COLLABORATION_WOPI_SRC = "https://opencloud.${vars.domain}";
+          COLLABORATION_APP_PROOF_DISABLE = "true";
+
+          # Native OIDC integration with Authelia.
+          OC_OIDC_ISSUER = "https://auth.${vars.domain}";
           OC_OIDC_CLIENT_ID = "opencloud";
           WEB_OIDC_CLIENT_ID = "opencloud";
           WEB_OIDC_SCOPE = "openid profile email groups";
           PROXY_OIDC_REWRITE_WELLKNOWN = "true";
           PROXY_AUTOPROVISION_ACCOUNTS = "true";
 
-          # Keeps OpenCloud CSP IDP placeholders aligned with Kanidm.
+          # Keeps OpenCloud CSP IDP placeholders aligned with Authelia.
           IDP_DOMAIN = "auth.${vars.domain}";
         };
         settings = {
-          collaboration = {
-            app = {
-              name = "Office";
-              product = "Collabora";
-              addr = "https://collabora.${vars.domain}";
-              insecure = false;
-            };
-            wopi = {
-              src = "https://opencloud.${vars.domain}";
-            };
-          };
+          # TODO: Fix in the future to use the structured format instead of env vars
+          #          collaboration = {
+          #            app = {
+          #              name = "Office";
+          #              product = "Collabora";
+          #              addr = "https://collabora.${vars.domain}";
+          #              insecure = false;
+          #            };
+          #            wopi = {
+          #              src = "https://opencloud.${vars.domain}";
+          #            };
+          #          };
           csp = {
             directives = {
               child-src = [ "'self'" ];
@@ -71,7 +79,7 @@ in
                 "https://\${COMPANION_DOMAIN|companion.opencloud.test}\${TRAEFIK_PORT_HTTPS}/"
                 "wss://\${COMPANION_DOMAIN|companion.opencloud.test}\${TRAEFIK_PORT_HTTPS}/"
                 "https://raw.githubusercontent.com/opencloud-eu/awesome-apps/"
-                "https://\${IDP_DOMAIN|keycloak.opencloud.test}\${TRAEFIK_PORT_HTTPS}/"
+                "https://\${IDP_DOMAIN|auth.${vars.domain}}\${TRAEFIK_PORT_HTTPS}/"
                 "https://update.opencloud.eu/"
               ];
               default-src = [ "'none'" ];
@@ -98,7 +106,7 @@ in
               script-src = [
                 "'self'"
                 "'unsafe-inline'"
-                "https://\${IDP_DOMAIN|keycloak.opencloud.test}\${TRAEFIK_PORT_HTTPS}/"
+                "https://\${IDP_DOMAIN|auth.${vars.domain}}\${TRAEFIK_PORT_HTTPS}/"
               ];
               style-src = [ "'self'" "'unsafe-inline'" ];
             };
@@ -109,7 +117,7 @@ in
       };
 
 
-      system.stateVersion = "25.11";
+      system.stateVersion = "26.05";
     };
   };
 

@@ -56,7 +56,7 @@ let vars = import ../../common/local.nix; in
     config = { ... }: {
       services.myservice = { enable = true; listenAddress = "0.0.0.0"; };
       networking.firewall.allowedTCPPorts = [ <port> ];
-      system.stateVersion = "25.11";
+      system.stateVersion = "26.05";
     };
   };
   systemd.tmpfiles.rules = [ "d /var/lib/services/myservice 0755 root root -" ];
@@ -132,9 +132,9 @@ sudo nixos-container run <name> -- journalctl -u <svc> -f # live logs
 
 See [main README](../../README.md#current-services) — IPs, ports, URLs, storage, resource limits, ZFS datasets.
 
-## Kanidm Declarative Provisioning
+## Authelia Declarative Provisioning
 
-Manage Kanidm users, groups, and OAuth2 systems in `modules/containers/kanidm/container.nix` under the `services.kanidm.provision` block. Changes are applied automatically on deploy.
+Manage Authelia users, groups, and OAuth2 systems in `modules/containers/authelia/container.nix` under the `services.authelia.provision` block. Changes are applied automatically on deploy.
 
 ---
 

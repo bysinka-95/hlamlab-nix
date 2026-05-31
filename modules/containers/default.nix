@@ -12,6 +12,6 @@
     ./opencloud
     ./immich
     ./collabora
-    ./kanidm
+    ./authelia
   ];
 }

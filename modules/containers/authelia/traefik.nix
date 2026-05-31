@@ -3,22 +3,26 @@ let
   vars = import ../../common/local.nix;
 in
 {
+  # Traefik configuration for Authelia
   services.traefik.dynamicConfigOptions = {
     http = {
-      routers.kanidm = {
+      # Router: auth.yourdomain → authelia container
+      routers.authelia = {
         rule = "Host(`auth.${vars.domain}`)";
-        service = "kanidm";
+        service = "authelia";
         entryPoints = [ "https" ];
         tls = { };
         middlewares = [ "security-headers" ];
       };
 
-      services.kanidm = {
+      # Service: Backend configuration
+      services.authelia = {
         loadBalancer = {
-          servers = [{ url = "https://kanidm:8443"; }];
+          servers = [{ url = "http://authelia:9091"; }]; # DNS name from default.nix
           passHostHeader = true;
         };
       };
     };
   };
 }
+

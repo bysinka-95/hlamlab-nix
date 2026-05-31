@@ -1,13 +1,13 @@
-{ ... }:
+{ config, ... }:
 {
   # DNS mapping for host → container
-  networking.hosts."10.0.0.5" = [ "kanidm" ];
+  networking.hosts."10.0.0.5" = [ "authelia" ];
 
-  # ZFS Dataset
-  disko.devices.zpool.tank.datasets."services/kanidm" = {
+  # ZFS dataset for Authelia storage (SQLite database, configuration files, users file)
+  disko.devices.zpool.tank.datasets."services/authelia" = {
     type = "zfs_fs";
     options = {
-      mountpoint = "/var/lib/services/kanidm";
+      mountpoint = "/var/lib/services/authelia";
       quota = "10G";
       reservation = "1G";
       compression = "lz4";
@@ -15,8 +15,8 @@
     };
   };
 
-  # Sanoid Snapshot Schedule
-  services.sanoid.datasets."tank/services/kanidm" = {
+  # Enable automated snapshots
+  services.sanoid.datasets."tank/services/authelia" = {
     hourly = 24;
     daily = 7;
     weekly = 4;
@@ -26,14 +26,14 @@
   };
 
   # Container Resource Limits
-  systemd.services."container@kanidm" = {
+  systemd.services."container@authelia" = {
     serviceConfig = {
       CPUQuota = "100%";
-      CPUWeight = 150;
+      CPUWeight = 100;
       MemoryMax = "1G";
       MemoryHigh = "512M";
       MemorySwapMax = "0B";
-      IOWeight = 150;
+      IOWeight = 100;
       TasksMax = 512;
     };
   };

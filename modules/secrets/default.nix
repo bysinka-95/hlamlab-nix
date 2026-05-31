@@ -40,12 +40,48 @@
         mode = "0400";
         path = "/var/lib/traefik/certs/origin.key";
       };
-      # Kanidm admin password for provisioning
-      kanidm-admin-password = {
+      # Authelia JWT secret
+      authelia-jwt-secret = {
+        owner = "authelia-main";
+        group = "authelia-main";
+        mode = "0400";
+      };
+      # Authelia admin password for provisioning
+      authelia-admin-password = {
+        owner = "authelia-main";
+        group = "authelia-main";
+        mode = "0400";
+      };
+      # Authelia session secret
+      authelia-session-secret = {
+        owner = "authelia-main";
+        group = "authelia-main";
+        mode = "0400";
+      };
+      # Authelia storage encryption key
+      authelia-storage-encryption-key = {
+        owner = "authelia-main";
+        group = "authelia-main";
+        mode = "0400";
+      };
+      # Authelia's view of the Immich client secret for OIDC client configuration.
+      authelia-immich-oidc-client-secret = {
+        key = "immich-oidc-client-secret";
+        owner = "authelia-main";
+        group = "authelia-main";
+        mode = "0400";
+      };
+      # Authelia OIDC issuer private key (RSA 4096)
+      authelia-oidc-issuer-private-key = {
+        owner = "authelia-main";
+        group = "authelia-main";
         mode = "0400";
       };
       # Immich OAuth client secret (raw value). Mounted into the immich container.
-      immich-oidc-client-secret = {
+      immich-immich-oidc-client-secret = {
+        key = "immich-oidc-client-secret";
+        owner = "immich";
+        group = "immich";
         mode = "0400";
       };
     };

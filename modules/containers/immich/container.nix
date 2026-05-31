@@ -18,13 +18,16 @@ in
         isReadOnly = false;
       };
       "/run/secrets/immich-oidc-client-secret" = {
-        hostPath = config.sops.secrets.immich-oidc-client-secret.path;
+        hostPath = config.sops.secrets.immich-immich-oidc-client-secret.path;
         isReadOnly = true;
       };
     };
 
     config = { pkgs, ... }: {
       networking.firewall.allowedTCPPorts = [ 2283 ]; # Immich default port
+
+      users.users.immich.uid = 901;
+      users.groups.immich.gid = 901;
 
       # Systemd-resolved running on the host (127.0.0.53) is unreachable from
       # inside the isolated container network, causing DNS resolution to fail.
@@ -46,19 +49,19 @@ in
         settings = {
           server.externalDomain = "https://immich.${vars.domain}";
 
-          # Native OIDC login via Kanidm.
+          # Native OIDC login via Authelia.
           oauth = {
             enabled = true;
-            issuerUrl = "https://auth.${vars.domain}/oauth2/openid/immich";
+            issuerUrl = "https://auth.${vars.domain}";
             clientId = "immich";
             clientSecret._secret = "/run/secrets/immich-oidc-client-secret";
             scope = "openid email profile";
             autoRegister = true;
             autoLaunch = false;
-            buttonText = "Login with Kanidm";
+            buttonText = "Login with Authelia";
 
-            # Kanidm supports PKCE and standard auth methods
-            tokenEndpointAuthMethod = "client_secret_basic";
+            # Authelia supports PKCE and standard auth methods
+            tokenEndpointAuthMethod = "client_secret_post";
           };
         };
 
@@ -91,7 +94,7 @@ in
       # Enable Redis service (required by Immich)
       services.redis.servers."".enable = true;
 
-      system.stateVersion = "25.11";
+      system.stateVersion = "26.05";
     };
   };
 

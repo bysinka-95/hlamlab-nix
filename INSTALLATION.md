@@ -100,9 +100,42 @@ cloudflare-origin-ca: |
   -----BEGIN CERTIFICATE-----
   placeholder
   -----END CERTIFICATE-----
-kanidm-admin-password: "placeholder"
+authelia-jwt-secret: "placeholder"
+authelia-session-secret: "placeholder"
+authelia-storage-encryption-key: "placeholder"
+authelia-admin-password: "placeholder"
+authelia-oidc-hmac-secret: "placeholder"
+authelia-oidc-issuer-private-key: |
+  -----BEGIN RSA PRIVATE KEY-----
+  placeholder
+  -----END RSA PRIVATE KEY-----
 immich-oidc-client-secret: "placeholder"
 ```
+
+**Generate Authelia Secrets:**
+
+You will need to generate secure random values and RSA keys for Authelia. You can use standard `openssl` commands to do this on your local machine:
+
+```bash
+# Generate a 64-character alphanumeric JWT secret, session secret, and storage encryption key
+openssl rand -hex 64 # Use this output for authelia-jwt-secret
+openssl rand -hex 64 # Use this output for authelia-session-secret
+openssl rand -hex 64 # Use this output for authelia-storage-encryption-key
+openssl rand -hex 64 # Use this output for authelia-oidc-hmac-secret
+
+# Generate a 72-character random string for the Immich OIDC client secret
+openssl rand -hex 72 # Use this output for immich-oidc-client-secret
+
+# Generate the Authelia Admin Password (choose a strong password for authelia-admin-password)
+
+# Generate an RSA Keypair for the OIDC Issuer
+openssl genrsa -out private.pem 4096
+# Copy the contents of private.pem into authelia-oidc-issuer-private-key, keeping the indentation
+cat private.pem
+rm private.pem
+```
+
+Replace the placeholders in your `secrets.yaml` file with the generated values.
 
 Real certificates are added post-install. See [network README](modules/common/network/README.md#required-certificates).
 

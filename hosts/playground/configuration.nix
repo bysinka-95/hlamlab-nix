@@ -37,9 +37,9 @@
 
   # Home Manager Setup
   home-manager.users.root = { pkgs, ... }: {
-    home.stateVersion = "25.11";
+    home.stateVersion = "26.05";
     programs.zsh.enable = true;
   };
 
-  system.stateVersion = "25.11";
+  system.stateVersion = "26.05";
 }

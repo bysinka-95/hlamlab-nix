@@ -57,7 +57,7 @@ Encrypted secrets via sops-nix + age. All secrets declared in [`default.nix`](de
 
 | Type                | Location                   | Examples                                                                     |
 |---------------------|----------------------------|------------------------------------------------------------------------------|
-| 🔒 Encrypted (sops) | `secrets.yaml`             | `cloudflared-credentials`, `cloudflare-origin-ca`, `traefik-origin-cert/key` |
+| 🔒 Encrypted (sops) | `secrets.yaml`             | `cloudflared-credentials`, `traefik-origin-cert/key`, `authelia-admin-password`, `authelia-jwt-secret`, `authelia-oidc-issuer-private-key`, `immich-oidc-client-secret`, etc. |
 | 📝 Plaintext (git)  | `modules/common/local.nix` | `domain`, `tunnelId`                                                         |
 
 Domain and tunnel ID aren't truly secret (domain is in DNS, tunnel ID is just an identifier), so they live in

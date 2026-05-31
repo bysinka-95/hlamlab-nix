@@ -22,5 +22,29 @@
   };
 
   users.groups.traefik = {};
+
+  # Authelia service user
+  users.users.authelia-main = {
+    isSystemUser = true;
+    group = "authelia-main";
+    description = "Authelia main instance user";
+    uid = 900;
+  };
+
+  users.groups.authelia-main = {
+    gid = 900;
+  };
+
+  # Immich service user
+  users.users.immich = {
+    isSystemUser = true;
+    group = "immich";
+    description = "Immich reverse proxy user";
+    uid = 901;
+  };
+
+  users.groups.immich = {
+    gid = 901;
+  };
 }
 
