@@ -38,8 +38,8 @@ in
         hostPath = config.sops.secrets.authelia-oidc-issuer-private-key.path;
         isReadOnly = true;
       };
-      "/run/secrets/authelia-admin-password" = {
-        hostPath = config.sops.secrets.authelia-admin-password.path;
+      "/run/secrets/lldap-user-pass" = {
+        hostPath = config.sops.secrets.authelia-lldap-user-pass.path;
         isReadOnly = true;
       };
     };
@@ -74,6 +74,7 @@ in
 
         environmentVariables = {
           X_AUTHELIA_CONFIG_FILTERS = "template";
+          AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE = "/run/secrets/lldap-user-pass";
         };
 
         settings = {
@@ -89,8 +90,11 @@ in
           };
 
           authentication_backend = {
-            file = {
-              path = "/var/lib/authelia-main/users_database.yml";
+            ldap = {
+              implementation = "lldap";
+              address = "ldap://10.0.0.6:3890";
+              base_dn = vars.ldapBaseDn;
+              user = "uid=admin,ou=people,${vars.ldapBaseDn}";
             };
           };
 
@@ -169,24 +173,6 @@ in
           };
         };
       };
-
-      systemd.services.authelia-main.preStart = pkgs.lib.mkBefore ''
-        if ! ${pkgs.gnugrep}/bin/grep -q "^  admin:" /var/lib/authelia-main/users_database.yml 2>/dev/null; then
-          # Generate hash from the plaintext password in SOPS, extracting the last space-delimited string (the hash)
-          HASH=$(${pkgs.authelia}/bin/authelia crypto hash generate pbkdf2 --password "$(cat /run/secrets/authelia-admin-password)" | ${pkgs.gnugrep}/bin/grep '\$' | ${pkgs.gawk}/bin/awk '{print $NF}')
-
-          cat <<EOF > /var/lib/authelia-main/users_database.yml
-users:
-  admin:
-    displayname: "Administrator"
-    password: "$HASH"
-    email: admin@${vars.domain}
-    groups:
-      - admins
-EOF
-          chmod 0600 /var/lib/authelia-main/users_database.yml
-        fi
-      '';
 
       systemd.services.authelia-main.serviceConfig = {
         SupplementaryGroups = [ config.services.redis.servers.authelia.group ];

@@ -7,8 +7,16 @@
 # - domain: Your actual domain name (e.g., "yourdomain.com")
 # - tunnelId: Your Cloudflare Tunnel ID from dashboard
 
-{
+let
   domain = "yourdomain.com";
-  tunnelId = "00000000-0000-0000-0000-000000000000";
-  hostId = "1a23bc45" # ZFS Host ID
+  tunnelId = "00000000-0000-0000-0000-000000000000f";
+  hostId = "1a23bc45"; # ZFS host ID
+
+  # Helper to convert domain to LDAP base DN (e.g., "hlamlab.xyz" -> "dc=hlamlab,dc=xyz")
+  # We use builtins.split and map to construct this.
+  parts = builtins.filter (x: builtins.typeOf x == "string" && x != "") (builtins.split "\\." domain);
+  ldapBaseDn = builtins.concatStringsSep "," (map (p: "dc=${p}") parts);
+in
+{
+  inherit domain tunnelId hostId ldapBaseDn;
 }

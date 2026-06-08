@@ -13,5 +13,6 @@
     ./immich
     ./collabora
     ./authelia
+    ./lldap
   ];
 }

@@ -17,6 +17,10 @@ in
         hostPath = "/var/lib/services/opencloud";
         isReadOnly = false;
       };
+      "/run/secrets/opencloud-sharing-secret" = {
+        hostPath = "/run/secrets/opencloud-sharing-secret";
+        isReadOnly = true;
+      };
     };
 
     config = { pkgs, ... }: {
@@ -27,6 +31,9 @@ in
       # Hardcoding public nameservers allows the container to resolve its own
       # Cloudflare-proxied domain name correctly and route through the tunnel.
       networking.nameservers = [ "1.1.1.1" "1.0.0.1" ];
+
+      users.users.opencloud.uid = 903;
+      users.groups.opencloud.gid = 903;
 
       services.opencloud = {
         enable = true;
@@ -57,6 +64,7 @@ in
           # Keeps OpenCloud CSP IDP placeholders aligned with Authelia.
           IDP_DOMAIN = "auth.${vars.domain}";
         };
+        environmentFile = "/run/secrets/opencloud-sharing-secret";
         settings = {
           # TODO: Fix in the future to use the structured format instead of env vars
           #          collaboration = {
@@ -70,6 +78,10 @@ in
           #              src = "https://opencloud.${vars.domain}";
           #            };
           #          };
+
+          # Workaround to fix https://github.com/nixos/nixpkgs/issues/523669
+          sharing.service_account.service_account_id = "fb60052c-2854-4225-9ef9-acf6e7907ed1";
+
           csp = {
             directives = {
               child-src = [ "'self'" ];

@@ -46,12 +46,6 @@
         group = "authelia-main";
         mode = "0400";
       };
-      # Authelia admin password for provisioning
-      authelia-admin-password = {
-        owner = "authelia-main";
-        group = "authelia-main";
-        mode = "0400";
-      };
       # Authelia session secret
       authelia-session-secret = {
         owner = "authelia-main";
@@ -71,17 +65,49 @@
         group = "authelia-main";
         mode = "0400";
       };
+      # Immich OAuth client secret (raw value). Mounted into the immich container.
+      immich-immich-oidc-client-secret = {
+        key = "immich-oidc-client-secret";
+        owner = "immich";
+        group = "immich";
+        mode = "0400";
+      };
+      # Authelia OIDC HMAC secret
+      authelia-oidc-hmac-secret = {
+        owner = "authelia-main";
+        group = "authelia-main";
+        mode = "0400";
+      };
       # Authelia OIDC issuer private key (RSA 4096)
       authelia-oidc-issuer-private-key = {
         owner = "authelia-main";
         group = "authelia-main";
         mode = "0400";
       };
-      # Immich OAuth client secret (raw value). Mounted into the immich container.
-      immich-immich-oidc-client-secret = {
-        key = "immich-oidc-client-secret";
-        owner = "immich";
-        group = "immich";
+      # LLDAP JWT secret
+      lldap-jwt-secret = {
+        owner = "lldap";
+        group = "lldap";
+        mode = "0400";
+      };
+      # LLDAP default admin password
+      lldap-lldap-user-pass = {
+        key = "lldap-user-pass";
+        owner = "lldap";
+        group = "lldap";
+        mode = "0440";
+      };
+      # LLDAP default admin password
+      authelia-lldap-user-pass = {
+        key = "lldap-user-pass";
+        owner = "authelia-main";
+        group = "authelia-main";
+        mode = "0440";
+      };
+      # OpenCloud sharing service account secret (environment file).
+      opencloud-sharing-secret = {
+        owner = "opencloud";
+        group = "opencloud";
         mode = "0400";
       };
     };

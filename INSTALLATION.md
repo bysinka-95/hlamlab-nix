@@ -103,32 +103,35 @@ cloudflare-origin-ca: |
 authelia-jwt-secret: "placeholder"
 authelia-session-secret: "placeholder"
 authelia-storage-encryption-key: "placeholder"
-authelia-admin-password: "placeholder"
 authelia-oidc-hmac-secret: "placeholder"
 authelia-oidc-issuer-private-key: |
   -----BEGIN RSA PRIVATE KEY-----
   placeholder
   -----END RSA PRIVATE KEY-----
 immich-oidc-client-secret: "placeholder"
+lldap-jwt-secret: "placeholder"
+lldap-user-pass: "placeholder"
 ```
 
-**Generate Authelia Secrets:**
+**Generate Application Secrets:**
 
-You will need to generate secure random values and RSA keys for Authelia. You can use standard `openssl` commands to do this on your local machine:
+To generate secure values, we use the `authelia` CLI tool via Nix to ensure they meet length and complexity requirements perfectly, and `openssl` for the RSA keys:
 
 ```bash
-# Generate a 64-character alphanumeric JWT secret, session secret, and storage encryption key
-openssl rand -hex 64 # Use this output for authelia-jwt-secret
-openssl rand -hex 64 # Use this output for authelia-session-secret
-openssl rand -hex 64 # Use this output for authelia-storage-encryption-key
-openssl rand -hex 64 # Use this output for authelia-oidc-hmac-secret
+# Generate 64-character alphanumeric secrets for Authelia
+nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for authelia-jwt-secret
+nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for authelia-session-secret
+nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for authelia-storage-encryption-key
+nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for authelia-oidc-hmac-secret
 
 # Generate a 72-character random string for the Immich OIDC client secret
-openssl rand -hex 72 # Use this output for immich-oidc-client-secret
+nix run nixpkgs#authelia -- crypto rand --length 72 --charset rfc3986 # Use for immich-oidc-client-secret
 
-# Generate the Authelia Admin Password (choose a strong password for authelia-admin-password)
+# Generate LLDAP Secrets
+nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for lldap-jwt-secret
+# Choose a strong password for lldap-user-pass
 
-# Generate an RSA Keypair for the OIDC Issuer
+# Generate an RSA Keypair for the Authelia OIDC Issuer
 openssl genrsa -out private.pem 4096
 # Copy the contents of private.pem into authelia-oidc-issuer-private-key, keeping the indentation
 cat private.pem

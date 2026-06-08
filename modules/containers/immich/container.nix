@@ -26,8 +26,8 @@ in
     config = { pkgs, ... }: {
       networking.firewall.allowedTCPPorts = [ 2283 ]; # Immich default port
 
-      users.users.immich.uid = 901;
-      users.groups.immich.gid = 901;
+      users.users.immich.uid = 902;
+      users.groups.immich.gid = 902;
 
       # Systemd-resolved running on the host (127.0.0.53) is unreachable from
       # inside the isolated container network, causing DNS resolution to fail.
@@ -48,6 +48,8 @@ in
         # External domain for publicly shared links
         settings = {
           server.externalDomain = "https://immich.${vars.domain}";
+
+          passwordLogin.enabled = false;
 
           # Native OIDC login via Authelia.
           oauth = {
