@@ -35,11 +35,7 @@
     ];
   };
 
-  # Home Manager Setup
-  home-manager.users.root = { pkgs, ... }: {
-    home.stateVersion = "26.05";
-    programs.zsh.enable = true;
-  };
+  time.timeZone = "Europe/Chisinau";
 
   system.stateVersion = "26.05";
 }
