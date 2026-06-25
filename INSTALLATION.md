@@ -111,6 +111,12 @@ authelia-oidc-issuer-private-key: |
 immich-oidc-client-secret: "placeholder"
 lldap-jwt-secret: "placeholder"
 lldap-user-pass: "placeholder"
+# Vaultwarden: env file injected at runtime (ADMIN_TOKEN + SSO_CLIENT_SECRET)
+vaultwarden-env: |
+  ADMIN_TOKEN=placeholder
+  SSO_CLIENT_SECRET=placeholder
+# Authelia's copy of the shared Vaultwarden OIDC client secret (must match SSO_CLIENT_SECRET above)
+vaultwarden-oidc-client-secret: "placeholder"
 ```
 
 **Generate Application Secrets:**
@@ -130,6 +136,18 @@ nix run nixpkgs#authelia -- crypto rand --length 72 --charset rfc3986 # Use for 
 # Generate LLDAP Secrets
 nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for lldap-jwt-secret
 # Choose a strong password for lldap-user-pass
+
+# Generate Vaultwarden secrets
+# SSO client secret (shared between Vaultwarden and Authelia — same value in both keys)
+nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for vaultwarden-oidc-client-secret AND SSO_CLIENT_SECRET in vaultwarden-env
+
+# ADMIN_TOKEN: generate an Argon2 hash (Vaultwarden accepts this natively)
+nix run nixpkgs#authelia -- crypto hash generate argon2 # Enter a strong passphrase when prompted; use the printed hash as ADMIN_TOKEN
+
+# Then put both values into the vaultwarden-env multiline secret:
+# vaultwarden-env: |
+#   ADMIN_TOKEN=<argon2 hash from above>
+#   SSO_CLIENT_SECRET=<same value as vaultwarden-oidc-client-secret>
 
 # Generate an RSA Keypair for the Authelia OIDC Issuer
 openssl genrsa -out private.pem 4096

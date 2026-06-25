@@ -110,6 +110,22 @@
         group = "opencloud";
         mode = "0400";
       };
+      # Vaultwarden environment file: contains ADMIN_TOKEN and SSO_CLIENT_SECRET.
+      # Generate a strong random value for SSO_CLIENT_SECRET and set the same value
+      # in authelia-vaultwarden-oidc-client-secret below.
+      vaultwarden-env = {
+        owner = "vaultwarden";
+        group = "vaultwarden";
+        mode = "0400";
+      };
+      # Authelia's copy of the Vaultwarden OIDC client secret.
+      # Must match the SSO_CLIENT_SECRET in vaultwarden-env.
+      authelia-vaultwarden-oidc-client-secret = {
+        key = "vaultwarden-oidc-client-secret";
+        owner = "authelia-main";
+        group = "authelia-main";
+        mode = "0400";
+      };
     };
   };
 }

@@ -14,5 +14,6 @@
     ./collabora
     ./authelia
     ./lldap
+    ./vaultwarden
   ];
 }

@@ -70,4 +70,16 @@
   users.groups.opencloud = {
     gid = 903;
   };
+
+  # Vaultwarden service user
+  users.users.vaultwarden = {
+    isSystemUser = true;
+    group = "vaultwarden";
+    description = "Vaultwarden service user";
+    uid = 904;
+  };
+
+  users.groups.vaultwarden = {
+    gid = 904;
+  };
 }

@@ -42,6 +42,10 @@ in
         hostPath = config.sops.secrets.authelia-lldap-user-pass.path;
         isReadOnly = true;
       };
+      "/run/secrets/authelia-vaultwarden-oidc-client-secret" = {
+        hostPath = config.sops.secrets.authelia-vaultwarden-oidc-client-secret.path;
+        isReadOnly = true;
+      };
     };
 
     config = { config, pkgs, ... }: {
@@ -167,6 +171,19 @@ in
                   scopes = [ "openid" "profile" "email" "groups" ];
                   userinfo_signed_response_alg = "none";
                   access_token_signed_response_alg = "RS256";
+                }
+                {
+                  client_id = "vaultwarden";
+                  client_name = "Vaultwarden";
+                  client_secret = "$plaintext\${{ secret \"/run/secrets/authelia-vaultwarden-oidc-client-secret\" }}";
+                  public = false;
+                  authorization_policy = "one_factor";
+                  redirect_uris = [
+                    "https://vault.${vars.domain}/identity/connect/oidc-signin"
+                  ];
+                  scopes = [ "openid" "profile" "email" ];
+                  userinfo_signed_response_alg = "none";
+                  token_endpoint_auth_method = "client_secret_basic";
                 }
               ];
             };

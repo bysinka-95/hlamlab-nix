@@ -1,0 +1,35 @@
+{ ... }:
+{
+  networking.hosts."10.0.0.7" = [ "vaultwarden" ];
+
+  # ZFS Dataset
+  disko.devices.zpool.tank.datasets."services/vaultwarden" = {
+    type = "zfs_fs";
+    options = {
+      mountpoint = "/var/lib/services/vaultwarden";
+      quota = "10G";
+      reservation = "1G";
+      compression = "lz4";
+      atime = "off";
+    };
+  };
+
+  # Snapshots
+  services.sanoid.datasets."tank/services/vaultwarden" = {
+    hourly = 24;
+    daily = 7;
+    weekly = 4;
+    monthly = 12;
+    autosnap = true;
+    autoprune = true;
+  };
+
+  # Limits
+  systemd.services."container@vaultwarden".serviceConfig = {
+    CPUQuota = "100%";
+    MemoryMax = "1G";
+    MemoryHigh = "512M";
+    IOWeight = 100;
+    TasksMax = 512;
+  };
+}

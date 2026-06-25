@@ -51,31 +51,33 @@ the eventual host migration.
 
 ### Application Containers
 
-| Service   | IP:Port            | URL                                                         | Storage Path                | CPU  | RAM (high → max) | ZFS Quota / Res |
-|-----------|--------------------|-------------------------------------------------------------|-----------------------------|------|------------------|-----------------|
-| opencloud | 10.0.0.2:9200      | https://opencloud.yourdomain                                | /var/lib/services/opencloud | 100% | 1.5G → 2G        | 50G / 10G       |
-| immich    | 10.0.0.3:2283      | https://immich.yourdomain                                   | /var/lib/services/immich    | 200% | 3G → 4G          | 300G / 10G      |
-| collabora | 10.0.0.4:9980      | https://collabora.yourdomain                                | /var/lib/services/collabora | 100% | 1G → 1.5G        | 20G / 5G        |
-| authelia    | 10.0.0.5:8443      | https://auth.yourdomain                                     | /var/lib/services/authelia    | 100% | 512M → 1G        | 10G / 1G        |
-| lldap     | 10.0.0.6:3000      | https://lldap.yourdomain                                    | /var/lib/services/lldap     | 100% | 512M → 1G        | 10G / 1G        |
-| —         | 10.0.0.7+          | —                                                           | —                           | —    | —                | —               |
+| Service      | IP:Port            | URL                                                         | Storage Path                   | CPU  | RAM (high → max) | ZFS Quota / Res |
+|--------------|--------------------|-------------------------------------------------------------|--------------------------------|------|------------------|-----------------|
+| opencloud    | 10.0.0.2:9200      | https://opencloud.yourdomain                                | /var/lib/services/opencloud    | 100% | 1.5G → 2G        | 50G / 10G       |
+| immich       | 10.0.0.3:2283      | https://immich.yourdomain                                   | /var/lib/services/immich       | 200% | 3G → 4G          | 300G / 10G      |
+| collabora    | 10.0.0.4:9980      | https://collabora.yourdomain                                | /var/lib/services/collabora    | 100% | 1G → 1.5G        | 20G / 5G        |
+| authelia     | 10.0.0.5:8443      | https://auth.yourdomain                                     | /var/lib/services/authelia     | 100% | 512M → 1G        | 10G / 1G        |
+| lldap        | 10.0.0.6:3000      | https://lldap.yourdomain                                    | /var/lib/services/lldap        | 100% | 512M → 1G        | 10G / 1G        |
+| vaultwarden  | 10.0.0.7:8222      | https://vault.yourdomain                                    | /var/lib/services/vaultwarden  | 100% | 512M → 1G        | 10G / 1G        |
+| —            | 10.0.0.8+          | —                                                           | —                              | —    | —                | —               |
 
-**IP 10.0.0.1** is reserved for the host gateway. **Next available:** 10.0.0.7.
+**IP 10.0.0.1** is reserved for the host gateway. **Next available:** 10.0.0.8.
 
 ### ZFS Datasets
 
-| Dataset                 | Mount                       | Quota | Reservation | Compression |
-|-------------------------|-----------------------------|-------|-------------|-------------|
-| tank/root               | /                           | —     | —           | lz4         |
-| tank/nix                | /nix                        | —     | —           | lz4         |
-| tank/home               | /home                       | —     | —           | lz4         |
-| tank/services           | /var/lib/services           | —     | —           | lz4         |
-| tank/services/opencloud | /var/lib/services/opencloud | 50G   | 10G         | lz4         |
-| tank/services/immich    | /var/lib/services/immich    | 300G  | 10G         | lz4         |
-| tank/services/collabora | /var/lib/services/collabora | 20G   | 5G          | lz4         |
-| tank/services/authelia  | /var/lib/services/authelia  | 10G   | 1G          | lz4         |
-| tank/services/lldap     | /var/lib/services/lldap     | 10G   | 1G          | lz4         |
-| tank/backups            | /var/backups                | —     | —           | gzip        |
+| Dataset                      | Mount                          | Quota | Reservation | Compression |
+|------------------------------|--------------------------------|-------|-------------|-------------|
+| tank/root                    | /                              | —     | —           | lz4         |
+| tank/nix                     | /nix                           | —     | —           | lz4         |
+| tank/home                    | /home                          | —     | —           | lz4         |
+| tank/services                | /var/lib/services              | —     | —           | lz4         |
+| tank/services/opencloud      | /var/lib/services/opencloud    | 50G   | 10G         | lz4         |
+| tank/services/immich         | /var/lib/services/immich       | 300G  | 10G         | lz4         |
+| tank/services/collabora      | /var/lib/services/collabora    | 20G   | 5G          | lz4         |
+| tank/services/authelia       | /var/lib/services/authelia     | 10G   | 1G          | lz4         |
+| tank/services/lldap          | /var/lib/services/lldap        | 10G   | 1G          | lz4         |
+| tank/services/vaultwarden    | /var/lib/services/vaultwarden  | 10G   | 1G          | lz4         |
+| tank/backups                 | /var/backups                   | —     | —           | gzip        |
 
 For ZFS management commands, snapshot operations, and adding new datasets, see
 [ZFS Module Documentation](modules/common/zfs/README.md).
