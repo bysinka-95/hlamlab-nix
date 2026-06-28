@@ -181,7 +181,7 @@ in
                   redirect_uris = [
                     "https://vault.${vars.domain}/identity/connect/oidc-signin"
                   ];
-                  scopes = [ "openid" "profile" "email" ];
+                  scopes = [ "openid" "profile" "email" "offline_access" ];
                   userinfo_signed_response_alg = "none";
                   token_endpoint_auth_method = "client_secret_basic";
                 }
