@@ -15,5 +15,6 @@
     ./authelia
     ./lldap
     ./vaultwarden
+    ./searx
   ];
 }

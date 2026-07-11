@@ -82,4 +82,16 @@
   users.groups.vaultwarden = {
     gid = 904;
   };
+
+  # SearXNG service user
+  users.users.searx = {
+    isSystemUser = true;
+    group = "searx";
+    description = "SearXNG service user";
+    uid = 905;
+  };
+
+  users.groups.searx = {
+    gid = 905;
+  };
 }

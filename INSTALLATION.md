@@ -117,6 +117,9 @@ vaultwarden-env: |
   SSO_CLIENT_SECRET=placeholder
 # Authelia's copy of the shared Vaultwarden OIDC client secret (must match SSO_CLIENT_SECRET above)
 vaultwarden-oidc-client-secret: "placeholder"
+# SearXNG: env file containing secret key
+searx-env: |
+  SEARX_SECRET_KEY=placeholder
 ```
 
 **Generate Application Secrets:**
@@ -148,6 +151,9 @@ nix run nixpkgs#authelia -- crypto hash generate argon2 # Enter a strong passphr
 # vaultwarden-env: |
 #   ADMIN_TOKEN=<argon2 hash from above>
 #   SSO_CLIENT_SECRET=<same value as vaultwarden-oidc-client-secret>
+
+# Generate SearXNG secrets
+nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for SEARX_SECRET_KEY in searx-env
 
 # Generate an RSA Keypair for the Authelia OIDC Issuer
 openssl genrsa -out private.pem 4096

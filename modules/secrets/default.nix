@@ -126,6 +126,12 @@
         group = "authelia-main";
         mode = "0400";
       };
+      # SearXNG environment file: contains SEARX_SECRET_KEY
+      searx-env = {
+        owner = "searx";
+        group = "searx";
+        mode = "0400";
+      };
     };
   };
 }

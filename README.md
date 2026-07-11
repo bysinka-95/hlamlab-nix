@@ -59,9 +59,10 @@ the eventual host migration.
 | authelia     | 10.0.0.5:8443      | https://auth.yourdomain                                     | /var/lib/services/authelia     | 100% | 512M → 1G        | 10G / 1G        |
 | lldap        | 10.0.0.6:3000      | https://lldap.yourdomain                                    | /var/lib/services/lldap        | 100% | 512M → 1G        | 10G / 1G        |
 | vaultwarden  | 10.0.0.7:8222      | https://vault.yourdomain                                    | /var/lib/services/vaultwarden  | 100% | 512M → 1G        | 10G / 1G        |
-| —            | 10.0.0.8+          | —                                                           | —                              | —    | —                | —               |
+| searx        | 10.0.0.8:8888      | https://searxng.yourdomain                                  | /var/lib/services/searx        | 100% | 512M → 1G        | 10G / 1G        |
+| —            | 10.0.0.9+          | —                                                           | —                              | —    | —                | —               |
 
-**IP 10.0.0.1** is reserved for the host gateway. **Next available:** 10.0.0.8.
+**IP 10.0.0.1** is reserved for the host gateway. **Next available:** 10.0.0.9.
 
 ### ZFS Datasets
 
@@ -77,6 +78,7 @@ the eventual host migration.
 | tank/services/authelia       | /var/lib/services/authelia     | 10G   | 1G          | lz4         |
 | tank/services/lldap          | /var/lib/services/lldap        | 10G   | 1G          | lz4         |
 | tank/services/vaultwarden    | /var/lib/services/vaultwarden  | 10G   | 1G          | lz4         |
+| tank/services/searx          | /var/lib/services/searx        | 10G   | 1G          | lz4         |
 | tank/backups                 | /var/backups                   | —     | —           | gzip        |
 
 For ZFS management commands, snapshot operations, and adding new datasets, see
