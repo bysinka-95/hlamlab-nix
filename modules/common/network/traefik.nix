@@ -1,6 +1,6 @@
-{ ... }:
+{ config, ... }:
 let
-  vars = import ../local.nix;
+  vars = import ../settings.nix;
 in
 {
   services.traefik = {
@@ -81,7 +81,7 @@ in
         };
       };
 
-      # Providers - removed file provider, using dynamicConfigOptions instead
+      # Providers
       providers = {
         providersThrottleDuration = "2s";
       };
@@ -135,11 +135,7 @@ in
             tls = {};
             middlewares = [ "dashboard-auth" "security-headers" ];
           };
-
-          # Service-specific routers are defined in corresponding service directories
         };
-
-        # Service-specific services are defined in corresponding service directories
       };
 
       # TLS configuration for Cloudflare mTLS

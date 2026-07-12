@@ -70,8 +70,9 @@ Three certificates are involved:
 ```bash
 sops modules/secrets/secrets.yaml
 # Add:
-#   traefik-origin-cert: | <certificate>
-#   traefik-origin-key:  | <private key>
+#   traefik:
+#     origin-cert: | <certificate>
+#     origin-key:  | <private key>
 ```
 
 Deployed to: `/var/lib/traefik/certs/origin.crt` and `/var/lib/traefik/certs/origin.key` (owner: `traefik`, 0400)
@@ -82,14 +83,15 @@ Deployed to: `/var/lib/traefik/certs/origin.crt` and `/var/lib/traefik/certs/ori
 curl https://developers.cloudflare.com/ssl/static/authenticated_origin_pull_ca.pem
 sops modules/secrets/secrets.yaml
 # Add:
-#   cloudflare-origin-ca: | <certificate>
+#   cloudflare:
+#     origin-ca: | <certificate>
 ```
 
 Deployed to: `/var/lib/cloudflared/origin-ca.pem`
 
 #### 3. Cloudflare Tunnel Credentials
 
-Stored as `cloudflared-credentials` in `modules/secrets/secrets.yaml`. Get the JSON from
+Stored as `cloudflare/credentials` in `modules/secrets/secrets.yaml`. Get the JSON from
 Cloudflare Dashboard → Zero Trust → Networks → Tunnels → your tunnel → Configure.
 
 ### mTLS Flow
@@ -104,12 +106,12 @@ mTLS established → request proxied to container
 
 - **Core** ([`traefik.nix`](traefik.nix)): entrypoints (HTTP :80 → HTTPS :443), `requireCloudflareMTLS` TLS option,
   shared middlewares `security-headers` + `rate-limit`, dashboard router
-- **Per-service**: each `modules/containers/<name>/traefik.nix` adds its own router/backend via `dynamicConfigOptions`
+- **Per-service**: each `modules/containers/<name>/traefik.nix` adds its own router/backend via a sops template on the host.
 - **Dashboard**: `https://traefik.yourdomain` (basic auth); logs at `/var/log/traefik/`
 
 ### Cloudflared Configuration
 
-- Tunnel ID from [`modules/common/local.nix`](../local.nix) (`vars.tunnelId`)
+- Tunnel ID and Domain from `modules/secrets/secrets.yaml` (keys `cloudflare/tunnel-id` and `cloudflare/domain`)
 - Ingress: `*.yourdomain` → `https://localhost:443`
 - mTLS CA: `/var/lib/cloudflared/origin-ca.pem`
 

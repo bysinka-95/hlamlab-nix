@@ -1,6 +1,6 @@
 { ... }:
 let
-  vars = import ../../common/local.nix;
+  vars = import ../../common/settings.nix;
 in
 {
   # Native NixOS container running Collabora Online

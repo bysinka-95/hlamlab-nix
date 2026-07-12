@@ -1,6 +1,6 @@
 { ... }:
 let
-  vars = import ../../common/local.nix;
+  vars = import ../../common/settings.nix;
 in
 {
   services.traefik.dynamicConfigOptions = {
@@ -12,7 +12,7 @@ in
         tls = { };
         middlewares = [ "security-headers" ];
       };
-      
+
       services.lldap = {
         loadBalancer = {
           servers = [{ url = "http://lldap:3000"; }];

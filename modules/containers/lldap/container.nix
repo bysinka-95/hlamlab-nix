@@ -1,6 +1,6 @@
-{ config, ... }:
+{ config, inputs, ... }:
 let
-  vars = import ../../common/local.nix;
+  vars = import ../../common/settings.nix;
 in
 {
   containers.lldap = {
@@ -14,17 +14,40 @@ in
         hostPath = "/var/lib/services/lldap";
         isReadOnly = false;
       };
-      "/run/secrets/lldap-jwt-secret" = {
-        hostPath = config.sops.secrets.lldap-jwt-secret.path;
-        isReadOnly = true;
-      };
-      "/run/secrets/lldap-user-pass" = {
-        hostPath = config.sops.secrets.lldap-lldap-user-pass.path;
+      "/var/lib/sops-nix/key.txt" = {
+        hostPath = "/var/lib/sops-nix/key.txt";
         isReadOnly = true;
       };
     };
 
-    config = { lib, pkgs, ... }: {
+    config = { lib, pkgs, config, ... }: {
+      imports = [
+        inputs.sops-nix.nixosModules.sops
+      ];
+
+      sops = {
+        defaultSopsFile = ../../secrets/secrets.yaml;
+        defaultSopsFormat = "yaml";
+        age.keyFile = "/var/lib/sops-nix/key.txt";
+
+        secrets = {
+          lldap-jwt-secret = {
+            key = "lldap/jwt-secret";
+            owner = "lldap";
+            group = "lldap";
+            mode = "0400";
+            restartUnits = [ "lldap.service" ];
+          };
+          lldap-user-pass = {
+            key = "lldap/user-pass";
+            owner = "lldap";
+            group = "lldap";
+            mode = "0400";
+            restartUnits = [ "lldap.service" ];
+          };
+        };
+      };
+
       networking.firewall.allowedTCPPorts = [ 3890 3000 ];
       networking.nameservers = [ "1.1.1.1" "1.0.0.1" ];
 
@@ -32,7 +55,6 @@ in
 
       services.lldap = {
         enable = true;
-        environmentFile = null; # We'll use specific settings
         settings = {
           ldap_host = "0.0.0.0";
           ldap_port = 3890;
@@ -40,39 +62,36 @@ in
           http_port = 3000;
           http_url = "https://lldap.${vars.domain}";
           ldap_base_dn = vars.ldapBaseDn;
-          jwt_secret_file = "/run/secrets/lldap-jwt-secret";
+          jwt_secret_file = config.sops.secrets.lldap-jwt-secret.path;
           ldap_user_email = "admin@${vars.domain}";
           ldap_user_dn = "admin";
-          ldap_user_pass_file = "/run/secrets/lldap-user-pass";
+          ldap_user_pass_file = config.sops.secrets.lldap-user-pass.path;
           force_ldap_user_pass_reset = "always";
           database_url = "sqlite:///var/lib/lldap/users.db?mode=rwc";
         };
       };
 
-      # We need to ensure that lldap service runs with write access to /var/lib/lldap
       systemd.services.lldap.serviceConfig = {
         ReadWritePaths = [ "/var/lib/lldap" ];
         DynamicUser = lib.mkForce false;
-        StateDirectory = lib.mkForce "";
+        StateDirectory = "lldap";
         User = "lldap";
         Group = "lldap";
       };
 
-      # Define static user/group for lldap to match host permissions
+      # Define user/group dynamically
       users.users.lldap = {
         isSystemUser = true;
         group = "lldap";
-        uid = 901;
+        description = "LLDAP service user";
       };
-      users.groups.lldap = {
-        gid = 901;
-      };
+      users.groups.lldap = { };
 
       system.stateVersion = "26.05";
     };
   };
 
   systemd.tmpfiles.rules = [
-    "d /var/lib/services/lldap 0750 901 901 -"
+    "d /var/lib/services/lldap 0750 root root -"
   ];
 }

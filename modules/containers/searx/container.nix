@@ -1,6 +1,6 @@
-{ config, lib, ... }:
+{ config, lib, inputs, ... }:
 let
-  vars = import ../../common/local.nix;
+  vars = import ../../common/settings.nix;
 in
 {
   containers.searx = {
@@ -14,40 +14,53 @@ in
         hostPath = "/var/lib/services/searx";
         isReadOnly = false;
       };
-      "/run/secrets/searx-env" = {
-        hostPath = config.sops.secrets.searx-env.path;
+      "/var/lib/sops-nix/key.txt" = {
+        hostPath = "/var/lib/sops-nix/key.txt";
         isReadOnly = true;
       };
     };
 
-    config = { lib, pkgs, ... }: {
+    config = { lib, pkgs, config, ... }: {
+      imports = [
+        inputs.sops-nix.nixosModules.sops
+      ];
+
+      sops = {
+        defaultSopsFile = ../../secrets/secrets.yaml;
+        defaultSopsFormat = "yaml";
+        age.keyFile = "/var/lib/sops-nix/key.txt";
+        secrets."searx/env" = {
+          owner = "searx";
+          group = "searx";
+          mode = "0400";
+          restartUnits = [ "uwsgi.service" ];
+        };
+      };
+
       networking.firewall.allowedTCPPorts = [ 8888 ];
       networking.nameservers = [ "1.1.1.1" "1.0.0.1" ];
 
-      # Force searx user/group to have static UID/GID 905 to match host
+      # SearXNG user/group with dynamically allocated UID/GID
       users.users.searx = {
         isSystemUser = true;
         group = "searx";
-        uid = 905;
       };
-      users.groups.searx = {
-        gid = 905;
-      };
+      users.groups.searx = { };
+
+      systemd.services.uwsgi.serviceConfig.StateDirectory = "searx";
 
       # Pass the sops environment file containing SEARX_SECRET_KEY to uwsgi
-      systemd.services.uwsgi.serviceConfig.EnvironmentFile = "/run/secrets/searx-env";
+      systemd.services.uwsgi.serviceConfig.EnvironmentFile = config.sops.secrets."searx/env".path;
 
       services.searx = {
         enable = true;
         redisCreateLocally = true;
         configureUwsgi = true;
+        environmentFile = config.sops.secrets."searx/env".path;
 
         uwsgiConfig = {
           http = "0.0.0.0:8888";
         };
-
-        # Load the secret from the mounted sops secret file
-        environmentFile = "/run/secrets/searx-env";
 
         # Favicons settings for SearXNG
         faviconsSettings = {
@@ -214,6 +227,6 @@ in
 
   # Host side tmpfiles rule for persistent state directory
   systemd.tmpfiles.rules = [
-    "d /var/lib/services/searx 0750 905 905 -"
+    "d /var/lib/services/searx 0750 root root -"
   ];
 }

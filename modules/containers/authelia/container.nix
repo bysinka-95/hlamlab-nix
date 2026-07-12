@@ -1,6 +1,6 @@
-{ config, ... }:
+{ config, inputs, ... }:
 let
-  vars = import ../../common/local.nix;
+  vars = import ../../common/settings.nix;
 in
 {
   containers.authelia = {
@@ -14,41 +14,82 @@ in
         hostPath = "/var/lib/services/authelia";
         isReadOnly = false;
       };
-      "/run/secrets/authelia-jwt-secret" = {
-        hostPath = config.sops.secrets.authelia-jwt-secret.path;
-        isReadOnly = true;
-      };
-      "/run/secrets/authelia-session-secret" = {
-        hostPath = config.sops.secrets.authelia-session-secret.path;
-        isReadOnly = true;
-      };
-      "/run/secrets/authelia-storage-encryption-key" = {
-        hostPath = config.sops.secrets.authelia-storage-encryption-key.path;
-        isReadOnly = true;
-      };
-      "/run/secrets/authelia-immich-oidc-client-secret" = {
-        hostPath = config.sops.secrets.authelia-immich-oidc-client-secret.path;
-        isReadOnly = true;
-      };
-      "/run/secrets/authelia-oidc-hmac-secret" = {
-        hostPath = config.sops.secrets.authelia-oidc-hmac-secret.path;
-        isReadOnly = true;
-      };
-      "/run/secrets/authelia-oidc-issuer-private-key" = {
-        hostPath = config.sops.secrets.authelia-oidc-issuer-private-key.path;
-        isReadOnly = true;
-      };
-      "/run/secrets/lldap-user-pass" = {
-        hostPath = config.sops.secrets.authelia-lldap-user-pass.path;
-        isReadOnly = true;
-      };
-      "/run/secrets/authelia-vaultwarden-oidc-client-secret" = {
-        hostPath = config.sops.secrets.authelia-vaultwarden-oidc-client-secret.path;
+      "/var/lib/sops-nix/key.txt" = {
+        hostPath = "/var/lib/sops-nix/key.txt";
         isReadOnly = true;
       };
     };
 
     config = { config, pkgs, ... }: {
+      imports = [
+        inputs.sops-nix.nixosModules.sops
+      ];
+
+      sops = {
+        defaultSopsFile = ../../secrets/secrets.yaml;
+        defaultSopsFormat = "yaml";
+        age.keyFile = "/var/lib/sops-nix/key.txt";
+
+        secrets = {
+          authelia-jwt-secret = {
+            key = "authelia/jwt-secret";
+            owner = "authelia-main";
+            group = "authelia-main";
+            mode = "0400";
+            restartUnits = [ "authelia-main.service" ];
+          };
+          authelia-session-secret = {
+            key = "authelia/session-secret";
+            owner = "authelia-main";
+            group = "authelia-main";
+            mode = "0400";
+            restartUnits = [ "authelia-main.service" ];
+          };
+          authelia-storage-encryption-key = {
+            key = "authelia/storage-encryption-key";
+            owner = "authelia-main";
+            group = "authelia-main";
+            mode = "0400";
+            restartUnits = [ "authelia-main.service" ];
+          };
+          authelia-immich-oidc-client-secret = {
+            key = "immich/oidc-client-secret";
+            owner = "authelia-main";
+            group = "authelia-main";
+            mode = "0400";
+            restartUnits = [ "authelia-main.service" ];
+          };
+          authelia-lldap-user-pass = {
+            key = "lldap/user-pass";
+            owner = "authelia-main";
+            group = "authelia-main";
+            mode = "0440";
+            restartUnits = [ "authelia-main.service" ];
+          };
+          authelia-vaultwarden-oidc-client-secret = {
+            key = "vaultwarden/oidc-client-secret";
+            owner = "authelia-main";
+            group = "authelia-main";
+            mode = "0400";
+            restartUnits = [ "authelia-main.service" ];
+          };
+          authelia-oidc-hmac-secret = {
+            key = "authelia/oidc-hmac-secret";
+            owner = "authelia-main";
+            group = "authelia-main";
+            mode = "0400";
+            restartUnits = [ "authelia-main.service" ];
+          };
+          authelia-oidc-issuer-private-key = {
+            key = "authelia/oidc-issuer-private-key";
+            owner = "authelia-main";
+            group = "authelia-main";
+            mode = "0400";
+            restartUnits = [ "authelia-main.service" ];
+          };
+        };
+      };
+
       networking.firewall.allowedTCPPorts = [ 9091 ];
       networking.nameservers = [ "1.1.1.1" "1.0.0.1" ];
 
@@ -56,12 +97,9 @@ in
         isSystemUser = true;
         group = "authelia-main";
         description = "Authelia main instance user";
-        uid = 900;
       };
 
-      users.groups.authelia-main = {
-        gid = 900;
-      };
+      users.groups.authelia-main = { };
 
       services.redis.servers.authelia.enable = true;
 
@@ -69,16 +107,16 @@ in
         enable = true;
 
         secrets = {
-          jwtSecretFile = "/run/secrets/authelia-jwt-secret";
-          sessionSecretFile = "/run/secrets/authelia-session-secret";
-          storageEncryptionKeyFile = "/run/secrets/authelia-storage-encryption-key";
-          oidcHmacSecretFile = "/run/secrets/authelia-oidc-hmac-secret";
-          oidcIssuerPrivateKeyFile = "/run/secrets/authelia-oidc-issuer-private-key";
+          jwtSecretFile = config.sops.secrets.authelia-jwt-secret.path;
+          sessionSecretFile = config.sops.secrets.authelia-session-secret.path;
+          storageEncryptionKeyFile = config.sops.secrets.authelia-storage-encryption-key.path;
+          oidcHmacSecretFile = config.sops.secrets.authelia-oidc-hmac-secret.path;
+          oidcIssuerPrivateKeyFile = config.sops.secrets.authelia-oidc-issuer-private-key.path;
         };
 
         environmentVariables = {
           X_AUTHELIA_CONFIG_FILTERS = "template";
-          AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE = "/run/secrets/lldap-user-pass";
+          AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE = config.sops.secrets.authelia-lldap-user-pass.path;
         };
 
         settings = {
@@ -147,7 +185,7 @@ in
                 {
                   client_id = "immich";
                   client_name = "Immich";
-                  client_secret = "$plaintext\${{ secret \"/run/secrets/authelia-immich-oidc-client-secret\" }}";
+                  client_secret = "$plaintext\${{ secret \"${config.sops.secrets.authelia-immich-oidc-client-secret.path}\" }}";
                   public = false;
                   authorization_policy = "one_factor";
                   redirect_uris = [
@@ -175,7 +213,7 @@ in
                 {
                   client_id = "vaultwarden";
                   client_name = "Vaultwarden";
-                  client_secret = "$plaintext\${{ secret \"/run/secrets/authelia-vaultwarden-oidc-client-secret\" }}";
+                  client_secret = "$plaintext\${{ secret \"${config.sops.secrets.authelia-vaultwarden-oidc-client-secret.path}\" }}";
                   public = false;
                   authorization_policy = "one_factor";
                   redirect_uris = [
@@ -196,15 +234,13 @@ in
         ReadWritePaths = [ "/var/lib/authelia-main" ];
       };
 
-      systemd.tmpfiles.rules = [
-        "d /var/lib/authelia-main 0750 authelia-main authelia-main -"
-      ];
+      systemd.services.authelia-main.serviceConfig.StateDirectory = "authelia-main";
 
       system.stateVersion = "26.05";
     };
   };
 
   systemd.tmpfiles.rules = [
-    "d /var/lib/services/authelia 0750 900 900 -"
+    "d /var/lib/services/authelia 0750 root root -"
   ];
 }

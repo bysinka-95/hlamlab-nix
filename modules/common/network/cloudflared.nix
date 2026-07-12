@@ -1,6 +1,6 @@
 { config, ... }:
 let
-  vars = import ../local.nix;
+  vars = import ../settings.nix;
 in
 {
   services.cloudflared = {
@@ -35,7 +35,6 @@ in
   };
 
   # Create directory for cloudflared certificates
-  # The origin-ca.pem is placed here by sops-nix (configured in secrets/default.nix)
   systemd.tmpfiles.rules = [
     "d /var/lib/cloudflared 0755 cloudflared cloudflared -"
   ];

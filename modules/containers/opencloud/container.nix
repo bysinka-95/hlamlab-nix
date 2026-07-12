@@ -1,6 +1,6 @@
-{ ... }:
+{ config, inputs, ... }:
 let
-  vars = import ../../common/local.nix;
+  vars = import ../../common/settings.nix;
 in
 {
   # Native NixOS container running OpenCloud
@@ -11,38 +11,57 @@ in
     localAddress = "10.0.0.2"; # container IP
 
     # Bind mount: Host storage → Container storage
-    # This makes OpenCloud state persist across container recreation
     bindMounts = {
       "/var/lib/opencloud" = {
         hostPath = "/var/lib/services/opencloud";
         isReadOnly = false;
       };
-      "/run/secrets/opencloud-sharing-secret" = {
-        hostPath = "/run/secrets/opencloud-sharing-secret";
+      "/var/lib/sops-nix/key.txt" = {
+        hostPath = "/var/lib/sops-nix/key.txt";
         isReadOnly = true;
       };
     };
 
-    config = { pkgs, ... }: {
+    config = { lib, pkgs, config, ... }: {
       networking.firewall.allowedTCPPorts = [ 9200 9300 ];
-
-      # Systemd-resolved running on the host (127.0.0.53) is unreachable from
-      # inside the isolated container network, causing DNS resolution to fail.
-      # Hardcoding public nameservers allows the container to resolve its own
-      # Cloudflare-proxied domain name correctly and route through the tunnel.
       networking.nameservers = [ "1.1.1.1" "1.0.0.1" ];
 
-      users.users.opencloud.uid = 903;
-      users.groups.opencloud.gid = 903;
+      imports = [
+        inputs.sops-nix.nixosModules.sops
+      ];
+
+      sops = {
+        defaultSopsFile = ../../secrets/secrets.yaml;
+        defaultSopsFormat = "yaml";
+        age.keyFile = "/var/lib/sops-nix/key.txt";
+
+        secrets = {
+          opencloud-sharing-secret = {
+            key = "opencloud/sharing-secret";
+            owner = "opencloud";
+            group = "opencloud";
+            mode = "0400";
+            restartUnits = [ "opencloud.service" ];
+          };
+        };
+      };
+
+      users.users.opencloud = {
+        isSystemUser = true;
+        group = "opencloud";
+        description = "OpenCloud daemon user";
+      };
+      users.groups.opencloud = { };
 
       services.opencloud = {
         enable = true;
         url = "https://opencloud.${vars.domain}"; # Public URL for proper operation behind Traefik
         address = "0.0.0.0";
         port = 9200;
+        environmentFile = config.sops.secrets.opencloud-sharing-secret.path;
         environment = {
           PROXY_TLS = "false";
-          INITIAL_ADMIN_PASSWORD = "admin"; # Set initial admin password (change after first login)
+          INITIAL_ADMIN_PASSWORD = "admin";
 
           OC_ADD_RUN_SERVICES = "collaboration";
 
@@ -64,21 +83,7 @@ in
           # Keeps OpenCloud CSP IDP placeholders aligned with Authelia.
           IDP_DOMAIN = "auth.${vars.domain}";
         };
-        environmentFile = "/run/secrets/opencloud-sharing-secret";
         settings = {
-          # TODO: Fix in the future to use the structured format instead of env vars
-          #          collaboration = {
-          #            app = {
-          #              name = "Office";
-          #              product = "Collabora";
-          #              addr = "https://collabora.${vars.domain}";
-          #              insecure = false;
-          #            };
-          #            wopi = {
-          #              src = "https://opencloud.${vars.domain}";
-          #            };
-          #          };
-
           # Workaround to fix https://github.com/nixos/nixpkgs/issues/523669
           sharing.service_account.service_account_id = "fb60052c-2854-4225-9ef9-acf6e7907ed1";
 
@@ -128,14 +133,13 @@ in
         };
       };
 
+      systemd.services.opencloud.serviceConfig.StateDirectory = "opencloud";
 
       system.stateVersion = "26.05";
     };
   };
 
   # Create the host directory for OpenCloud state storage
-  # This directory will be bind-mounted into the container
-  # Ownership will be managed by the container's opencloud user automatically
   systemd.tmpfiles.rules = [
     "d /var/lib/services 0755 root root -"
     "d /var/lib/services/opencloud 0755 root root -"

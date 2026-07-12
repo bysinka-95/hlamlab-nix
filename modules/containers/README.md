@@ -44,37 +44,83 @@ In `modules/containers/<name>/`, create the 4 required files (skeletons provided
 
 **`container.nix`** (App configuration):
 ```nix
-{ ... }:
-let vars = import ../../common/local.nix; in
+{ config, inputs, ... }:
 {
   containers.myservice = {
     autoStart = true;
     privateNetwork = true;
     hostAddress = "10.0.0.1";
     localAddress = "10.0.0.N"; # Check main README.md
-    bindMounts."/var/lib/myservice".hostPath = "/var/lib/services/myservice";
-    config = { ... }: {
-      services.myservice = { enable = true; listenAddress = "0.0.0.0"; };
+    bindMounts = {
+      "/var/lib/myservice" = {
+        hostPath = "/var/lib/services/myservice";
+        isReadOnly = false;
+      };
+      "/var/lib/sops-nix/key.txt" = {
+        hostPath = "/var/lib/sops-nix/key.txt";
+        isReadOnly = true;
+      };
+    };
+    config = { config, pkgs, ... }: {
+      imports = [ inputs.sops-nix.nixosModules.sops ];
+      sops = {
+        defaultSopsFile = ../../secrets/secrets.yaml;
+        defaultSopsFormat = "yaml";
+        age.keyFile = "/var/lib/sops-nix/key.txt";
+        secrets.myservice-env = {
+          key = "myservice/env";
+          owner = "myservice";
+          group = "myservice";
+          mode = "0400";
+          restartUnits = [ "myservice.service" ];
+        };
+      };
+      services.myservice = {
+        enable = true;
+        listenAddress = "0.0.0.0";
+        environmentFile = "/run/secrets/myservice-env";
+      };
+      users.users.myservice = {
+        isSystemUser = true;
+        group = "myservice";
+      };
+      users.groups.myservice = { };
+      systemd.tmpfiles.rules = [
+        "z /var/lib/myservice 0750 myservice myservice -"
+      ];
       networking.firewall.allowedTCPPorts = [ <port> ];
       system.stateVersion = "26.05";
     };
   };
-  systemd.tmpfiles.rules = [ "d /var/lib/services/myservice 0755 root root -" ];
+  systemd.tmpfiles.rules = [ "d /var/lib/services/myservice 0750 root root -" ];
 }
 ```
 
 **`traefik.nix`** (Reverse proxy):
 ```nix
-{ ... }:
-let vars = import ../../common/local.nix; in
+{ config, ... }:
 {
-  services.traefik.dynamicConfigOptions.http = {
-    routers.myservice = {
-      rule = "Host(`myservice.${vars.domain}`)";
-      entryPoints = [ "https" ]; service = "myservice"; tls = {};
-      middlewares = [ "security-headers" ];
-    };
-    services.myservice.loadBalancer.servers = [{ url = "http://myservice:<port>"; }];
+  sops.templates."traefik-myservice.yaml" = {
+    content = ''
+      http:
+        routers:
+          myservice:
+            rule: Host(`myservice.${config.sops.placeholder."cloudflare/domain"}`)
+            entryPoints: [https]
+            service: myservice
+            tls: {}
+            middlewares: [security-headers]
+        services:
+          myservice:
+            loadBalancer:
+              servers:
+                - url: http://myservice:<port>
+              passHostHeader: true
+    '';
+    path = "/var/lib/traefik/dynamic/myservice.yaml";
+    owner = "traefik";
+    group = "traefik";
+    mode = "0400";
   };
 }
 ```

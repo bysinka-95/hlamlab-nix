@@ -1,4 +1,7 @@
 { ... }:
+let
+  vars = import ../common/settings.nix;
+in
 {
   # sops-nix secrets management configuration
   sops = {
@@ -15,122 +18,38 @@
     };
 
     secrets = {
+      # Cloudflare Tunnel credentials (JSON)
       cloudflared-credentials = {
+        key = "cloudflare/credentials";
         owner = "cloudflared";
         group = "cloudflared";
         mode = "0400";
+        restartUnits = [ "cloudflared-tunnel-${vars.tunnelId}.service" ];
       };
       # Cloudflare's Authenticated Origin Pull CA (public certificate)
       cloudflare-origin-ca = {
-        # World-readable since it's a public CA cert (both cloudflared and traefik need it)
+        key = "cloudflare/origin-ca";
         mode = "0444";
         path = "/var/lib/cloudflared/origin-ca.pem";
+        restartUnits = [ "traefik.service" "cloudflared-tunnel-${vars.tunnelId}.service" ];
       };
       # YOUR origin certificate (what Traefik presents to Cloudflare)
       traefik-origin-cert = {
+        key = "traefik/origin-cert";
         owner = "traefik";
         group = "traefik";
         mode = "0400";
         path = "/var/lib/traefik/certs/origin.crt";
+        restartUnits = [ "traefik.service" ];
       };
       # YOUR origin private key (Traefik's private key)
       traefik-origin-key = {
+        key = "traefik/origin-key";
         owner = "traefik";
         group = "traefik";
         mode = "0400";
         path = "/var/lib/traefik/certs/origin.key";
-      };
-      # Authelia JWT secret
-      authelia-jwt-secret = {
-        owner = "authelia-main";
-        group = "authelia-main";
-        mode = "0400";
-      };
-      # Authelia session secret
-      authelia-session-secret = {
-        owner = "authelia-main";
-        group = "authelia-main";
-        mode = "0400";
-      };
-      # Authelia storage encryption key
-      authelia-storage-encryption-key = {
-        owner = "authelia-main";
-        group = "authelia-main";
-        mode = "0400";
-      };
-      # Authelia's view of the Immich client secret for OIDC client configuration.
-      authelia-immich-oidc-client-secret = {
-        key = "immich-oidc-client-secret";
-        owner = "authelia-main";
-        group = "authelia-main";
-        mode = "0400";
-      };
-      # Immich OAuth client secret (raw value). Mounted into the immich container.
-      immich-immich-oidc-client-secret = {
-        key = "immich-oidc-client-secret";
-        owner = "immich";
-        group = "immich";
-        mode = "0400";
-      };
-      # Authelia OIDC HMAC secret
-      authelia-oidc-hmac-secret = {
-        owner = "authelia-main";
-        group = "authelia-main";
-        mode = "0400";
-      };
-      # Authelia OIDC issuer private key (RSA 4096)
-      authelia-oidc-issuer-private-key = {
-        owner = "authelia-main";
-        group = "authelia-main";
-        mode = "0400";
-      };
-      # LLDAP JWT secret
-      lldap-jwt-secret = {
-        owner = "lldap";
-        group = "lldap";
-        mode = "0400";
-      };
-      # LLDAP default admin password
-      lldap-lldap-user-pass = {
-        key = "lldap-user-pass";
-        owner = "lldap";
-        group = "lldap";
-        mode = "0440";
-      };
-      # LLDAP default admin password
-      authelia-lldap-user-pass = {
-        key = "lldap-user-pass";
-        owner = "authelia-main";
-        group = "authelia-main";
-        mode = "0440";
-      };
-      # OpenCloud sharing service account secret (environment file).
-      opencloud-sharing-secret = {
-        owner = "opencloud";
-        group = "opencloud";
-        mode = "0400";
-      };
-      # Vaultwarden environment file: contains ADMIN_TOKEN and SSO_CLIENT_SECRET.
-      # Generate a strong random value for SSO_CLIENT_SECRET and set the same value
-      # in authelia-vaultwarden-oidc-client-secret below.
-      vaultwarden-env = {
-        owner = "vaultwarden";
-        group = "vaultwarden";
-        mode = "0400";
-      };
-      # Authelia's copy of the Vaultwarden OIDC client secret.
-      # Must match the SSO_CLIENT_SECRET in vaultwarden-env.
-      authelia-vaultwarden-oidc-client-secret = {
-        key = "vaultwarden-oidc-client-secret";
-        owner = "authelia-main";
-        group = "authelia-main";
-        mode = "0400";
-      };
-      # SearXNG environment file: contains SEARX_SECRET_KEY
-      searx-env = {
-        owner = "searx";
-        group = "searx";
-        mode = "0400";
+        restartUnits = [ "traefik.service" ];
       };
     };
   };

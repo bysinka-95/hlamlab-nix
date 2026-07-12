@@ -1,9 +1,8 @@
 { ... }:
 let
-  vars = import ../../common/local.nix;
+  vars = import ../../common/settings.nix;
 in
 {
-  # Traefik configuration for Collabora
   services.traefik.dynamicConfigOptions = {
     http = {
       middlewares = {
@@ -29,9 +28,7 @@ in
 
       services.collabora = {
         loadBalancer = {
-          servers = [
-            { url = "http://collabora:9980"; }
-          ];
+          servers = [{ url = "http://collabora:9980"; }];
           passHostHeader = true;
         };
       };

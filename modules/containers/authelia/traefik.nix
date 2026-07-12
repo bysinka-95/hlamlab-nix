@@ -1,12 +1,10 @@
 { ... }:
 let
-  vars = import ../../common/local.nix;
+  vars = import ../../common/settings.nix;
 in
 {
-  # Traefik configuration for Authelia
   services.traefik.dynamicConfigOptions = {
     http = {
-      # Router: auth.yourdomain → authelia container
       routers.authelia = {
         rule = "Host(`auth.${vars.domain}`)";
         service = "authelia";
@@ -15,10 +13,9 @@ in
         middlewares = [ "security-headers" ];
       };
 
-      # Service: Backend configuration
       services.authelia = {
         loadBalancer = {
-          servers = [{ url = "http://authelia:9091"; }]; # DNS name from default.nix
+          servers = [{ url = "http://authelia:9091"; }];
           passHostHeader = true;
         };
       };

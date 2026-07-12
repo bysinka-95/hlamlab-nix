@@ -53,20 +53,28 @@ Encrypted secrets via sops-nix + age. All secrets declared in [`default.nix`](de
 
 ---
 
-## Secrets vs Configuration Variables
+## Secrets and Configuration Variables
 
-| Type                | Location                   | Examples                                                                     |
-|---------------------|----------------------------|------------------------------------------------------------------------------|
-| 🔒 Encrypted (sops) | `secrets.yaml`             | `cloudflared-credentials`, `traefik-origin-cert/key`, `authelia-admin-password`, `authelia-jwt-secret`, `authelia-oidc-issuer-private-key`, `immich-oidc-client-secret`, `searx-env`, etc. |
-| 📝 Plaintext (git)  | `modules/common/local.nix` | `domain`, `tunnelId`                                                         |
+All secrets (including Cloudflare credentials, CA pull certificates, service environments, OIDC client secrets, and passwords) are kept encrypted inside `secrets.yaml` using nested YAML groups:
 
-Domain and tunnel ID aren't truly secret (domain is in DNS, tunnel ID is just an identifier), so they live in
-`local.nix` unencrypted for convenience. Use dummy values when publishing publicly.
+```yaml
+cloudflare:
+  credentials: "..."
+  origin-ca: "..."
+traefik:
+  origin-cert: "..."
+  origin-key: "..."
+searx:
+  env: "..."
+# ...
+```
+
+Compile-time parameters (such as `domain`, `tunnelId`, and `hostId`) are configured in plaintext inside [`modules/common/settings.nix`](../common/settings.nix).
 
 ---
 
 ## What to Commit
 
-✅ **Safe**: `modules/secrets/secrets.yaml` (encrypted), `.sops.yaml` (public keys only), `modules/common/local.nix`
+✅ **Safe**: `modules/secrets/secrets.yaml` (encrypted), `.sops.yaml` (public keys only)
 
 ❌ **Never**: `keys.txt` (your age private key), any unencrypted secret files

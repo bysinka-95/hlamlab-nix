@@ -11,15 +11,13 @@ the eventual host migration.
   outputs.
 - [`modules/common/`](modules/common): Shared defaults (nix settings, allowUnfree, SSH policy, base
   packages).
-- [`modules/common/local.nix`](modules/common/local.nix): **Configuration variables** (domain,
-  tunnel ID) - **edit for
-  your setup**.
 - [`modules/common/network/`](modules/common/network): Network services (Traefik reverse proxy,
-  Cloudflare Tunnel, SSH,
-  mDNS).
+  Cloudflare Tunnel, mDNS).
 - [`modules/common/zfs/`](modules/common/zfs): ZFS configuration (declarative datasets, snapshots,
   monitoring).
-- [`modules/secrets/`](modules/secrets): sops-nix configuration and encrypted secrets.
+- [`modules/secrets/`](modules/secrets): sops-nix configuration and encrypted secrets. All configuration
+  variables (domain, tunnel ID, passwords, client secrets) live inside `secrets.yaml`
+  encrypted using sops-nix.
 - [`modules/containers/`](modules/containers): Self-contained service modules (each with container +
   traefik + DNS).
 - [`hosts/playground/`](hosts/playground)
@@ -102,12 +100,17 @@ For container management commands and how to add new services, see
 
 Before deploying, edit the configuration file with your values:
 
-**Edit [`modules/common/local.nix`](modules/common/local.nix)**:
+**Edit [`modules/common/settings.nix`](modules/common/settings.nix)**:
 
 ```nix
-{
+let
   domain = "yourdomain.com";           # Your domain name
   tunnelId = "your-tunnel-id-here";    # Your Cloudflare Tunnel ID
+  hostId = "your-zfs-host-id";         # Your ZFS host ID (8 hex chars)
+  ...
+in
+{
+  inherit domain tunnelId hostId ldapBaseDn;
 }
 ```
 

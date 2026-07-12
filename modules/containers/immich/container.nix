@@ -1,6 +1,6 @@
-{ config, ... }:
+{ config, inputs, ... }:
 let
-  vars = import ../../common/local.nix;
+  vars = import ../../common/settings.nix;
 in
 {
   # Native NixOS container running Immich
@@ -17,22 +17,34 @@ in
         hostPath = "/var/lib/services/immich";
         isReadOnly = false;
       };
-      "/run/secrets/immich-oidc-client-secret" = {
-        hostPath = config.sops.secrets.immich-immich-oidc-client-secret.path;
+      "/var/lib/sops-nix/key.txt" = {
+        hostPath = "/var/lib/sops-nix/key.txt";
         isReadOnly = true;
       };
     };
 
-    config = { pkgs, ... }: {
+    config = { pkgs, config, ... }: {
+      imports = [
+        inputs.sops-nix.nixosModules.sops
+      ];
+
+      sops = {
+        defaultSopsFile = ../../secrets/secrets.yaml;
+        defaultSopsFormat = "yaml";
+        age.keyFile = "/var/lib/sops-nix/key.txt";
+
+        secrets = {
+          immich-oidc-client-secret = {
+            key = "immich/oidc-client-secret";
+            owner = "immich";
+            group = "immich";
+            mode = "0400";
+            restartUnits = [ "immich-server.service" "immich-microservices.service" ];
+          };
+        };
+      };
+
       networking.firewall.allowedTCPPorts = [ 2283 ]; # Immich default port
-
-      users.users.immich.uid = 902;
-      users.groups.immich.gid = 902;
-
-      # Systemd-resolved running on the host (127.0.0.53) is unreachable from
-      # inside the isolated container network, causing DNS resolution to fail.
-      # Hardcoding public nameservers allows the container to resolve domains
-      # and reach external services or identity providers.
       networking.nameservers = [ "1.1.1.1" "1.0.0.1" ];
 
       # Immich service with full stack (app + DB + Redis + ML)
@@ -56,7 +68,7 @@ in
             enabled = true;
             issuerUrl = "https://auth.${vars.domain}";
             clientId = "immich";
-            clientSecret._secret = "/run/secrets/immich-oidc-client-secret";
+            clientSecret._secret = config.sops.secrets.immich-oidc-client-secret.path;
             scope = "openid email profile";
             autoRegister = true;
             autoLaunch = false;
@@ -96,13 +108,21 @@ in
       # Enable Redis service (required by Immich)
       services.redis.servers."".enable = true;
 
+      # Dynamic user/group
+      users.users.immich = {
+        isSystemUser = true;
+        group = "immich";
+        description = "Immich service user";
+      };
+      users.groups.immich = { };
+
+      systemd.services.immich-server.serviceConfig.StateDirectory = "immich";
+
       system.stateVersion = "26.05";
     };
   };
 
   # Create the host directory for Immich media storage
-  # This directory will be bind-mounted into the container
-  # Ownership will be managed by the container's immich user automatically
   systemd.tmpfiles.rules = [
     "d /var/lib/services 0755 root root -"
     "d /var/lib/services/immich 0755 root root -"

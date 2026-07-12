@@ -6,15 +6,7 @@ Deploying this config to a fresh machine with nixos-anywhere.
 
 ## Part 1: Pre-Installation
 
-### 1. Configure local variables
-
-Edit [`modules/common/local.nix`](modules/common/local.nix):
-
-```nix
-{ domain = "yourdomain.com"; tunnelId = "your-tunnel-id-here"; }
-```
-
-### 2. Add your SSH key
+### 1. Add your SSH key
 
 Edit [`hosts/playground/configuration.nix`](hosts/playground/configuration.nix):
 
@@ -22,7 +14,7 @@ Edit [`hosts/playground/configuration.nix`](hosts/playground/configuration.nix):
 users.users.hlamnix.openssh.authorizedKeys.keys = [ "ssh-ed25519 AAAAC3..." ];
 ```
 
-### 3. Set a user password
+### 2. Set a user password
 
 ```bash
 nix run nixpkgs#mkpasswd -- -m sha-512
@@ -31,15 +23,15 @@ nix run nixpkgs#mkpasswd -- -m sha-512
 Paste the output hash into `users.users.hlamnix.hashedPassword` in [
 `configuration.nix`](hosts/playground/configuration.nix).
 
-### 4. Verify disk device
+### 3. Verify disk device
 
 Check [`hosts/playground/disk-config.nix`](hosts/playground/disk-config.nix) — default device is `/dev/sda`. If your
 target machine uses a different disk (e.g., NVMe drives often show as `/dev/nvme0n1`), update the device path
 accordingly.
 
-### 5. Set ZFS host ID (before first install)
+### 4. Set ZFS host ID (before first install)
 
-Read the host ID from the target machine during installation, then set it in [`modules/common/zfs/default.nix`](modules/common/zfs/default.nix) **before** running `nixos-anywhere`.
+Read the host ID from the target machine during installation, then set it in [`modules/common/settings.nix`](modules/common/settings.nix) **before** running `nixos-anywhere`.
 
 ```bash
 # On the target machine (installer shell)
@@ -47,12 +39,12 @@ head -c 8 /etc/machine-id; echo
 ```
 
 ```nix
-networking.hostId = "<8-hex-chars>";
+hostId = "<8-hex-chars>";
 ```
 
-> Important: do not change this value after initial installation. If the pool was created/imported with a different host ID, changing `networking.hostId` later can prevent `tank` from importing at boot.
+> Important: do not change this value after initial installation. If the pool was created/imported with a different host ID, changing `hostId` later can prevent `tank` from importing at boot.
 
-### 6. Set up secrets
+### 5. Set up secrets
 
 **Generate your age key:**
 
@@ -87,39 +79,58 @@ nix run nixpkgs#sops -- modules/secrets/secrets.yaml
 ```
 
 ```yaml
-cloudflared-credentials: "placeholder"
-traefik-origin-cert: |
-  -----BEGIN CERTIFICATE-----
-  placeholder
-  -----END CERTIFICATE-----
-traefik-origin-key: |
-  -----BEGIN PRIVATE KEY-----
-  placeholder
-  -----END PRIVATE KEY-----
-cloudflare-origin-ca: |
-  -----BEGIN CERTIFICATE-----
-  placeholder
-  -----END CERTIFICATE-----
-authelia-jwt-secret: "placeholder"
-authelia-session-secret: "placeholder"
-authelia-storage-encryption-key: "placeholder"
-authelia-oidc-hmac-secret: "placeholder"
-authelia-oidc-issuer-private-key: |
-  -----BEGIN RSA PRIVATE KEY-----
-  placeholder
-  -----END RSA PRIVATE KEY-----
-immich-oidc-client-secret: "placeholder"
-lldap-jwt-secret: "placeholder"
-lldap-user-pass: "placeholder"
-# Vaultwarden: env file injected at runtime (ADMIN_TOKEN + SSO_CLIENT_SECRET)
-vaultwarden-env: |
-  ADMIN_TOKEN=placeholder
-  SSO_CLIENT_SECRET=placeholder
-# Authelia's copy of the shared Vaultwarden OIDC client secret (must match SSO_CLIENT_SECRET above)
-vaultwarden-oidc-client-secret: "placeholder"
-# SearXNG: env file containing secret key
-searx-env: |
-  SEARX_SECRET_KEY=placeholder
+cloudflare:
+  credentials: |
+    {
+      "AccountTag": "...",
+      "TunnelID": "...",
+      "TunnelSecret": "..."
+    }
+  origin-ca: |
+    -----BEGIN CERTIFICATE-----
+    placeholder
+    -----END CERTIFICATE-----
+
+traefik:
+  origin-cert: |
+    -----BEGIN CERTIFICATE-----
+    placeholder
+    -----END CERTIFICATE-----
+  origin-key: |
+    -----BEGIN PRIVATE KEY-----
+    placeholder
+    -----END PRIVATE KEY-----
+
+authelia:
+  jwt-secret: "placeholder"
+  session-secret: "placeholder"
+  storage-encryption-key: "placeholder"
+  oidc-hmac-secret: "placeholder"
+  oidc-issuer-private-key: |
+    -----BEGIN PRIVATE KEY-----
+    placeholder
+    -----END PRIVATE KEY-----
+
+immich:
+  oidc-client-secret: "placeholder"
+
+lldap:
+  jwt-secret: "placeholder"
+  user-pass: "placeholder"
+
+vaultwarden:
+  oidc-client-secret: "placeholder"
+  env: |
+    ADMIN_TOKEN=placeholder
+    SSO_CLIENT_SECRET=placeholder # same as vaultwarden.oidc-client-secret
+
+searx:
+  env: |
+    SEARX_SECRET_KEY=placeholder
+
+opencloud:
+  sharing-secret: |
+    SHARING_SERVICE_ACCOUNT_SECRET=placeholder
 ```
 
 **Generate Application Secrets:**

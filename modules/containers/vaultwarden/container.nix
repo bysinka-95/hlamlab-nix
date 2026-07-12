@@ -1,6 +1,6 @@
-{ config, lib, ... }:
+{ config, inputs, ... }:
 let
-  vars = import ../../common/local.nix;
+  vars = import ../../common/settings.nix;
 in
 {
   containers.vaultwarden = {
@@ -14,24 +14,39 @@ in
         hostPath = "/var/lib/services/vaultwarden";
         isReadOnly = false;
       };
-      "/run/secrets/vaultwarden-env" = {
-        hostPath = config.sops.secrets.vaultwarden-env.path;
+      "/var/lib/sops-nix/key.txt" = {
+        hostPath = "/var/lib/sops-nix/key.txt";
         isReadOnly = true;
       };
     };
 
-    config = { lib, pkgs, ... }: {
+    config = { lib, pkgs, config, ... }: {
+      imports = [
+        inputs.sops-nix.nixosModules.sops
+      ];
+
+      sops = {
+        defaultSopsFile = ../../secrets/secrets.yaml;
+        defaultSopsFormat = "yaml";
+        age.keyFile = "/var/lib/sops-nix/key.txt";
+
+        secrets = {
+          vaultwarden-env = {
+            key = "vaultwarden/env";
+            owner = "vaultwarden";
+            group = "vaultwarden";
+            mode = "0400";
+            restartUnits = [ "vaultwarden.service" ];
+          };
+        };
+      };
+
       networking.firewall.allowedTCPPorts = [ 8222 ];
       networking.nameservers = [ "1.1.1.1" "1.0.0.1" ];
 
       services.vaultwarden = {
         enable = true;
-
-        # ADMIN_TOKEN and SSO_CLIENT_SECRET are injected from the env file.
-        # The env file must contain:
-        #   ADMIN_TOKEN=<your-token>
-        #   SSO_CLIENT_SECRET=<shared-secret-matching-authelia-client>
-        environmentFile = "/run/secrets/vaultwarden-env";
+        environmentFile = config.sops.secrets.vaultwarden-env.path;
 
         config = {
           ROCKET_ADDRESS = "0.0.0.0";
@@ -61,26 +76,24 @@ in
       systemd.services.vaultwarden.serviceConfig = {
         ReadWritePaths = [ "/var/lib/vaultwarden" ];
         DynamicUser = lib.mkForce false;
-        StateDirectory = lib.mkForce "";
+        StateDirectory = "vaultwarden";
         User = "vaultwarden";
         Group = "vaultwarden";
       };
 
-      # Static UID/GID to match host-side tmpfiles ownership
+      # Dynamic user/group
       users.users.vaultwarden = {
         isSystemUser = true;
         group = "vaultwarden";
-        uid = 904;
+        description = "Vaultwarden service user";
       };
-      users.groups.vaultwarden = {
-        gid = 904;
-      };
+      users.groups.vaultwarden = { };
 
       system.stateVersion = "26.05";
     };
   };
 
   systemd.tmpfiles.rules = [
-    "d /var/lib/services/vaultwarden 0750 904 904 -"
+    "d /var/lib/services/vaultwarden 0750 root root -"
   ];
 }

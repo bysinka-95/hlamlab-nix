@@ -13,15 +13,12 @@
 
 { pkgs, ... }:
 let
-  vars = import ../local.nix;
+  vars = import ../settings.nix;
 in
 {
   # Enable ZFS support
   boot.supportedFilesystems = [ "zfs" ];
   boot.zfs.forceImportRoot = false;
-
-  # Set ZFS host ID (required, must be unique per machine)
-  # Generate with: head -c 8 /etc/machine-id
   networking.hostId = vars.hostId;
 
   # ZFS scrub (data integrity check) weekly
