@@ -4,8 +4,6 @@ let
 in
 {
   hlamlab.services.opencloud = {
-    enable = true;
-    host = "playground";
     ip = "10.0.0.2";
     port = 9200;
     domainPrefix = "opencloud";
@@ -31,25 +29,15 @@ in
       TasksMax = 512;
     };
 
+    secrets = {
+      opencloud-sharing-secret = {
+        key = "opencloud/sharing-secret";
+        restartUnits = [ "opencloud.service" ];
+      };
+    };
+
     containerConfig = { lib, pkgs, config, ... }: {
       networking.firewall.allowedTCPPorts = [ 9300 ];
-
-      sops.secrets = {
-        opencloud-sharing-secret = {
-          key = "opencloud/sharing-secret";
-          owner = "opencloud";
-          group = "opencloud";
-          mode = "0400";
-          restartUnits = [ "opencloud.service" ];
-        };
-      };
-
-      users.users.opencloud = {
-        isSystemUser = true;
-        group = "opencloud";
-        description = "OpenCloud daemon user";
-      };
-      users.groups.opencloud = { };
 
       services.opencloud = {
         enable = true;

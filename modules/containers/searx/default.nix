@@ -4,8 +4,6 @@ let
 in
 {
   hlamlab.services.searx = {
-    enable = true;
-    host = "playground";
     ip = "10.0.0.8";
     port = 8888;
     domainPrefix = "searxng";
@@ -19,20 +17,14 @@ in
       };
     };
 
-    containerConfig = { lib, pkgs, config, ... }: {
-      sops.secrets."searx/env" = {
-        owner = "searx";
-        group = "searx";
-        mode = "0400";
+    secrets = {
+      "searx/env" = {
+        key = "searx/env";
         restartUnits = [ "uwsgi.service" ];
       };
+    };
 
-      users.users.searx = {
-        isSystemUser = true;
-        group = "searx";
-      };
-      users.groups.searx = { };
-
+    containerConfig = { lib, pkgs, config, ... }: {
       systemd.services.uwsgi.serviceConfig.StateDirectory = "searx";
       systemd.services.uwsgi.serviceConfig.EnvironmentFile = config.sops.secrets."searx/env".path;
 

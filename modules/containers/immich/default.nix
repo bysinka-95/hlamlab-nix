@@ -4,8 +4,6 @@ let
 in
 {
   hlamlab.services.immich = {
-    enable = true;
-    host = "playground";
     ip = "10.0.0.3";
     port = 2283;
     domainPrefix = "immich";
@@ -29,17 +27,14 @@ in
       TasksMax = 1024;
     };
 
-    containerConfig = { pkgs, config, ... }: {
-      sops.secrets = {
-        immich-oidc-client-secret = {
-          key = "immich/oidc-client-secret";
-          owner = "immich";
-          group = "immich";
-          mode = "0400";
-          restartUnits = [ "immich-server.service" "immich-microservices.service" ];
-        };
+    secrets = {
+      immich-oidc-client-secret = {
+        key = "immich/oidc-client-secret";
+        restartUnits = [ "immich-server.service" "immich-microservices.service" ];
       };
+    };
 
+    containerConfig = { pkgs, config, ... }: {
       services.immich = {
         enable = true;
         package = pkgs.immich;
@@ -87,13 +82,6 @@ in
       };
 
       services.redis.servers."".enable = true;
-
-      users.users.immich = {
-        isSystemUser = true;
-        group = "immich";
-        description = "Immich service user";
-      };
-      users.groups.immich = { };
 
       systemd.services.immich-server.serviceConfig.StateDirectory = "immich";
     };

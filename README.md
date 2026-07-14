@@ -6,28 +6,16 @@ the eventual host migration.
 
 ## Repo layout
 
-- [`flake.nix`](flake.nix): Inputs (nixpkgs, disko, home-manager, sops-nix, disko-zfs) and
-  `nixosConfigurations`
-  outputs.
-- [`modules/common/`](modules/common): Shared defaults (nix settings, allowUnfree, SSH policy, base
-  packages).
-- [`modules/common/network/`](modules/common/network): Network services (Traefik reverse proxy,
-  Cloudflare Tunnel, mDNS).
-- [`modules/common/zfs/`](modules/common/zfs): ZFS configuration (declarative datasets, snapshots,
-  monitoring).
-- [`modules/secrets/`](modules/secrets): sops-nix configuration and encrypted secrets. All configuration
-  variables (domain, tunnel ID, passwords, client secrets) live inside `secrets.yaml`
-  encrypted using sops-nix.
-- [`modules/containers/`](modules/containers): Self-contained service modules (each with container +
-  traefik + DNS).
+- [`flake.nix`](flake.nix): Flake inputs and `flake-parts` based `nixosConfigurations`.
+- [`modules/common/`](modules/common): Shared defaults (nix settings, allowUnfree, SSH policy, base packages) and the `container-frame.nix` abstraction.
+- [`modules/common/network/`](modules/common/network): Network services (Traefik reverse proxy, Cloudflare Tunnel, mDNS).
+- [`modules/common/zfs/`](modules/common/zfs): ZFS configuration (declarative datasets, snapshots, monitoring).
+- [`modules/secrets/`](modules/secrets): sops-nix configuration and encrypted secrets. All configuration variables live inside `secrets.yaml` encrypted using sops-nix.
+- [`modules/containers/`](modules/containers): Self-contained service definitions using the `hlamlab.services` abstraction.
 - [`hosts/playground/`](hosts/playground)
-    - [`configuration.nix`](hosts/playground/configuration.nix): System config (boot, networking,
-      users, home-manager).
-    - [`disk-config.nix`](hosts/playground/disk-config.nix): Disko ZFS layout for `/dev/sda` (GPT +
-      ESP + ZFS pool).
-    - [`hardware-configuration.nix`](hosts/playground/hardware-configuration.nix): Generated
-      hardware profile;
-      replace/regenerate per machine.
+    - [`configuration.nix`](hosts/playground/configuration.nix): System config (boot, networking, users). This is where services are explicitly enabled.
+    - [`disk-config.nix`](hosts/playground/disk-config.nix): Disko ZFS layout for `/dev/sda` (GPT + ESP + ZFS pool).
+    - [`hardware-configuration.nix`](hosts/playground/hardware-configuration.nix): Generated hardware profile; replace/regenerate per machine.
 
 ## Current Services
 

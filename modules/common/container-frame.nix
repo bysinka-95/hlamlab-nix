@@ -58,6 +58,30 @@ in
           description = "Traefik middlewares for the router";
         };
 
+        createServiceUser = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Automatically create a system user and group for this service";
+        };
+
+        serviceUser = lib.mkOption {
+          type = lib.types.str;
+          default = name;
+          description = "The name of the service user to create, and to use as default owner for secrets";
+        };
+
+        secrets = lib.mkOption {
+          type = lib.types.attrsOf (lib.types.submodule {
+            options = {
+              key = lib.mkOption { type = lib.types.str; };
+              owner = lib.mkOption { type = lib.types.str; default = name; };
+              restartUnits = lib.mkOption { type = lib.types.listOf lib.types.str; default = []; };
+            };
+          });
+          default = {};
+          description = "Simplified sops.secrets configuration";
+        };
+
         resourceLimits = lib.mkOption {
           type = lib.types.attrs;
           default = {
@@ -96,19 +120,37 @@ in
         };
       } // svc.bindMounts;
       
-      config = { config, pkgs, ... }: {
-        imports = [ inputs.sops-nix.nixosModules.sops ];
-        
-        sops = {
-          defaultSopsFile = ../../secrets/secrets.yaml;
-          defaultSopsFormat = "yaml";
-          age.keyFile = "/var/lib/sops-nix/key.txt";
-        };
-        
-        networking.nameservers = [ "1.1.1.1" "1.0.0.1" ];
-        networking.firewall.allowedTCPPorts = [ svc.port ];
-        system.stateVersion = "26.05";
-      } // (if builtins.isFunction svc.containerConfig then svc.containerConfig { inherit config pkgs; } else svc.containerConfig);
+      config = { config, pkgs, lib, ... }: lib.mkMerge [
+        {
+          imports = [ inputs.sops-nix.nixosModules.sops ];
+          
+          sops = {
+            defaultSopsFile = ../../secrets/secrets.yaml;
+            defaultSopsFormat = "yaml";
+            age.keyFile = "/var/lib/sops-nix/key.txt";
+            secrets = lib.mapAttrs (sname: sval: {
+              key = sval.key;
+              owner = if sval.owner == name then svc.serviceUser else sval.owner;
+              group = if sval.owner == name then svc.serviceUser else sval.owner;
+              mode = "0400";
+              restartUnits = sval.restartUnits;
+            }) svc.secrets;
+          };
+          
+          networking.nameservers = [ "1.1.1.1" "1.0.0.1" ];
+          networking.firewall.allowedTCPPorts = [ svc.port ];
+          system.stateVersion = "26.05";
+        }
+        (lib.optionalAttrs svc.createServiceUser {
+          users.users.${svc.serviceUser} = {
+            isSystemUser = true;
+            group = svc.serviceUser;
+            description = "${name} service user";
+          };
+          users.groups.${svc.serviceUser} = {};
+        })
+        (if builtins.isFunction svc.containerConfig then svc.containerConfig { inherit config pkgs lib; } else svc.containerConfig)
+      ];
     }) enabledServices;
 
     # 2. DNS Mapping (Host -> Container)

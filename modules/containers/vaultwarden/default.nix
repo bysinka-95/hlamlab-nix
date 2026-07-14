@@ -4,8 +4,6 @@ let
 in
 {
   hlamlab.services.vaultwarden = {
-    enable = true;
-    host = "playground";
     ip = "10.0.0.7";
     port = 8222;
     domainPrefix = "vault";
@@ -19,17 +17,14 @@ in
       };
     };
 
-    containerConfig = { lib, pkgs, config, ... }: {
-      sops.secrets = {
-        vaultwarden-env = {
-          key = "vaultwarden/env";
-          owner = "vaultwarden";
-          group = "vaultwarden";
-          mode = "0400";
-          restartUnits = [ "vaultwarden.service" ];
-        };
+    secrets = {
+      vaultwarden-env = {
+        key = "vaultwarden/env";
+        restartUnits = [ "vaultwarden.service" ];
       };
+    };
 
+    containerConfig = { lib, pkgs, config, ... }: {
       services.vaultwarden = {
         enable = true;
         environmentFile = config.sops.secrets.vaultwarden-env.path;
@@ -55,18 +50,8 @@ in
 
       systemd.services.vaultwarden.serviceConfig = {
         ReadWritePaths = [ "/var/lib/vaultwarden" ];
-        DynamicUser = lib.mkForce false;
         StateDirectory = "vaultwarden";
-        User = "vaultwarden";
-        Group = "vaultwarden";
       };
-
-      users.users.vaultwarden = {
-        isSystemUser = true;
-        group = "vaultwarden";
-        description = "Vaultwarden service user";
-      };
-      users.groups.vaultwarden = { };
     };
   };
 

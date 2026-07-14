@@ -11,6 +11,17 @@
     (modulesPath + "/profiles/qemu-guest.nix")
   ];
 
+  # Container Services Enablement
+  hlamlab.services = {
+    authelia.enable = true;
+    collabora.enable = true;
+    immich.enable = true;
+    lldap.enable = true;
+    opencloud.enable = true;
+    searx.enable = true;
+    vaultwarden.enable = true;
+  };
+
   # Bootloader
   boot.loader.grub = {
     enable = true;

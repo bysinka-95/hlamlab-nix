@@ -3,6 +3,8 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    
+    flake-parts.url = "github:hercules-ci/flake-parts";
 
     # Disko is required for nix-anywhere to partition the disk automatically
     disko.url = "github:nix-community/disko";
@@ -20,20 +22,23 @@
     sops-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, disko, disko-zfs, sops-nix, ... }@inputs: {
-    nixosConfigurations = {
+  outputs = inputs@{ flake-parts, ... }: flake-parts.lib.mkFlake { inherit inputs; } {
+    systems = [ "x86_64-linux" ];
+    
+    flake = {
+      nixosConfigurations = {
+        # 1. The Simulation (Proxmox VM)
+        playground = inputs.nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = { inherit inputs; };
+          modules = [
+            inputs.disko.nixosModules.disko
+            inputs.disko-zfs.nixosModules.default
+            inputs.sops-nix.nixosModules.sops
 
-      # 1. The Simulation (Proxmox VM)
-      playground = nixpkgs.lib.nixosSystem {
-        system = "x86_64-linux";
-        specialArgs = { inherit inputs; };
-        modules = [
-          disko.nixosModules.disko
-          disko-zfs.nixosModules.default
-          sops-nix.nixosModules.sops
-
-          ./hosts/playground/configuration.nix
-        ];
+            ./hosts/playground/configuration.nix
+          ];
+        };
       };
     };
   };

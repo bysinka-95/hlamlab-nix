@@ -4,14 +4,14 @@ let
 in
 {
   hlamlab.services.authelia = {
-    enable = true;
-    host = "playground";
     ip = "10.0.0.5";
     port = 9091;
     domainPrefix = "auth";
     storageQuota = "10G";
     storageReservation = "1G";
     
+    serviceUser = "authelia-main";
+
     bindMounts = {
       "/var/lib/authelia-main" = {
         hostPath = "/var/lib/services/authelia";
@@ -19,74 +19,42 @@ in
       };
     };
 
+    secrets = {
+      authelia-jwt-secret = {
+        key = "authelia/jwt-secret";
+        restartUnits = [ "authelia-main.service" ];
+      };
+      authelia-session-secret = {
+        key = "authelia/session-secret";
+        restartUnits = [ "authelia-main.service" ];
+      };
+      authelia-storage-encryption-key = {
+        key = "authelia/storage-encryption-key";
+        restartUnits = [ "authelia-main.service" ];
+      };
+      authelia-immich-oidc-client-secret = {
+        key = "immich/oidc-client-secret";
+        restartUnits = [ "authelia-main.service" ];
+      };
+      authelia-lldap-user-pass = {
+        key = "lldap/user-pass";
+        restartUnits = [ "authelia-main.service" ];
+      };
+      authelia-vaultwarden-oidc-client-secret = {
+        key = "vaultwarden/oidc-client-secret";
+        restartUnits = [ "authelia-main.service" ];
+      };
+      authelia-oidc-hmac-secret = {
+        key = "authelia/oidc-hmac-secret";
+        restartUnits = [ "authelia-main.service" ];
+      };
+      authelia-oidc-issuer-private-key = {
+        key = "authelia/oidc-issuer-private-key";
+        restartUnits = [ "authelia-main.service" ];
+      };
+    };
+
     containerConfig = { config, pkgs, ... }: {
-      sops.secrets = {
-        authelia-jwt-secret = {
-          key = "authelia/jwt-secret";
-          owner = "authelia-main";
-          group = "authelia-main";
-          mode = "0400";
-          restartUnits = [ "authelia-main.service" ];
-        };
-        authelia-session-secret = {
-          key = "authelia/session-secret";
-          owner = "authelia-main";
-          group = "authelia-main";
-          mode = "0400";
-          restartUnits = [ "authelia-main.service" ];
-        };
-        authelia-storage-encryption-key = {
-          key = "authelia/storage-encryption-key";
-          owner = "authelia-main";
-          group = "authelia-main";
-          mode = "0400";
-          restartUnits = [ "authelia-main.service" ];
-        };
-        authelia-immich-oidc-client-secret = {
-          key = "immich/oidc-client-secret";
-          owner = "authelia-main";
-          group = "authelia-main";
-          mode = "0400";
-          restartUnits = [ "authelia-main.service" ];
-        };
-        authelia-lldap-user-pass = {
-          key = "lldap/user-pass";
-          owner = "authelia-main";
-          group = "authelia-main";
-          mode = "0440";
-          restartUnits = [ "authelia-main.service" ];
-        };
-        authelia-vaultwarden-oidc-client-secret = {
-          key = "vaultwarden/oidc-client-secret";
-          owner = "authelia-main";
-          group = "authelia-main";
-          mode = "0400";
-          restartUnits = [ "authelia-main.service" ];
-        };
-        authelia-oidc-hmac-secret = {
-          key = "authelia/oidc-hmac-secret";
-          owner = "authelia-main";
-          group = "authelia-main";
-          mode = "0400";
-          restartUnits = [ "authelia-main.service" ];
-        };
-        authelia-oidc-issuer-private-key = {
-          key = "authelia/oidc-issuer-private-key";
-          owner = "authelia-main";
-          group = "authelia-main";
-          mode = "0400";
-          restartUnits = [ "authelia-main.service" ];
-        };
-      };
-
-      users.users.authelia-main = {
-        isSystemUser = true;
-        group = "authelia-main";
-        description = "Authelia main instance user";
-      };
-
-      users.groups.authelia-main = { };
-
       services.redis.servers.authelia.enable = true;
 
       services.authelia.instances.main = {
@@ -218,9 +186,8 @@ in
       systemd.services.authelia-main.serviceConfig = {
         SupplementaryGroups = [ config.services.redis.servers.authelia.group ];
         ReadWritePaths = [ "/var/lib/authelia-main" ];
+        StateDirectory = "authelia-main";
       };
-
-      systemd.services.authelia-main.serviceConfig.StateDirectory = "authelia-main";
     };
   };
 

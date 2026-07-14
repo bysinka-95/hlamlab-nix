@@ -4,8 +4,6 @@ let
 in
 {
   hlamlab.services.collabora = {
-    enable = true;
-    host = "playground";
     ip = "10.0.0.4";
     port = 9980;
     domainPrefix = "collabora";
@@ -53,7 +51,6 @@ in
     };
   };
 
-  # Define custom middleware for Traefik on the host
   services.traefik.dynamicConfigOptions.http.middlewares.collabora-headers = {
     headers = {
       sslRedirect = true;

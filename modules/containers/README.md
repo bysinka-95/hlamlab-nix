@@ -1,17 +1,14 @@
 # Container Services
 
-Each service is self-contained: container definition, Traefik routing, and DNS in its own directory.
+Each service is self-contained via a single `default.nix` module which defines the container, Traefik routing, ZFS datasets, and system users via the `hlamlab.services.<name>` submodule abstraction.
 
 ## Structure
 
 ```
 modules/containers/
-├── default.nix           # NAT + imports all services
-├── container-limits.nix  # systemd CPU/RAM/I/O limits per container
+├── default.nix           # Imports all service definitions and the container frame
 ├── <service>/
-│   ├── default.nix       # imports + DNS entry (networking.hosts)
-│   ├── container.nix     # NixOS container definition
-│   └── traefik.nix       # Traefik router + backend
+│   └── default.nix       # Complete service definition using hlamlab.services.<name>
 └── README.md
 ```
 
@@ -23,143 +20,73 @@ All services run in native NixOS containers, isolated from the host.
 
 ## Service Anatomy
 
-Each service resides in `modules/containers/<name>/` and consists of 4 files:
-
-| File | Responsibility |
-| :--- | :--- |
-| `container.nix` | Container definition: `autoStart`, `privateNetwork`, bind mounts, `config` block. |
-| `traefik.nix` | Traefik reverse proxy routing: `routers`, `services` (dynamic config). |
-| `host.nix` | Host-level integrations: DNS, ZFS dataset, sanoid schedule, resource limits. |
-| `default.nix` | Module imports (glues the 3 files above together). |
+Each service resides in `modules/containers/<name>/default.nix` and leverages the `container-frame.nix` abstraction. This frame automatically handles ZFS datasets, Sanoid snapshots, systemd limits, DNS, Traefik routing, and users based on a simple set of attributes.
 
 ## Adding a Service
 
 **Follow these 3 steps:**
 
 ### 1. Update `README.md`
-Add the new service to the **Application Containers** table in the main [`README.md`](../../README.md). Assign an available IP.
+Add the new service to the **Application Containers** table in the main [`README.md`](../../README.md). Assign an available IP and note the required storage quota.
 
 ### 2. Create the Module
-In `modules/containers/<name>/`, create the 4 required files (skeletons provided in code blocks below).
+In `modules/containers/<name>/`, create `default.nix`.
 
-**`container.nix`** (App configuration):
+**`default.nix`** (App configuration):
 ```nix
-{ config, inputs, ... }:
+{ config, ... }:
 {
-  containers.myservice = {
-    autoStart = true;
-    privateNetwork = true;
-    hostAddress = "10.0.0.1";
-    localAddress = "10.0.0.N"; # Check main README.md
+  hlamlab.services.myservice = {
+    ip = "10.0.0.N"; # Check main README.md for next available IP
+    port = 8080;
+    domainPrefix = "myservice"; # Will map to https://myservice.yourdomain
+    storageQuota = "10G";
+    storageReservation = "1G";
+    
+    # Optional: override the service user (defaults to myservice)
+    # serviceUser = "myservice";
+    
+    # Optional: Automatically manages sops.secrets inside the container
+    secrets = {
+      myservice-env = {
+        key = "myservice/env";
+        restartUnits = [ "myservice.service" ];
+      };
+    };
+    
+    # Storage bindings (ZFS datasets are automatically created and snapshotted)
     bindMounts = {
       "/var/lib/myservice" = {
         hostPath = "/var/lib/services/myservice";
         isReadOnly = false;
       };
-      "/var/lib/sops-nix/key.txt" = {
-        hostPath = "/var/lib/sops-nix/key.txt";
-        isReadOnly = true;
-      };
     };
-    config = { config, pkgs, ... }: {
-      imports = [ inputs.sops-nix.nixosModules.sops ];
-      sops = {
-        defaultSopsFile = ../../secrets/secrets.yaml;
-        defaultSopsFormat = "yaml";
-        age.keyFile = "/var/lib/sops-nix/key.txt";
-        secrets.myservice-env = {
-          key = "myservice/env";
-          owner = "myservice";
-          group = "myservice";
-          mode = "0400";
-          restartUnits = [ "myservice.service" ];
-        };
-      };
+
+    # Container-specific NixOS config
+    containerConfig = { lib, pkgs, config, ... }: {
       services.myservice = {
         enable = true;
         listenAddress = "0.0.0.0";
-        environmentFile = "/run/secrets/myservice-env";
+        environmentFile = config.sops.secrets.myservice-env.path;
       };
-      users.users.myservice = {
-        isSystemUser = true;
-        group = "myservice";
-      };
-      users.groups.myservice = { };
-      systemd.tmpfiles.rules = [
-        "z /var/lib/myservice 0750 myservice myservice -"
-      ];
-      networking.firewall.allowedTCPPorts = [ <port> ];
-      system.stateVersion = "26.05";
+      
+      systemd.services.myservice.serviceConfig.StateDirectory = "myservice";
+      networking.firewall.allowedTCPPorts = [ 8080 ];
     };
   };
+
+  # Make sure the host directory exists
   systemd.tmpfiles.rules = [ "d /var/lib/services/myservice 0750 root root -" ];
 }
 ```
 
-**`traefik.nix`** (Reverse proxy):
-```nix
-{ config, ... }:
-{
-  sops.templates."traefik-myservice.yaml" = {
-    content = ''
-      http:
-        routers:
-          myservice:
-            rule: Host(`myservice.${config.sops.placeholder."cloudflare/domain"}`)
-            entryPoints: [https]
-            service: myservice
-            tls: {}
-            middlewares: [security-headers]
-        services:
-          myservice:
-            loadBalancer:
-              servers:
-                - url: http://myservice:<port>
-              passHostHeader: true
-    '';
-    path = "/var/lib/traefik/dynamic/myservice.yaml";
-    owner = "traefik";
-    group = "traefik";
-    mode = "0400";
-  };
-}
-```
-
-**`host.nix`** (Host integration):
-```nix
-{ ... }:
-{
-  networking.hosts."10.0.0.N" = [ "myservice" ];
-
-  # ZFS Dataset
-  disko.devices.zpool.tank.datasets."services/myservice" = {
-    type = "zfs_fs";
-    options = {
-      mountpoint = "/var/lib/services/myservice";
-      quota = "50G"; reservation = "10G"; compression = "lz4"; atime = "off";
-    };
-  };
-
-  # Snapshots
-  services.sanoid.datasets."tank/services/myservice" = {
-    hourly = 24; daily = 7; weekly = 4; monthly = 12;
-    autosnap = true; autoprune = true;
-  };
-
-  # Limits
-  systemd.services."container@myservice".serviceConfig = {
-    CPUQuota = "100%"; MemoryMax = "2G"; MemoryHigh = "1.5G"; IOWeight = 100; TasksMax = 512;
-  };
-}
-```
-
-**`default.nix`** (Import):
-```nix
-{ ... }: { imports = [ ./container.nix ./traefik.nix ./host.nix ]; }
-```
-
-### 3. Register
+### 3. Register and Enable
 Add `./myservice` to the imports list in [`modules/containers/default.nix`](default.nix).
+
+To actually enable the service on a specific host, edit the host's configuration (e.g., `hosts/playground/configuration.nix`):
+```nix
+hlamlab.services.myservice.enable = true;
+```
 
 ---
 
@@ -180,7 +107,7 @@ See [main README](../../README.md#current-services) — IPs, ports, URLs, storag
 
 ## Authelia Declarative Provisioning
 
-Manage Authelia users, groups, and OAuth2 systems in `modules/containers/authelia/container.nix` under the `services.authelia.provision` block. Changes are applied automatically on deploy.
+Manage Authelia users, groups, and OAuth2 systems in `modules/containers/authelia/default.nix`. Changes are applied automatically on deploy.
 
 ---
 
@@ -198,39 +125,30 @@ sudo nixos-container start/stop <name>
 
 ## Resource Limits
 
-**File:** [`container-limits.nix`](container-limits.nix) — systemd-based CPU/RAM/I/O limits.
-
-```bash
-systemd-cgtop --order=memory                              # live usage
-journalctl -u container@<name> | grep -i "memory\|limit"  # check if limits hit
-```
-
-**Temporary override:**
-
-```bash
-sudo systemctl set-property container@opencloud CPUQuota=200%
-```
-
-**Permanent** — edit `container-limits.nix`:
+Limits are defined directly in the service definition (`default.nix`).
 
 ```nix
-systemd.services."container@myservice".serviceConfig = {
-  CPUQuota = "100%"; MemoryMax = "2G"; MemoryHigh = "1.5G"; IOWeight = 100; TasksMax = 512;
-};
+  hlamlab.services.myservice = {
+    # ...
+    resourceLimits = {
+      CPUQuota = "100%";
+      MemoryMax = "2G";
+      MemoryHigh = "1.5G";
+      IOWeight = 100;
+      TasksMax = 512;
+    };
+  };
 ```
 
-**Sizing guide:** Light (API/cache): 50% CPU, 512M RAM · Medium (web/db): 100%, 2G · Heavy (ML/media): 200%, 4G+
+**Sizing guide:** 
+- Light (API/cache): 50% CPU, 512M RAM 
+- Medium (web/db): 100%, 2G 
+- Heavy (ML/media): 200%, 4G+
 
 ---
 
 ## Persistent Storage
 
-Use bind mounts to `/var/lib/services/<name>` on the host (ZFS dataset). Data survives container rebuilds.
-
-```nix
-# container.nix
-bindMounts."/var/lib/myservice" = { hostPath = "/var/lib/services/myservice"; isReadOnly = false; };
-systemd.tmpfiles.rules = [ "d /var/lib/services/myservice 0755 root root -" ];
-```
+Use `bindMounts` to map paths to `/var/lib/services/<name>` on the host. ZFS datasets and Sanoid backup schedules are automatically created by the container frame based on your `storageQuota` and `storageReservation` settings.
 
 See [ZFS README](../common/zfs/README.md) for dataset creation and snapshot management.

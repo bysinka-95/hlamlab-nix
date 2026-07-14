@@ -4,8 +4,6 @@ let
 in
 {
   hlamlab.services.lldap = {
-    enable = true;
-    host = "playground";
     ip = "10.0.0.6";
     port = 3000;
     domainPrefix = "lldap";
@@ -19,26 +17,18 @@ in
       };
     };
 
-    # Uses default resourceLimits
+    secrets = {
+      lldap-jwt-secret = {
+        key = "lldap/jwt-secret";
+        restartUnits = [ "lldap.service" ];
+      };
+      lldap-user-pass = {
+        key = "lldap/user-pass";
+        restartUnits = [ "lldap.service" ];
+      };
+    };
 
     containerConfig = { lib, pkgs, config, ... }: {
-      sops.secrets = {
-        lldap-jwt-secret = {
-          key = "lldap/jwt-secret";
-          owner = "lldap";
-          group = "lldap";
-          mode = "0400";
-          restartUnits = [ "lldap.service" ];
-        };
-        lldap-user-pass = {
-          key = "lldap/user-pass";
-          owner = "lldap";
-          group = "lldap";
-          mode = "0400";
-          restartUnits = [ "lldap.service" ];
-        };
-      };
-
       networking.firewall.allowedTCPPorts = [ 3890 ];
 
       environment.systemPackages = with pkgs; [ lldap ];
@@ -65,16 +55,7 @@ in
         ReadWritePaths = [ "/var/lib/lldap" ];
         DynamicUser = lib.mkForce false;
         StateDirectory = "lldap";
-        User = "lldap";
-        Group = "lldap";
       };
-
-      users.users.lldap = {
-        isSystemUser = true;
-        group = "lldap";
-        description = "LLDAP service user";
-      };
-      users.groups.lldap = { };
     };
   };
 
