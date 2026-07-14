@@ -1,15 +1,19 @@
-{ ... }:
+{ lib, ... }:
 let
   vars = import ../../common/settings.nix;
 in
 {
   hlamlab.services.vaultwarden = {
-    ip = "10.0.0.7";
-    port = 8222;
-    domainPrefix = "vault";
-    storageQuota = "10G";
-    storageReservation = "1G";
-    
+    ip = lib.mkDefault "10.0.0.7";
+    port = lib.mkDefault 8222;
+    domainPrefix = lib.mkDefault "vault";
+    storageQuota = lib.mkDefault "10G";
+    storageReservation = lib.mkDefault "1G";
+
+    cpuLimit = lib.mkDefault "100%";
+    ramLimit = lib.mkDefault "1G";
+    ramHigh = lib.mkDefault "512M";
+
     bindMounts = {
       "/var/lib/vaultwarden" = {
         hostPath = "/var/lib/services/vaultwarden";

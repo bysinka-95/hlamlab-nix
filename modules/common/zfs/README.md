@@ -38,27 +38,22 @@ may fail to import during boot.
 
 ## Adding a Service Dataset
 
-When adding a new service, its ZFS dataset and sanoid schedule are defined directly in its `host.nix` file (e.g. `modules/containers/<name>/host.nix`). The disko-zfs module will automatically pick them up during rebuild.
+When adding a new service, its ZFS dataset and sanoid schedule are created automatically by the
+`container-frame.nix` abstraction when you define a service using `hlamlab.services.<name>`.
+
+You simply set the storage requirements in the service definition (
+`modules/containers/<name>/default.nix`) or override them in the host configuration:
 
 ```nix
 { ... }:
 {
-  # ZFS Dataset
-  disko.devices.zpool.tank.datasets."services/myservice" = {
-    type = "zfs_fs";
-    options = {
-      mountpoint = "/var/lib/services/myservice";
-      quota = "100G";
-      reservation = "20G";
-      compression = "lz4";
-      atime = "off";
-    };
-  };
-
-  # Sanoid Snapshot Schedule
-  services.sanoid.datasets."tank/services/myservice" = {
-    hourly = 24; daily = 7; weekly = 4; monthly = 12;
-    autosnap = true; autoprune = true;
+  hlamlab.services.myservice = {
+    storageQuota = "100G";
+    storageReservation = "20G";
+    
+    # Optional: ZFS datasets and Sanoid schedules can be disabled per service
+    # zfs.enable = false;
+    # sanoid.enable = false;
   };
 }
 ```

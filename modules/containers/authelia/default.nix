@@ -1,15 +1,19 @@
-{ config, ... }:
+{ lib, config, ... }:
 let
   vars = import ../../common/settings.nix;
 in
 {
   hlamlab.services.authelia = {
-    ip = "10.0.0.5";
-    port = 9091;
-    domainPrefix = "auth";
-    storageQuota = "10G";
-    storageReservation = "1G";
-    
+    ip = lib.mkDefault "10.0.0.5";
+    port = lib.mkDefault 9091;
+    domainPrefix = lib.mkDefault "auth";
+    storageQuota = lib.mkDefault "10G";
+    storageReservation = lib.mkDefault "1G";
+
+    cpuLimit = lib.mkDefault "100%";
+    ramLimit = lib.mkDefault "1G";
+    ramHigh = lib.mkDefault "512M";
+
     serviceUser = "authelia-main";
 
     bindMounts = {

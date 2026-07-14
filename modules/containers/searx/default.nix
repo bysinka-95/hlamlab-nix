@@ -1,15 +1,19 @@
-{ config, ... }:
+{ lib, config, ... }:
 let
   vars = import ../../common/settings.nix;
 in
 {
   hlamlab.services.searx = {
-    ip = "10.0.0.8";
-    port = 8888;
-    domainPrefix = "searxng";
-    storageQuota = "10G";
-    storageReservation = "1G";
-    
+    ip = lib.mkDefault "10.0.0.8";
+    port = lib.mkDefault 8888;
+    domainPrefix = lib.mkDefault "searxng";
+    storageQuota = lib.mkDefault "10G";
+    storageReservation = lib.mkDefault "1G";
+
+    cpuLimit = lib.mkDefault "100%";
+    ramLimit = lib.mkDefault "1G";
+    ramHigh = lib.mkDefault "512M";
+
     bindMounts = {
       "/var/lib/searx" = {
         hostPath = "/var/lib/services/searx";

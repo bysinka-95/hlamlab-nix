@@ -1,15 +1,19 @@
-{ ... }:
+{ lib, ... }:
 let
   vars = import ../../common/settings.nix;
 in
 {
   hlamlab.services.collabora = {
-    ip = "10.0.0.4";
-    port = 9980;
-    domainPrefix = "collabora";
-    storageQuota = "20G";
-    storageReservation = "5G";
-    
+    ip = lib.mkDefault "10.0.0.4";
+    port = lib.mkDefault 9980;
+    domainPrefix = lib.mkDefault "collabora";
+    storageQuota = lib.mkDefault "20G";
+    storageReservation = lib.mkDefault "5G";
+
+    cpuLimit = lib.mkDefault "100%";
+    ramLimit = lib.mkDefault "1.5G";
+    ramHigh = lib.mkDefault "1G";
+
     bindMounts = {
       "/var/lib/coolwsd" = {
         hostPath = "/var/lib/services/collabora";
@@ -18,16 +22,6 @@ in
     };
 
     traefikMiddlewares = [ "collabora-headers" ];
-
-    resourceLimits = {
-      CPUQuota = "100%";
-      CPUWeight = 120;
-      MemoryMax = "1.5G";
-      MemoryHigh = "1G";
-      MemorySwapMax = "0B";
-      IOWeight = 120;
-      TasksMax = 512;
-    };
 
     containerConfig = { ... }: {
       services.collabora-online = {

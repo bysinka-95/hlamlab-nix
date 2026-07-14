@@ -21,7 +21,8 @@ services.openssh = {
 };
 ```
 
-SSH keys are set per-user in [`hosts/playground/configuration.nix`](../../../hosts/playground/configuration.nix)
+SSH keys are set per-user in [
+`hosts/playground/configuration.nix`](../../../hosts/playground/configuration.nix)
 under `users.users.hlamnix.openssh.authorizedKeys.keys`.
 
 ---
@@ -75,7 +76,8 @@ sops modules/secrets/secrets.yaml
 #     origin-key:  | <private key>
 ```
 
-Deployed to: `/var/lib/traefik/certs/origin.crt` and `/var/lib/traefik/certs/origin.key` (owner: `traefik`, 0400)
+Deployed to: `/var/lib/traefik/certs/origin.crt` and `/var/lib/traefik/certs/origin.key` (owner:
+`traefik`, 0400)
 
 #### 2. Cloudflare Authenticated Origin Pull CA — used by Traefik to verify Cloudflare
 
@@ -104,14 +106,20 @@ mTLS established → request proxied to container
 
 ### Traefik Configuration
 
-- **Core** ([`traefik.nix`](traefik.nix)): entrypoints (HTTP :80 → HTTPS :443), `requireCloudflareMTLS` TLS option,
-  shared middlewares `security-headers` + `rate-limit`, dashboard router
-- **Per-service**: each `modules/containers/<name>/traefik.nix` adds its own router/backend via a sops template on the host.
+- **Core** ([`traefik.nix`](traefik.nix)): entrypoints (HTTP :80 → HTTPS :443),
+  `requireCloudflareMTLS` TLS option, shared middlewares `security-headers` + `rate-limit`,
+  dashboard router
+- **Per-service**: Traefik routing is automatically managed by `container-frame.nix` for every
+  service defined via `hlamlab.services.<name>`. It maps `Host(\`<domainPrefix>.<domain>\`)` to the
+  container.
+    - You can override `traefik.rule` or disable routing entirely (`traefik.enable = false`) in the
+      service configuration.
 - **Dashboard**: `https://traefik.yourdomain` (basic auth); logs at `/var/log/traefik/`
 
 ### Cloudflared Configuration
 
-- Tunnel ID and Domain from `modules/secrets/secrets.yaml` (keys `cloudflare/tunnel-id` and `cloudflare/domain`)
+- Tunnel ID and Domain from `modules/secrets/secrets.yaml` (keys `cloudflare/tunnel-id` and
+  `cloudflare/domain`)
 - Ingress: `*.yourdomain` → `https://localhost:443`
 - mTLS CA: `/var/lib/cloudflared/origin-ca.pem`
 

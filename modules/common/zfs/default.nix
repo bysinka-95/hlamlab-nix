@@ -30,7 +30,7 @@ in
   # Automatic snapshots using sanoid
   services.sanoid = {
     enable = true;
-    datasets = {};
+    datasets = { };
   };
 
   # Syncoid for replication (optional, for backing up to remote ZFS)

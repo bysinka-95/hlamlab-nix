@@ -1,15 +1,15 @@
-{ config, ... }:
+{ lib, config, ... }:
 let
   vars = import ../../common/settings.nix;
 in
 {
   hlamlab.services.lldap = {
-    ip = "10.0.0.6";
-    port = 3000;
-    domainPrefix = "lldap";
-    storageQuota = "10G";
-    storageReservation = "1G";
-    
+    ip = lib.mkDefault "10.0.0.6";
+    port = lib.mkDefault 3000;
+    domainPrefix = lib.mkDefault "lldap";
+    storageQuota = lib.mkDefault "10G";
+    storageReservation = lib.mkDefault "1G";
+
     bindMounts = {
       "/var/lib/lldap" = {
         hostPath = "/var/lib/services/lldap";

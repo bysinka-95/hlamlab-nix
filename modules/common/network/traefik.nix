@@ -132,7 +132,7 @@ in
             rule = "Host(`traefik.${vars.domain}`)";
             service = "api@internal";
             entryPoints = [ "https" ];
-            tls = {};
+            tls = { };
             middlewares = [ "dashboard-auth" "security-headers" ];
           };
         };

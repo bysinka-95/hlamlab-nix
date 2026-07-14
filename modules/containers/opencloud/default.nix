@@ -1,15 +1,19 @@
-{ ... }:
+{ lib, ... }:
 let
   vars = import ../../common/settings.nix;
 in
 {
   hlamlab.services.opencloud = {
-    ip = "10.0.0.2";
-    port = 9200;
-    domainPrefix = "opencloud";
-    storageQuota = "50G";
-    storageReservation = "10G";
-    
+    ip = lib.mkDefault "10.0.0.2";
+    port = lib.mkDefault 9200;
+    domainPrefix = lib.mkDefault "opencloud";
+    storageQuota = lib.mkDefault "50G";
+    storageReservation = lib.mkDefault "10G";
+
+    cpuLimit = lib.mkDefault "100%";
+    ramLimit = lib.mkDefault "2G";
+    ramHigh = lib.mkDefault "1.5G";
+
     bindMounts = {
       "/var/lib/opencloud" = {
         hostPath = "/var/lib/services/opencloud";
@@ -18,16 +22,6 @@ in
     };
 
     traefikMiddlewares = [ "opencloud-headers" ];
-
-    resourceLimits = {
-      CPUQuota = "100%";
-      CPUWeight = 100;
-      MemoryMax = "2G";
-      MemoryHigh = "1.5G";
-      MemorySwapMax = "0B";
-      IOWeight = 100;
-      TasksMax = 512;
-    };
 
     secrets = {
       opencloud-sharing-secret = {

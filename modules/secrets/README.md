@@ -1,6 +1,7 @@
 # Secrets Management
 
-Encrypted secrets via sops-nix + age. All secrets declared in [`default.nix`](default.nix), encrypted in
+Encrypted secrets via sops-nix + age. All secrets declared in [`default.nix`](default.nix),
+encrypted in
 [`secrets.yaml`](secrets.yaml).
 
 ---
@@ -55,7 +56,8 @@ Encrypted secrets via sops-nix + age. All secrets declared in [`default.nix`](de
 
 ## Secrets and Configuration Variables
 
-All secrets (including Cloudflare credentials, CA pull certificates, service environments, OIDC client secrets, and passwords) are kept encrypted inside `secrets.yaml` using nested YAML groups:
+All secrets (including Cloudflare credentials, CA pull certificates, service environments, OIDC
+client secrets, and passwords) are kept encrypted inside `secrets.yaml` using nested YAML groups:
 
 ```yaml
 cloudflare:
@@ -69,7 +71,8 @@ searx:
 # ...
 ```
 
-Compile-time parameters (such as `domain`, `tunnelId`, and `hostId`) are configured in plaintext inside [`modules/common/settings.nix`](../common/settings.nix).
+Compile-time parameters (such as `domain`, `tunnelId`, and `hostId`) are configured in plaintext
+inside [`modules/common/settings.nix`](../common/settings.nix).
 
 ---
 

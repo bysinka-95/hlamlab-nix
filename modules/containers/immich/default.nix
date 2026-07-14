@@ -1,30 +1,24 @@
-{ config, ... }:
+{ lib, config, ... }:
 let
   vars = import ../../common/settings.nix;
 in
 {
   hlamlab.services.immich = {
-    ip = "10.0.0.3";
-    port = 2283;
-    domainPrefix = "immich";
-    storageQuota = "300G";
-    storageReservation = "10G";
-    
+    ip = lib.mkDefault "10.0.0.3";
+    port = lib.mkDefault 2283;
+    domainPrefix = lib.mkDefault "immich";
+    storageQuota = lib.mkDefault "300G";
+    storageReservation = lib.mkDefault "10G";
+
+    cpuLimit = lib.mkDefault "200%";
+    ramLimit = lib.mkDefault "4G";
+    ramHigh = lib.mkDefault "3G";
+
     bindMounts = {
       "/var/lib/immich" = {
         hostPath = "/var/lib/services/immich";
         isReadOnly = false;
       };
-    };
-
-    resourceLimits = {
-      CPUQuota = "200%";
-      CPUWeight = 200;
-      MemoryMax = "4G";
-      MemoryHigh = "3G";
-      MemorySwapMax = "0B";
-      IOWeight = 200;
-      TasksMax = 1024;
     };
 
     secrets = {
