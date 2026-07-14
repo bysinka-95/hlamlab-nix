@@ -9,6 +9,7 @@
 
   # Import service modules (each directory contains container + traefik + DNS + host integration)
   imports = [
+    ../common/container-frame.nix
     ./opencloud
     ./immich
     ./collabora
