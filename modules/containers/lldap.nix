@@ -1,6 +1,6 @@
 { lib, config, ... }:
 let
-  vars = import ../../common/settings.nix;
+  hostConfig = config;
 in
 {
   hlamlab.services.lldap = {
@@ -9,6 +9,8 @@ in
     domainPrefix = lib.mkDefault "lldap";
     storageQuota = lib.mkDefault "10G";
     storageReservation = lib.mkDefault "1G";
+
+    nameservers = [ "1.1.1.1" "1.0.0.1" ];
 
     bindMounts = {
       "/var/lib/lldap" = {
@@ -40,10 +42,10 @@ in
           ldap_port = 3890;
           http_host = "0.0.0.0";
           http_port = 3000;
-          http_url = "https://lldap.${vars.domain}";
-          ldap_base_dn = vars.ldapBaseDn;
+          http_url = "https://lldap.${hostConfig.hlamlab.settings.domain}";
+          ldap_base_dn = hostConfig.hlamlab.settings.ldapBaseDn;
           jwt_secret_file = config.sops.secrets.lldap-jwt-secret.path;
-          ldap_user_email = "admin@${vars.domain}";
+          ldap_user_email = "admin@${hostConfig.hlamlab.settings.domain}";
           ldap_user_dn = "admin";
           ldap_user_pass_file = config.sops.secrets.lldap-user-pass.path;
           force_ldap_user_pass_reset = "always";

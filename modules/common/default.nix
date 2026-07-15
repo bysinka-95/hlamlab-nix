@@ -15,6 +15,7 @@
   ];
 
   imports = [
+    ./settings.nix
     ./users.nix
     ./network
     ./zfs

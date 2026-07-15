@@ -1,6 +1,6 @@
-{ lib, ... }:
+{ lib, config, ... }:
 let
-  vars = import ../../common/settings.nix;
+  hostConfig = config;
 in
 {
   hlamlab.services.collabora = {
@@ -13,6 +13,8 @@ in
     cpuLimit = lib.mkDefault "100%";
     ramLimit = lib.mkDefault "1.5G";
     ramHigh = lib.mkDefault "1G";
+
+    nameservers = [ "1.1.1.1" "1.0.0.1" ];
 
     bindMounts = {
       "/var/lib/coolwsd" = {
@@ -36,10 +38,10 @@ in
 
           storage.wopi = {
             "@allow" = true;
-            host = [ "opencloud.${vars.domain}" ];
+            host = [ "opencloud.${hostConfig.hlamlab.settings.domain}" ];
           };
 
-          server_name = "collabora.${vars.domain}";
+          server_name = "collabora.${hostConfig.hlamlab.settings.domain}";
         };
       };
     };
@@ -49,8 +51,8 @@ in
     headers = {
       sslRedirect = true;
       frameDeny = false;
-      customFrameOptionsValue = "ALLOW-FROM https://opencloud.${vars.domain}";
-      contentSecurityPolicy = "frame-ancestors 'self' https://opencloud.${vars.domain}";
+      customFrameOptionsValue = "ALLOW-FROM https://opencloud.${hostConfig.hlamlab.settings.domain}";
+      contentSecurityPolicy = "frame-ancestors 'self' https://opencloud.${hostConfig.hlamlab.settings.domain}";
       contentTypeNosniff = true;
       browserXssFilter = true;
     };

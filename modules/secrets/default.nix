@@ -24,14 +24,13 @@ in
         owner = "cloudflared";
         group = "cloudflared";
         mode = "0400";
-        restartUnits = [ "cloudflared-tunnel-${vars.tunnelId}.service" ];
       };
       # Cloudflare's Authenticated Origin Pull CA (public certificate)
       cloudflare-origin-ca = {
         key = "cloudflare/origin-ca";
         mode = "0444";
         path = "/var/lib/cloudflared/origin-ca.pem";
-        restartUnits = [ "traefik.service" "cloudflared-tunnel-${vars.tunnelId}.service" ];
+        restartUnits = [ "traefik.service" ];
       };
       # YOUR origin certificate (what Traefik presents to Cloudflare)
       traefik-origin-cert = {

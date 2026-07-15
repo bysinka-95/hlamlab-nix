@@ -11,6 +11,13 @@
     (modulesPath + "/profiles/qemu-guest.nix")
   ];
 
+  # Environment Settings
+  hlamlab.settings = {
+    domain = "yourdomain.com";
+    tunnelId = "00000000-0000-0000-0000-000000000000f";
+    hostId = "1a23bc45";
+  };
+
   # Container Services Enablement
   hlamlab.services = {
     authelia.enable = true;

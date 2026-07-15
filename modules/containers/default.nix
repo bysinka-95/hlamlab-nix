@@ -9,13 +9,13 @@
 
   # Import service modules (each directory contains container + traefik + DNS + host integration)
   imports = [
-    ../common/container-frame.nix
-    ./opencloud
-    ./immich
-    ./collabora
-    ./authelia
-    ./lldap
-    ./vaultwarden
-    ./searx
+    ./frame.nix
+    ./opencloud.nix
+    ./immich.nix
+    ./collabora.nix
+    ./authelia.nix
+    ./lldap.nix
+    ./vaultwarden.nix
+    ./searx.nix
   ];
 }

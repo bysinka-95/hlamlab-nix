@@ -1,7 +1,5 @@
 { config, ... }:
-let
-  vars = import ../settings.nix;
-in
+
 {
   services.traefik = {
     enable = true;
@@ -129,7 +127,7 @@ in
         routers = {
           # Traefik dashboard router
           dashboard = {
-            rule = "Host(`traefik.${vars.domain}`)";
+            rule = "Host(`traefik.${config.hlamlab.settings.domain}`)";
             service = "api@internal";
             entryPoints = [ "https" ];
             tls = { };

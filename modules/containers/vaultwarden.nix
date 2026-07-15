@@ -1,6 +1,6 @@
-{ lib, ... }:
+{ lib, config, ... }:
 let
-  vars = import ../../common/settings.nix;
+  hostConfig = config;
 in
 {
   hlamlab.services.vaultwarden = {
@@ -13,6 +13,8 @@ in
     cpuLimit = lib.mkDefault "100%";
     ramLimit = lib.mkDefault "1G";
     ramHigh = lib.mkDefault "512M";
+
+    nameservers = [ "1.1.1.1" "1.0.0.1" ];
 
     bindMounts = {
       "/var/lib/vaultwarden" = {
@@ -36,7 +38,7 @@ in
         config = {
           ROCKET_ADDRESS = "0.0.0.0";
           ROCKET_PORT = 8222;
-          DOMAIN = "https://vault.${vars.domain}";
+          DOMAIN = "https://vault.${hostConfig.hlamlab.settings.domain}";
 
           SIGNUPS_ALLOWED = false;
 
@@ -44,7 +46,7 @@ in
 
           SSO_ENABLED = true;
           SSO_ONLY = true;
-          SSO_AUTHORITY = "https://auth.${vars.domain}";
+          SSO_AUTHORITY = "https://auth.${hostConfig.hlamlab.settings.domain}";
           SSO_CLIENT_ID = "vaultwarden";
           SSO_CLIENT_CACHE_EXPIRATION = 600;
           SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION = true;

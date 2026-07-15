@@ -11,15 +11,12 @@
 #
 # Usage: Import this directory from configuration.nix
 
-{ pkgs, ... }:
-let
-  vars = import ../settings.nix;
-in
+{ config, pkgs, ... }:
 {
   # Enable ZFS support
   boot.supportedFilesystems = [ "zfs" ];
   boot.zfs.forceImportRoot = false;
-  networking.hostId = vars.hostId;
+  networking.hostId = config.hlamlab.settings.hostId;
 
   # ZFS scrub (data integrity check) weekly
   services.zfs.autoScrub = {

@@ -9,10 +9,12 @@ abstraction.
 ```
 modules/containers/
 ├── default.nix           # Imports all service definitions and the container frame
-├── <service>/
-│   └── default.nix       # Complete service definition using hlamlab.services.<name>
+├── frame.nix             # Core abstraction for containerized services
+├── <service>.nix         # Complete service definition using hlamlab.services.<name>
 └── README.md
 ```
+
+> **Note**: For a full reference of available options (like resource limits, networking, ZFS settings, and host-specific options), see [**`hosts/README.md`**](../../hosts/README.md).
 
 ---
 
@@ -22,8 +24,8 @@ All services run in native NixOS containers, isolated from the host.
 
 ## Service Anatomy
 
-Each service resides in `modules/containers/<name>/default.nix` and leverages the
-`container-frame.nix` abstraction. This frame automatically handles ZFS datasets, Sanoid snapshots,
+Each service resides in a dedicated file (e.g., `modules/containers/myservice.nix`) and leverages the
+`frame.nix` abstraction. This frame automatically handles ZFS datasets, Sanoid snapshots,
 systemd limits, DNS, Traefik routing, and users based on a simple set of attributes.
 
 ## Adding a Service
@@ -37,9 +39,9 @@ Add the new service to the **Application Containers** table in the main [
 
 ### 2. Create the Module
 
-In `modules/containers/<name>/`, create `default.nix`.
+In `modules/containers/`, create `<name>.nix`.
 
-**`default.nix`** (App configuration):
+**`<name>.nix`** (App configuration):
 
 ```nix
 { lib, config, ... }:
@@ -92,7 +94,7 @@ In `modules/containers/<name>/`, create `default.nix`.
 
 ### 3. Register and Enable
 
-Add `./myservice` to the imports list in [`modules/containers/default.nix`](default.nix).
+Add `./myservice.nix` to the imports list in [`modules/containers/default.nix`](default.nix).
 
 To actually enable the service on a specific host, edit the host's configuration (e.g.,
 `hosts/playground/configuration.nix`):
@@ -136,7 +138,7 @@ ZFS datasets.
 
 ## Authelia Declarative Provisioning
 
-Manage Authelia users, groups, and OAuth2 systems in `modules/containers/authelia/default.nix`.
+Manage Authelia users, groups, and OAuth2 systems in `modules/containers/authelia.nix`.
 Changes are applied automatically on deploy.
 
 ---
@@ -155,15 +157,17 @@ sudo nixos-container start/stop <name>
 
 ## Resource Limits
 
-Limits are defined directly in the service definition (`default.nix`) and can be overridden in
+Limits are defined directly in the service definition (e.g., `myservice.nix`) and can be overridden in
 `hosts/.../configuration.nix`.
 
 ```nix
   hlamlab.services.myservice = {
     # ...
     cpuLimit = "100%";
+    cpuWeight = 100;
     ramLimit = "2G";
     ramHigh = "1.5G";
+    memorySwapMax = "0B";
   };
 ```
 
@@ -172,6 +176,8 @@ Limits are defined directly in the service definition (`default.nix`) and can be
 - Light (API/cache): 50% CPU, 512M RAM
 - Medium (web/db): 100%, 2G
 - Heavy (ML/media): 200%, 4G+
+
+For a full list of overridable options (including IO and TasksMax limits), refer to [`hosts/README.md`](../../hosts/README.md).
 
 ---
 

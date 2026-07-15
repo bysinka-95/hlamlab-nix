@@ -1,10 +1,8 @@
 { config, lib, pkgs, inputs, ... }:
 let
-  cfg = config.hlamlab.services;
-  vars = import ./settings.nix;
-
-  # Only filter services assigned to this host
-  enabledServices = lib.filterAttrs (n: v: v.enable && v.host == config.networking.hostName) cfg;
+  hostConfig = config;
+  cfg = hostConfig.hlamlab.services;
+  enabledServices = lib.filterAttrs (n: v: v.enable) cfg;
 in
 {
   options.hlamlab.services = lib.mkOption {
@@ -12,10 +10,16 @@ in
       options = {
         enable = lib.mkEnableOption "Enable ${name} service";
 
-        host = lib.mkOption {
-          type = lib.types.str;
-          description = "Which physical NixOS host runs this container";
-          default = "playground";
+        autoStart = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Automatically start the container on boot";
+        };
+
+        privateNetwork = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Enable private network for the container";
         };
 
         ip = lib.mkOption {
@@ -75,7 +79,7 @@ in
             options = {
               key = lib.mkOption { type = lib.types.str; };
               owner = lib.mkOption { type = lib.types.str; default = name; };
-              restartUnits = lib.mkOption { type = lib.types.listOf lib.types.str; default = [ ]; };
+              restartUnits = lib.mkOption { type = lib.types.listOf lib.types.str; default = [ "${name}.service" ]; };
             };
           });
           default = { };
@@ -100,11 +104,53 @@ in
           description = "CPU limit (CPUQuota) for the container";
         };
 
+        cpuWeight = lib.mkOption {
+          type = lib.types.int;
+          default = 100;
+          description = "CPU weight (CPUWeight) for the container";
+        };
+
+        memorySwapMax = lib.mkOption {
+          type = lib.types.str;
+          default = "0B";
+          description = "Maximum swap limit (MemorySwapMax) for the container";
+        };
+
+        ioWeight = lib.mkOption {
+          type = lib.types.int;
+          default = 100;
+          description = "IO weight (IOWeight) for the container";
+        };
+
+        tasksMax = lib.mkOption {
+          type = lib.types.int;
+          default = 512;
+          description = "Maximum tasks (TasksMax) for the container";
+        };
+
+        stateVersion = lib.mkOption {
+          type = lib.types.str;
+          default = hostConfig.system.stateVersion;
+          description = "The stateVersion for the container (defaults to host's stateVersion)";
+        };
+
+        nameservers = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ ];
+          description = "List of nameservers for the container. If empty, inherits from host/systemd";
+        };
+
+        extraHosts = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ name ];
+          description = "List of hostnames to map to the container IP in the host's /etc/hosts";
+        };
+
         traefik = {
           enable = lib.mkOption { type = lib.types.bool; default = true; description = "Enable Traefik routing"; };
           rule = lib.mkOption {
             type = lib.types.str;
-            default = "Host(`${config.domainPrefix}.${vars.domain}`)";
+            default = "Host(`${config.domainPrefix}.${hostConfig.hlamlab.settings.domain}`)";
             description = "Traefik router rule";
           };
         };
@@ -137,8 +183,8 @@ in
       # 1. Container configurations
       containers = lib.mapAttrs
         (name: svc: {
-          autoStart = true;
-          privateNetwork = true;
+          autoStart = svc.autoStart;
+          privateNetwork = svc.privateNetwork;
           hostAddress = "10.0.0.1";
           localAddress = svc.ip;
 
@@ -149,47 +195,51 @@ in
             };
           } // svc.bindMounts;
 
-          config = { config, pkgs, lib, ... }: lib.mkMerge [
-            {
-              imports = [ inputs.sops-nix.nixosModules.sops ];
+          config = { ... }: {
+            imports = [
+              inputs.sops-nix.nixosModules.sops
+              svc.containerConfig
+              svc.extraContainerConfig
+            ];
 
-              sops = {
-                defaultSopsFile = ../../secrets/secrets.yaml;
-                defaultSopsFormat = "yaml";
-                age.keyFile = "/var/lib/sops-nix/key.txt";
-                secrets = lib.mapAttrs
-                  (sname: sval: {
-                    key = sval.key;
-                    owner = if sval.owner == name then svc.serviceUser else sval.owner;
-                    group = if sval.owner == name then svc.serviceUser else sval.owner;
-                    mode = "0400";
-                    restartUnits = sval.restartUnits;
-                  })
-                  svc.secrets;
-              };
+            config = lib.mkMerge [
+              {
+                sops = {
+                  defaultSopsFile = ../secrets/secrets.yaml;
+                  defaultSopsFormat = "yaml";
+                  age.keyFile = "/var/lib/sops-nix/key.txt";
+                  secrets = lib.mapAttrs
+                    (sname: sval: {
+                      key = sval.key;
+                      owner = if sval.owner == name then svc.serviceUser else sval.owner;
+                      group = if sval.owner == name then svc.serviceUser else sval.owner;
+                      mode = "0400";
+                      restartUnits = sval.restartUnits;
+                    })
+                    svc.secrets;
+                };
 
-              networking.nameservers = [ "1.1.1.1" "1.0.0.1" ];
-              networking.firewall.allowedTCPPorts = [ svc.port ];
-              system.stateVersion = "26.05";
-            }
-            (lib.optionalAttrs svc.createServiceUser {
-              users.users.${svc.serviceUser} = {
-                isSystemUser = true;
-                group = svc.serviceUser;
-                description = "${name} service user";
-              };
-              users.groups.${svc.serviceUser} = { };
-            })
-            (if builtins.isFunction svc.containerConfig then svc.containerConfig { inherit config pkgs lib; } else svc.containerConfig)
-            svc.extraContainerConfig
-          ];
+                networking.nameservers = svc.nameservers;
+                networking.firewall.allowedTCPPorts = [ svc.port ];
+                system.stateVersion = svc.stateVersion;
+              }
+              (lib.optionalAttrs svc.createServiceUser {
+                users.users.${svc.serviceUser} = {
+                  isSystemUser = true;
+                  group = svc.serviceUser;
+                  description = lib.mkDefault "${name} service user";
+                };
+                users.groups.${svc.serviceUser} = { };
+              })
+            ];
+          };
         })
         enabledServices;
 
       # 2. DNS Mapping (Host -> Container)
       networking.hosts = lib.mkMerge (lib.mapAttrsToList
-        (name: svc: {
-          "${svc.ip}" = [ name ];
+        (name: svc: lib.optionalAttrs (svc.extraHosts != [ ]) {
+          "${svc.ip}" = svc.extraHosts;
         })
         enabledServices);
 
@@ -229,12 +279,12 @@ in
           "container@${name}" = {
             serviceConfig = {
               CPUQuota = svc.cpuLimit;
-              CPUWeight = 100;
+              CPUWeight = svc.cpuWeight;
               MemoryMax = svc.ramLimit;
               MemoryHigh = svc.ramHigh;
-              MemorySwapMax = "0B";
-              IOWeight = 100;
-              TasksMax = 512;
+              MemorySwapMax = svc.memorySwapMax;
+              IOWeight = svc.ioWeight;
+              TasksMax = svc.tasksMax;
             };
           };
         })
@@ -258,7 +308,7 @@ in
           (name: svc: lib.optionalAttrs svc.traefik.enable {
             "${name}" = {
               loadBalancer = {
-                servers = [{ url = "http://${name}:${toString svc.port}"; }];
+                servers = [{ url = "http://${svc.ip}:${toString svc.port}"; }];
                 passHostHeader = true;
               };
             };

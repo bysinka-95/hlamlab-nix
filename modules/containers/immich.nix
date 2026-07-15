@@ -1,6 +1,6 @@
 { lib, config, ... }:
 let
-  vars = import ../../common/settings.nix;
+  hostConfig = config;
 in
 {
   hlamlab.services.immich = {
@@ -13,6 +13,8 @@ in
     cpuLimit = lib.mkDefault "200%";
     ramLimit = lib.mkDefault "4G";
     ramHigh = lib.mkDefault "3G";
+
+    nameservers = [ "1.1.1.1" "1.0.0.1" ];
 
     bindMounts = {
       "/var/lib/immich" = {
@@ -37,12 +39,12 @@ in
         mediaLocation = "/var/lib/immich";
 
         settings = {
-          server.externalDomain = "https://immich.${vars.domain}";
+          server.externalDomain = "https://immich.${hostConfig.hlamlab.settings.domain}";
           passwordLogin.enabled = false;
 
           oauth = {
             enabled = true;
-            issuerUrl = "https://auth.${vars.domain}";
+            issuerUrl = "https://auth.${hostConfig.hlamlab.settings.domain}";
             clientId = "immich";
             clientSecret._secret = config.sops.secrets.immich-oidc-client-secret.path;
             scope = "openid email profile";

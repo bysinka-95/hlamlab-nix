@@ -1,32 +1,30 @@
 { config, ... }:
-let
-  vars = import ../settings.nix;
-in
+
 {
   services.cloudflared = {
     enable = true;
     tunnels = {
-      "${vars.tunnelId}" = {
+      "${config.hlamlab.settings.tunnelId}" = {
         credentialsFile = config.sops.secrets.cloudflared-credentials.path;
         default = "http_status:404";
 
         ingress = {
           # Route root domain to Traefik HTTPS
-          "${vars.domain}" = {
+          "${config.hlamlab.settings.domain}" = {
             service = "https://localhost:443";
             originRequest = {
               # Cloudflare Origin CA certificate for mTLS validation
               caPool = "/var/lib/cloudflared/origin-ca.pem";
-              originServerName = vars.domain;
+              originServerName = config.hlamlab.settings.domain;
             };
           };
 
           # Route all subdomains to Traefik HTTPS
-          "*.${vars.domain}" = {
+          "*.${config.hlamlab.settings.domain}" = {
             service = "https://localhost:443";
             originRequest = {
               caPool = "/var/lib/cloudflared/origin-ca.pem";
-              originServerName = vars.domain;
+              originServerName = config.hlamlab.settings.domain;
             };
           };
         };

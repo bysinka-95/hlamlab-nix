@@ -1,6 +1,6 @@
-{ lib, ... }:
+{ lib, config, ... }:
 let
-  vars = import ../../common/settings.nix;
+  hostConfig = config;
 in
 {
   hlamlab.services.opencloud = {
@@ -13,6 +13,8 @@ in
     cpuLimit = lib.mkDefault "100%";
     ramLimit = lib.mkDefault "2G";
     ramHigh = lib.mkDefault "1.5G";
+
+    nameservers = [ "1.1.1.1" "1.0.0.1" ];
 
     bindMounts = {
       "/var/lib/opencloud" = {
@@ -35,7 +37,7 @@ in
 
       services.opencloud = {
         enable = true;
-        url = "https://opencloud.${vars.domain}";
+        url = "https://opencloud.${hostConfig.hlamlab.settings.domain}";
         address = "0.0.0.0";
         port = 9200;
         environmentFile = config.sops.secrets.opencloud-sharing-secret.path;
@@ -47,19 +49,19 @@ in
 
           COLLABORATION_APP_NAME = "Office";
           COLLABORATION_APP_PRODUCT = "Collabora";
-          COLLABORATION_APP_ADDR = "https://collabora.${vars.domain}";
+          COLLABORATION_APP_ADDR = "https://collabora.${hostConfig.hlamlab.settings.domain}";
           COLLABORATION_APP_INSECURE = "false";
-          COLLABORATION_WOPI_SRC = "https://opencloud.${vars.domain}";
+          COLLABORATION_WOPI_SRC = "https://opencloud.${hostConfig.hlamlab.settings.domain}";
           COLLABORATION_APP_PROOF_DISABLE = "true";
 
-          OC_OIDC_ISSUER = "https://auth.${vars.domain}";
+          OC_OIDC_ISSUER = "https://auth.${hostConfig.hlamlab.settings.domain}";
           OC_OIDC_CLIENT_ID = "opencloud";
           WEB_OIDC_CLIENT_ID = "opencloud";
           WEB_OIDC_SCOPE = "openid profile email groups";
           PROXY_OIDC_REWRITE_WELLKNOWN = "true";
           PROXY_AUTOPROVISION_ACCOUNTS = "true";
 
-          IDP_DOMAIN = "auth.${vars.domain}";
+          IDP_DOMAIN = "auth.${hostConfig.hlamlab.settings.domain}";
         };
         settings = {
           sharing.service_account.service_account_id = "fb60052c-2854-4225-9ef9-acf6e7907ed1";
@@ -73,7 +75,7 @@ in
                 "https://\${COMPANION_DOMAIN|companion.opencloud.test}\${TRAEFIK_PORT_HTTPS}/"
                 "wss://\${COMPANION_DOMAIN|companion.opencloud.test}\${TRAEFIK_PORT_HTTPS}/"
                 "https://raw.githubusercontent.com/opencloud-eu/awesome-apps/"
-                "https://\${IDP_DOMAIN|auth.${vars.domain}}\${TRAEFIK_PORT_HTTPS}/"
+                "https://\${IDP_DOMAIN|auth.${hostConfig.hlamlab.settings.domain}}\${TRAEFIK_PORT_HTTPS}/"
                 "https://update.opencloud.eu/"
               ];
               default-src = [ "'none'" ];
@@ -83,7 +85,7 @@ in
                 "'self'"
                 "blob:"
                 "https://embed.diagrams.net/"
-                "https://collabora.${vars.domain}"
+                "https://collabora.${hostConfig.hlamlab.settings.domain}"
                 "https://docs.opencloud.eu"
               ];
               img-src = [
@@ -92,7 +94,7 @@ in
                 "blob:"
                 "https://raw.githubusercontent.com/opencloud-eu/awesome-apps/"
                 "https://tile.openstreetmap.org/"
-                "https://collabora.${vars.domain}/"
+                "https://collabora.${hostConfig.hlamlab.settings.domain}/"
               ];
               manifest-src = [ "'self'" ];
               media-src = [ "'self'" ];
@@ -100,7 +102,7 @@ in
               script-src = [
                 "'self'"
                 "'unsafe-inline'"
-                "https://\${IDP_DOMAIN|auth.${vars.domain}}\${TRAEFIK_PORT_HTTPS}/"
+                "https://\${IDP_DOMAIN|auth.${hostConfig.hlamlab.settings.domain}}\${TRAEFIK_PORT_HTTPS}/"
               ];
               style-src = [ "'self'" "'unsafe-inline'" ];
             };
