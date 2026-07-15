@@ -127,6 +127,6 @@ in
   };
 
   systemd.tmpfiles.rules = [
-    "d /var/lib/services/opencloud 0750 root root -"
+    "d /var/lib/services/opencloud 0750 - - -"
   ];
 }

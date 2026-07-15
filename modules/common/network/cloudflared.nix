@@ -34,6 +34,6 @@
 
   # Create directory for cloudflared certificates
   systemd.tmpfiles.rules = [
-    "d /var/lib/cloudflared 0755 cloudflared cloudflared -"
+    "d /var/lib/cloudflared 0750 cloudflared traefik -"
   ];
 }

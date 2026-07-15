@@ -57,4 +57,8 @@ in
       browserXssFilter = true;
     };
   };
+
+  systemd.tmpfiles.rules = [
+    "d /var/lib/services/collabora 0750 - - -"
+  ];
 }

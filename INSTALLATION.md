@@ -100,6 +100,7 @@ traefik:
     -----BEGIN PRIVATE KEY-----
     placeholder
     -----END PRIVATE KEY-----
+  dashboard-auth: "placeholder (htpasswd format: username:bcrypt_hash)"
 
 authelia:
   jwt-secret: "placeholder"
@@ -165,6 +166,10 @@ nix run nixpkgs#authelia -- crypto hash generate argon2 # Enter a strong passphr
 
 # Generate SearXNG secrets
 nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for SEARX_SECRET_KEY in searx-env
+
+# Generate Traefik Dashboard Auth Secret (htpasswd format)
+# Set username and password for basicAuth (default is username 'traefik-cloudflared' with a bcrypt hash)
+nix run nixpkgs#apacheHttpd -- htpasswd -B -n traefik-cloudflared # Enter a strong password when prompted; copy the printed line
 
 # Generate an RSA Keypair for the Authelia OIDC Issuer
 openssl genrsa -out private.pem 4096

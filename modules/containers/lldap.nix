@@ -62,6 +62,6 @@ in
   };
 
   systemd.tmpfiles.rules = [
-    "d /var/lib/services/lldap 0750 root root -"
+    "d /var/lib/services/lldap 0750 - - -"
   ];
 }

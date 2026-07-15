@@ -50,6 +50,15 @@ in
         path = "/var/lib/traefik/certs/origin.key";
         restartUnits = [ "traefik.service" ];
       };
+      # Traefik dashboard basic auth credentials
+      traefik-dashboard-auth = {
+        key = "traefik/dashboard-auth";
+        owner = "traefik";
+        group = "traefik";
+        mode = "0400";
+        path = "/var/lib/traefik/dashboard-auth";
+        restartUnits = [ "traefik.service" ];
+      };
     };
   };
 }

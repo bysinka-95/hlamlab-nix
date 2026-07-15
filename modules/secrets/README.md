@@ -66,6 +66,7 @@ cloudflare:
 traefik:
   origin-cert: "..."
   origin-key: "..."
+  dashboard-auth: "..."
 searx:
   env: "..."
 # ...

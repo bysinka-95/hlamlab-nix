@@ -116,9 +116,7 @@
           # Dashboard authentication
           dashboard-auth = {
             basicAuth = {
-              users = [
-                "traefik-cloudflared:$2y$05$cnSA/wrglqU0NQ3zB/6.duq7K.E6.E9KEXIHLQuH0vLFzD6K.KhbG"
-              ];
+              usersFile = "/var/lib/traefik/dashboard-auth";
               realm = "Traefik Dashboard";
             };
           };

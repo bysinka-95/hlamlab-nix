@@ -84,6 +84,6 @@ in
   };
 
   systemd.tmpfiles.rules = [
-    "d /var/lib/services/immich 0755 root root -"
+    "d /var/lib/services/immich 0750 - - -"
   ];
 }
