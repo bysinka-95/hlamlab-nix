@@ -1,6 +1,5 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 {
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
   nixpkgs.config.allowUnfree = true;
 
   environment.systemPackages = with pkgs; [
@@ -16,6 +15,7 @@
 
   imports = [
     ./settings.nix
+    ./nix.nix
     ./users.nix
     ./network
     ./zfs
