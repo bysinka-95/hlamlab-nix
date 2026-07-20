@@ -17,7 +17,7 @@ SSH, mDNS/Avahi, Traefik reverse proxy, and Cloudflare Tunnel.
 ```nix
 services.openssh = {
   enable = true;
-  settings = { PermitRootLogin = "no"; PasswordAuthentication = true; };
+  settings = { PermitRootLogin = "no"; PasswordAuthentication = false; };
 };
 ```
 
@@ -109,7 +109,7 @@ mTLS established → request proxied to container
 - **Core** ([`traefik.nix`](traefik.nix)): entrypoints (HTTP :80 → HTTPS :443),
   `requireCloudflareMTLS` TLS option, shared middlewares `security-headers` + `rate-limit`,
   dashboard router
-- **Per-service**: Traefik routing is automatically managed by `container-frame.nix` for every
+- **Per-service**: Traefik routing is automatically managed by `frame.nix` for every
   service defined via `hlamlab.services.<name>`. It maps `Host(\`<domainPrefix>.<domain>\`)` to the
   container.
     - You can override `traefik.rule` or disable routing entirely (`traefik.enable = false`) in the
@@ -118,8 +118,7 @@ mTLS established → request proxied to container
 
 ### Cloudflared Configuration
 
-- Tunnel ID and Domain from `modules/secrets/secrets.yaml` (keys `cloudflare/tunnel-id` and
-  `cloudflare/domain`)
+- Tunnel ID and Domain from the host's `hlamlab.settings` configuration (keys `tunnelId` and `domain`).
 - Ingress: `*.yourdomain` → `https://localhost:443`
 - mTLS CA: `/var/lib/cloudflared/origin-ca.pem`
 

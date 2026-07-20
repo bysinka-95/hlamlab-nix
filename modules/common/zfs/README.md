@@ -19,10 +19,10 @@ Declarative ZFS dataset management via Disko and disko-zfs.
 head -c 8 /etc/machine-id; echo
 ```
 
-2. Set it in [`modules/common/zfs/default.nix`](./default.nix) **before first install**:
+2. Set it in [`hosts/playground/configuration.nix`](../../../hosts/playground/configuration.nix) **before first install**:
 
 ```nix
-networking.hostId = "a1b2c3d4";
+hlamlab.settings.hostId = "a1b2c3d4";
 ```
 
 3. Install/deploy
@@ -39,10 +39,10 @@ may fail to import during boot.
 ## Adding a Service Dataset
 
 When adding a new service, its ZFS dataset and sanoid schedule are created automatically by the
-`container-frame.nix` abstraction when you define a service using `hlamlab.services.<name>`.
+`frame.nix` abstraction when you define a service using `hlamlab.services.<name>`.
 
 You simply set the storage requirements in the service definition (
-`modules/containers/<name>/default.nix`) or override them in the host configuration:
+`modules/containers/<name>.nix`) or override them in the host configuration:
 
 ```nix
 { ... }:

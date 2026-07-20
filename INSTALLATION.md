@@ -31,7 +31,7 @@ accordingly.
 
 ### 4. Set ZFS host ID (before first install)
 
-Read the host ID from the target machine during installation, then set it in [`modules/common/settings.nix`](modules/common/settings.nix) **before** running `nixos-anywhere`.
+Read the host ID from the target machine during installation, then set it in [`hosts/playground/configuration.nix`](hosts/playground/configuration.nix) **before** running `nixos-anywhere`.
 
 ```bash
 # On the target machine (installer shell)
@@ -39,7 +39,7 @@ head -c 8 /etc/machine-id; echo
 ```
 
 ```nix
-hostId = "<8-hex-chars>";
+  hlamlab.settings.hostId = "<8-hex-chars>";
 ```
 
 > Important: do not change this value after initial installation. If the pool was created/imported with a different host ID, changing `hostId` later can prevent `tank` from importing at boot.
@@ -198,7 +198,7 @@ Boot the target machine with the [NixOS installer ISO](https://nixos.org/downloa
 # On target machine:
 ip a          # note IP
 passwd        # set temporary root password for nixos-anywhere SSH
-head -c 8 /etc/machine-id; echo # save this for networking.hostId (Part 1, step 5)
+head -c 8 /etc/machine-id; echo # save this for hlamlab.settings.hostId (Part 1, step 4)
 ```
 
 From your local machine:

@@ -7,11 +7,11 @@ the eventual host migration.
 ## Repo layout
 
 - [`flake.nix`](flake.nix): Flake inputs and `flake-parts` based `nixosConfigurations`.
-- [`modules/common/`](modules/common): Shared defaults (nix settings, allowUnfree, SSH policy, base packages) and the `container-frame.nix` abstraction.
-- [`modules/common/network/`](modules/common/network): Network services (Traefik reverse proxy, Cloudflare Tunnel, mDNS).
-- [`modules/common/zfs/`](modules/common/zfs): ZFS configuration (declarative datasets, snapshots, monitoring).
-- [`modules/secrets/`](modules/secrets): sops-nix configuration and encrypted secrets. All configuration variables live inside `secrets.yaml` encrypted using sops-nix.
-- [`modules/containers/`](modules/containers): Self-contained service definitions using the `hlamlab.services` abstraction.
+- [`modules/common/`](modules/common): Shared defaults (nix settings, allowUnfree, SSH policy, base packages, GC, auto-upgrades) and settings definitions.
+- [`modules/common/network/`](modules/common/network): Network services (Traefik reverse proxy with usersFile auth, Cloudflare Tunnel, mDNS).
+- [`modules/common/zfs/`](modules/common/zfs): ZFS configuration (declarative datasets, snapshots, weekly scrubbing).
+- [`modules/secrets/`](modules/secrets): sops-nix configuration and encrypted secrets. Only secret keys live inside `secrets.yaml`.
+- [`modules/containers/`](modules/containers): Flat service configuration files using the `hlamlab.services` container `frame.nix`.
 - [`hosts/playground/`](hosts/playground)
     - [`configuration.nix`](hosts/playground/configuration.nix): System config (boot, networking, users). This is where services are explicitly enabled.
     - [`disk-config.nix`](hosts/playground/disk-config.nix): Disko ZFS layout for `/dev/sda` (GPT + ESP + ZFS pool).
@@ -42,7 +42,7 @@ the eventual host migration.
 | opencloud    | 10.0.0.2:9200      | https://opencloud.yourdomain                                | /var/lib/services/opencloud    | 100% | 1.5G → 2G        | 50G / 10G       |
 | immich       | 10.0.0.3:2283      | https://immich.yourdomain                                   | /var/lib/services/immich       | 200% | 3G → 4G          | 300G / 10G      |
 | collabora    | 10.0.0.4:9980      | https://collabora.yourdomain                                | /var/lib/services/collabora    | 100% | 1G → 1.5G        | 20G / 5G        |
-| authelia     | 10.0.0.5:8443      | https://auth.yourdomain                                     | /var/lib/services/authelia     | 100% | 512M → 1G        | 10G / 1G        |
+| authelia     | 10.0.0.5:9091      | https://auth.yourdomain                                     | /var/lib/services/authelia     | 100% | 512M → 1G        | 10G / 1G        |
 | lldap        | 10.0.0.6:3000      | https://lldap.yourdomain                                    | /var/lib/services/lldap        | 100% | 512M → 1G        | 10G / 1G        |
 | vaultwarden  | 10.0.0.7:8222      | https://vault.yourdomain                                    | /var/lib/services/vaultwarden  | 100% | 512M → 1G        | 10G / 1G        |
 | searx        | 10.0.0.8:8888      | https://searxng.yourdomain                                  | /var/lib/services/searx        | 100% | 512M → 1G        | 10G / 1G        |
@@ -84,27 +84,19 @@ For container management commands and how to add new services, see
   `hosts/playground/configuration.nix`](hosts/playground/configuration.nix)
   by replacing `<replace-with-mkpasswd-sha-512>` with the output of `mkpasswd -m sha-512`.
 
-## Initial Configuration
+Before deploying, edit the host configuration file with your host's values:
 
-Before deploying, edit the configuration file with your values:
-
-**Edit [`modules/common/settings.nix`](modules/common/settings.nix)**:
+**Edit [`hosts/playground/configuration.nix`](hosts/playground/configuration.nix)**:
 
 ```nix
-let
-  domain = "yourdomain.com";           # Your domain name
-  tunnelId = "your-tunnel-id-here";    # Your Cloudflare Tunnel ID
-  hostId = "your-zfs-host-id";         # Your ZFS host ID (8 hex chars)
-  ...
-in
-{
-  inherit domain tunnelId hostId ldapBaseDn;
-}
+  hlamlab.settings = {
+    domain = "yourdomain.com";           # Your domain name
+    tunnelId = "your-tunnel-id-here";    # Your Cloudflare Tunnel ID
+    hostId = "your-zfs-host-id";         # Your ZFS host ID (8 hex chars)
+  };
 ```
 
-**Note**: This file is tracked by git. If publishing this config publicly, use dummy placeholder
-values (e.g., "
-example.com", "00000000-0000-0000-0000-000000000000") and document that users should update them.
+**Note**: Do not commit actual private keys or decrypted credentials.
 
 ## Installation
 
