@@ -50,6 +50,10 @@ in
         key = "vaultwarden/oidc-client-secret";
         restartUnits = [ "authelia-main.service" ];
       };
+      authelia-grafana-oidc-client-secret = {
+        key = "grafana/oidc-client-secret";
+        restartUnits = [ "authelia-main.service" ];
+      };
       authelia-oidc-hmac-secret = {
         key = "authelia/oidc-hmac-secret";
         restartUnits = [ "authelia-main.service" ];
@@ -61,6 +65,9 @@ in
     };
 
     containerConfig = { config, pkgs, ... }: {
+      # Prometheus metrics endpoint (scraped at 10.0.0.5:9959).
+      networking.firewall.allowedTCPPorts = [ 9959 ];
+
       services.redis.servers.authelia.enable = true;
 
       services.authelia.instances.main = {
@@ -89,6 +96,13 @@ in
 
           log = {
             level = "info";
+          };
+
+          telemetry = {
+            metrics = {
+              enabled = true;
+              address = "tcp://0.0.0.0:9959/";
+            };
           };
 
           authentication_backend = {
@@ -141,6 +155,9 @@ in
                 endpoints = [ "authorization" "token" "revocation" "introspection" ];
                 allowed_origins_from_client_redirect_uris = true;
               };
+              claims_policies = {
+                grafana.id_token = [ "preferred_username" "email" "name" "groups" ];
+              };
               clients = [
                 {
                   client_id = "immich";
@@ -181,6 +198,21 @@ in
                   ];
                   scopes = [ "openid" "profile" "email" "offline_access" ];
                   userinfo_signed_response_alg = "none";
+                  token_endpoint_auth_method = "client_secret_basic";
+                }
+                {
+                  client_id = "grafana";
+                  client_name = "Grafana";
+                  claims_policy = "grafana";
+                  client_secret = "$plaintext\${{ secret \"${config.sops.secrets.authelia-grafana-oidc-client-secret.path}\" }}";
+                  public = false;
+                  authorization_policy = "one_factor";
+                  redirect_uris = [
+                    "https://grafana.${hostConfig.hlamlab.settings.domain}/login/generic_oauth"
+                  ];
+                  scopes = [ "openid" "profile" "email" "groups" ];
+                  userinfo_signed_response_alg = "none";
+                  access_token_signed_response_alg = "RS256";
                   token_endpoint_auth_method = "client_secret_basic";
                 }
               ];

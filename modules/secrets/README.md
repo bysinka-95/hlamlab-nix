@@ -69,6 +69,10 @@ traefik:
   dashboard-auth: "..."
 searx:
   env: "..."
+grafana:
+  oidc-client-secret: "..."  # SAME value referenced by the Authelia grafana client
+  admin-password: "..."      # break-glass only (login form disabled)
+  secret-key: "..."          # Grafana DB encryption key — keep stable, never rotate casually
 # ...
 ```
 

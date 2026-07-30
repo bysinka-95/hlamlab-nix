@@ -18,13 +18,20 @@
     hostId = "1a23bc45";
   };
 
+  # Observability: inject node_exporter + persistent journald into every
+  # container so Prometheus can scrape and the host Alloy captures all logs.
+  hlamlab.observability.enable = true;
+
   # Container Services Enablement
   hlamlab.services = {
     authelia.enable = true;
     collabora.enable = true;
+    grafana.enable = true;
     immich.enable = true;
     lldap.enable = true;
+    loki.enable = true;
     opencloud.enable = true;
+    prometheus.enable = true;
     searx.enable = true;
     vaultwarden.enable = true;
   };

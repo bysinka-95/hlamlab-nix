@@ -5,6 +5,16 @@ let
   enabledServices = lib.filterAttrs (n: v: v.enable) cfg;
 in
 {
+  options.hlamlab.observability = {
+    enable = lib.mkEnableOption "inject node_exporter + persistent journald into every container";
+    nodeExporterPort = lib.mkOption {
+      type = lib.types.int;
+      # Defaulting to 9101 to avoid conflict with opencloud's services
+      default = 9101;
+      description = "Port every container's node_exporter listens on (scraped by Prometheus)";
+    };
+  };
+
   options.hlamlab.services = lib.mkOption {
     type = lib.types.attrsOf (lib.types.submodule ({ name, config, ... }: {
       options = {
@@ -230,6 +240,22 @@ in
                   description = lib.mkDefault "${name} service user";
                 };
                 users.groups.${svc.serviceUser} = { };
+              })
+              # Observability: node_exporter for metrics + persistent journald so
+              # nspawn links the container journal into the host's /var/log/journal
+              # (where the single host Alloy picks it up).
+              (lib.optionalAttrs hostConfig.hlamlab.observability.enable {
+                services.prometheus.exporters.node = {
+                  enable = true;
+                  listenAddress = "0.0.0.0";
+                  port = hostConfig.hlamlab.observability.nodeExporterPort;
+                  openFirewall = true;
+                  enabledCollectors = [ "systemd" ];
+                };
+                services.journald.extraConfig = ''
+                  Storage=persistent
+                  SystemMaxUse=100M
+                '';
               })
             ];
           };

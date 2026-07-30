@@ -46,9 +46,18 @@ the eventual host migration.
 | lldap        | 10.0.0.6:3000      | https://lldap.yourdomain                                    | /var/lib/services/lldap        | 100% | 512M → 1G        | 10G / 1G        |
 | vaultwarden  | 10.0.0.7:8222      | https://vault.yourdomain                                    | /var/lib/services/vaultwarden  | 100% | 512M → 1G        | 10G / 1G        |
 | searx        | 10.0.0.8:8888      | https://searxng.yourdomain                                  | /var/lib/services/searx        | 100% | 512M → 1G        | 10G / 1G        |
-| —            | 10.0.0.9+          | —                                                           | —                              | —    | —                | —               |
+| grafana      | 10.0.0.9:3000      | https://grafana.yourdomain                                  | /var/lib/services/grafana      | 100% | 512M → 768M      | 10G / 1G        |
+| prometheus   | 10.0.0.10:9090     | internal only (via Grafana)                                 | /var/lib/services/prometheus   | 100% | 512M → 1G        | 20G / 2G        |
+| loki         | 10.0.0.11:3100     | internal only (via Grafana)                                 | /var/lib/services/loki         | 100% | 256M → 512M      | 20G / 2G        |
+| —            | 10.0.0.12+         | —                                                           | —                              | —    | —                | —               |
 
-**IP 10.0.0.1** is reserved for the host gateway. **Next available:** 10.0.0.9.
+**IP 10.0.0.1** is reserved for the host gateway. **Next available:** 10.0.0.12.
+
+**Observability** — Prometheus (metrics, 30d) + Loki (logs, 30d) + Grafana (OIDC via
+Authelia only). Metrics are pulled: every container runs a `node_exporter` (injected by
+`frame.nix` when `hlamlab.observability.enable`), scraped alongside Traefik, Authelia,
+and cloudflared. Logs use a single host-level **Alloy** that reads all container journals
+(nspawn links them into the host journal) plus Traefik's log files — no per-container agent.
 
 ### ZFS Datasets
 
@@ -65,6 +74,9 @@ the eventual host migration.
 | tank/services/lldap          | /var/lib/services/lldap        | 10G   | 1G          | lz4         |
 | tank/services/vaultwarden    | /var/lib/services/vaultwarden  | 10G   | 1G          | lz4         |
 | tank/services/searx          | /var/lib/services/searx        | 10G   | 1G          | lz4         |
+| tank/services/grafana        | /var/lib/services/grafana      | 10G   | 1G          | lz4         |
+| tank/services/prometheus     | /var/lib/services/prometheus   | 20G   | 2G          | lz4         |
+| tank/services/loki           | /var/lib/services/loki         | 20G   | 2G          | lz4         |
 | tank/backups                 | /var/backups                   | —     | —           | gzip        |
 
 For ZFS management commands, snapshot operations, and adding new datasets, see

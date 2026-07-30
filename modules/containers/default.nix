@@ -17,5 +17,8 @@
     ./lldap.nix
     ./vaultwarden.nix
     ./searx.nix
+    ./grafana.nix
+    ./prometheus.nix
+    ./loki.nix
   ];
 }

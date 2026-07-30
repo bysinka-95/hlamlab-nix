@@ -48,8 +48,23 @@
         insecureSkipVerify = true;
       };
 
+      # Prometheus metrics (scraped by the prometheus container at 10.0.0.1:8082)
+      metrics = {
+        prometheus = {
+          entryPoint = "metrics";
+          addEntryPointsLabels = true;
+          addServicesLabels = true;
+          addRoutersLabels = true;
+        };
+      };
+
       # Entry Points
       entryPoints = {
+        # Internal-only metrics endpoint (not routed by cloudflared).
+        metrics = {
+          address = ":8082";
+        };
+
         http = {
           address = ":80";
           http = {
@@ -182,6 +197,7 @@
     };
   };
 
-  # Open firewall ports for Traefik
-  networking.firewall.allowedTCPPorts = [ 80 443 ];
+  # Open firewall ports for Traefik. 8082 is the internal metrics endpoint —
+  # reachable only over the container bridge (cloudflared forwards :443 only).
+  networking.firewall.allowedTCPPorts = [ 80 443 8082 ];
 }

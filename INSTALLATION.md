@@ -132,6 +132,11 @@ searx:
 opencloud:
   sharing-secret: |
     SHARING_SERVICE_ACCOUNT_SECRET=placeholder
+
+grafana:
+  oidc-client-secret: "placeholder" # same value used by the Authelia grafana client
+  admin-password: "placeholder"     # break-glass local admin (login form disabled)
+  secret-key: "placeholder"         # Grafana DB encryption key — keep stable
 ```
 
 **Generate Application Secrets:**
@@ -166,6 +171,11 @@ nix run nixpkgs#authelia -- crypto hash generate argon2 # Enter a strong passphr
 
 # Generate SearXNG secrets
 nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for SEARX_SECRET_KEY in searx-env
+
+# Generate Grafana secrets
+nix run nixpkgs#authelia -- crypto rand --length 72 --charset rfc3986 # Use for grafana-oidc-client-secret (same value in the Authelia grafana client)
+nix run nixpkgs#authelia -- crypto rand --length 32 --charset alphanumeric # Use for grafana-secret-key (DB encryption key)
+# grafana-admin-password: choose a strong password (break-glass only; the login form is disabled)
 
 # Generate Traefik Dashboard Auth Secret (htpasswd format)
 # Set username and password for basicAuth (default is username 'traefik-cloudflared' with a bcrypt hash)
@@ -257,6 +267,23 @@ ssh hlamnix@<target-ip> "sudo reboot"
 ssh hlamnix@<target-ip> "sudo systemctl restart cloudflared traefik"
 ```
 
+### 5. Create the Grafana admin group in LLDAP
+
+Grafana grants **server admin** to users in the LLDAP group `grafana-admins` (role
+mapping in `modules/containers/grafana.nix`). Without this, an OIDC user lands on
+`Viewer`. In the LLDAP UI (`https://lldap.<domain>`):
+
+1. Create a group named `grafana-admins`.
+2. Add your admin user to it.
+3. (Optional) Create `grafana-editors` for the `Editor` role.
+
+Log in to Grafana at `https://grafana.<domain>` — you are redirected straight to
+Authelia (the local login form is disabled). Members of `grafana-admins` come back as
+server admins.
+
+> Break-glass: if OIDC ever breaks, set `auth.disable_login_form = false` in
+> `grafana.nix` for one rebuild and log in with `admin` / `grafana-admin-password`.
+
 ---
 
 ## Verification
@@ -267,6 +294,13 @@ ssh hlamnix@playground.local "zpool status"    # ZFS healthy
 ssh hlamnix@playground.local "zfs list"        # datasets exist
 ssh hlamnix@playground.local "machinectl list" # containers running
 systemctl status traefik                       # (on host)
+
+# Observability
+ssh hlamnix@playground.local "ls /var/log/journal/"        # host + per-container machine-id dirs
+ssh hlamnix@playground.local "journalctl -M immich -n 5"   # container logs visible from host
+ssh hlamnix@playground.local "systemctl status alloy"      # log agent healthy
+# Prometheus targets all UP (from the host, via the gateway IP):
+ssh hlamnix@playground.local "curl -s 10.0.0.10:9090/api/v1/targets | grep -o '\"health\":\"[^\"]*\"' | sort | uniq -c"
 ```
 
 ---
