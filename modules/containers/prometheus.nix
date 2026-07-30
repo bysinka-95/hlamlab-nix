@@ -45,6 +45,12 @@ in
         retentionTime = "30d";
         stateDir = "prometheus2";
 
+        # 15s default scrape — matches Grafana's datasource timeInterval so
+        # $__rate_interval (>= 4x scrape) covers enough samples for rate() to
+        # resolve. At the Prometheus 1m default, rate() over a 1m window caught
+        # a single cAdvisor sample and returned empty (CPU/net/disk panels).
+        globalConfig.scrape_interval = "15s";
+
         scrapeConfigs = [
           {
             job_name = "node";
