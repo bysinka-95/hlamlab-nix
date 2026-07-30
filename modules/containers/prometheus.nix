@@ -78,6 +78,12 @@ in
             job_name = "cloudflared";
             static_configs = [{ targets = [ "10.0.0.1:60123" ]; }];
           }
+          {
+            # cAdvisor runs on the host — true per-container cgroup metrics
+            # (node_exporter inside containers only sees host-global /proc).
+            job_name = "cadvisor";
+            static_configs = [{ targets = [ "10.0.0.1:8080" ]; }];
+          }
         ];
       };
 

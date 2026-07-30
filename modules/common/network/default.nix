@@ -27,5 +27,6 @@
     ./traefik.nix
     ./cloudflared.nix
     ./alloy.nix
+    ./cadvisor.nix
   ];
 }

@@ -54,10 +54,19 @@ the eventual host migration.
 **IP 10.0.0.1** is reserved for the host gateway. **Next available:** 10.0.0.12.
 
 **Observability** — Prometheus (metrics, 30d) + Loki (logs, 30d) + Grafana (OIDC via
-Authelia only). Metrics are pulled: every container runs a `node_exporter` (injected by
-`frame.nix` when `hlamlab.observability.enable`), scraped alongside Traefik, Authelia,
-and cloudflared. Logs use a single host-level **Alloy** that reads all container journals
-(nspawn links them into the host journal) plus Traefik's log files — no per-container agent.
+Authelia only), enabled by `hlamlab.observability.enable`.
+
+- **Metrics** are pulled. Per-container resource usage (CPU/mem/net/IO) comes from
+  **cAdvisor** on the host (`modules/common/network/cadvisor.nix`, `:8080`), which reads the
+  cgroup tree — the only source that separates containers, since nspawn shares the host
+  `/proc`. Each container also runs a `node_exporter` (`frame.nix`); note its mem/cpu/disk
+  numbers are **host-global** (shared kernel), useful for systemd unit state, not per-container
+  usage. Traefik, Authelia, and cloudflared are scraped too.
+- **Logs** — a host-level **Alloy** captures the host journal (incl. `container@<name>` spawn
+  wrappers) and Traefik's files. Each container additionally runs its **own Alloy**
+  (`hlamlab.observability.logAgent`, on by default) that ships its private journal — the real
+  service logs (`immich-server.service` &c.) that nspawn never surfaces to the host — to Loki,
+  labelled `job=<container>`. Filter by that job then `unit` in Grafana's Log Viewer.
 
 ### ZFS Datasets
 

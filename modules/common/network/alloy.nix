@@ -1,10 +1,12 @@
 { ... }:
 {
-  # Single host-level log agent. NixOS containers are systemd-nspawn, which links
-  # each container journal into the host's /var/log/journal/<machine-id>/, so one
-  # journal reader here captures every container + the host. Traefik is the only
-  # file-based logger and runs host-side, so we tail its files directly. No
-  # per-container agent needed.
+  # Host-level log agent: captures the HOST journal (incl. the `container@<name>`
+  # nspawn spawn wrappers) and Traefik's log files. It does NOT see the services
+  # running INSIDE containers — nspawn keeps each container's journal private, so
+  # the host reader only gets the spawn/boot wrapper, not immich-server.service &
+  # co. Those real service logs are shipped by a per-container Alloy agent that
+  # reads each container's own journal (see modules/containers/frame.nix,
+  # hlamlab.observability.logAgent).
   services.alloy.enable = true;
 
   # Read the journal (systemd-journal group) and Traefik's log files.

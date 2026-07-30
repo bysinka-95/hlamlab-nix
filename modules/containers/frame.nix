@@ -6,12 +6,30 @@ let
 in
 {
   options.hlamlab.observability = {
-    enable = lib.mkEnableOption "inject node_exporter + persistent journald into every container";
+    enable = lib.mkEnableOption "inject node_exporter + per-container log agent into every container";
     nodeExporterPort = lib.mkOption {
       type = lib.types.int;
       # Defaulting to 9101 to avoid conflict with opencloud's services
       default = 9101;
       description = "Port every container's node_exporter listens on (scraped by Prometheus)";
+    };
+    logAgent = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Run an Alloy log agent inside every container that ships its own
+          journal (real per-service logs) to Loki. nspawn does not surface the
+          inner service journals to the host, so a host-side reader only sees the
+          `container@<name>` spawn wrapper — this agent is what gets
+          `immich-server.service` & friends into Grafana.
+        '';
+      };
+      lokiPushUrl = lib.mkOption {
+        type = lib.types.str;
+        default = "http://10.0.0.11:3100/loki/api/v1/push";
+        description = "Loki push endpoint each container's log agent forwards to";
+      };
     };
   };
 
@@ -241,9 +259,13 @@ in
                 };
                 users.groups.${svc.serviceUser} = { };
               })
-              # Observability: node_exporter for metrics + persistent journald so
-              # nspawn links the container journal into the host's /var/log/journal
-              # (where the single host Alloy picks it up).
+              # Observability: node_exporter for the container's own /proc view +
+              # persistent journald (so the log agent has a stable journal to read).
+              # NOTE: nspawn shares the host kernel and does not virtualize
+              # /proc/{meminfo,stat} or /sys, so this node_exporter reports
+              # HOST-GLOBAL mem/cpu/disk, identical across containers. True
+              # per-container resource usage comes from cgroups via cAdvisor on the
+              # host — see modules/common/network/cadvisor.nix.
               (lib.optionalAttrs hostConfig.hlamlab.observability.enable {
                 services.prometheus.exporters.node = {
                   enable = true;
@@ -255,6 +277,43 @@ in
                 services.journald.extraConfig = ''
                   Storage=persistent
                   SystemMaxUse=100M
+                '';
+              })
+              # Per-container log agent: reads THIS container's own journal (which
+              # holds the real service logs — immich-server.service, etc. — that
+              # never reach the host journal) and ships to Loki. Labelled
+              # job=<container> so Grafana's Log Viewer lists each service by name;
+              # narrow further with the `unit` filter.
+              (lib.optionalAttrs (hostConfig.hlamlab.observability.enable && hostConfig.hlamlab.observability.logAgent.enable) {
+                services.alloy.enable = true;
+                systemd.services.alloy.serviceConfig.SupplementaryGroups = [ "systemd-journal" ];
+                environment.etc."alloy/config.alloy".text = ''
+                  loki.write "default" {
+                    endpoint {
+                      url = "${hostConfig.hlamlab.observability.logAgent.lokiPushUrl}"
+                    }
+                  }
+
+                  loki.relabel "journal" {
+                    forward_to = []
+
+                    rule {
+                      source_labels = ["__journal__systemd_unit"]
+                      target_label  = "unit"
+                    }
+                    rule {
+                      source_labels = ["__journal_priority_keyword"]
+                      target_label  = "level"
+                    }
+                  }
+
+                  loki.source.journal "read" {
+                    path          = "/var/log/journal"
+                    max_age       = "12h"
+                    relabel_rules = loki.relabel.journal.rules
+                    labels        = { job = "${name}", container = "${name}", host = "${name}" }
+                    forward_to    = [loki.write.default.receiver]
+                  }
                 '';
               })
             ];
