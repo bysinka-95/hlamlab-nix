@@ -1,90 +1,104 @@
 {
   "annotations": { "list": [] },
-  "description": "True per-container resource usage from cAdvisor (host cgroups). Filters the container@<name>.service scope and extracts the container name into the legend. If panels are empty, run `curl -s 10.0.0.1:8080/metrics | grep container@` from the prometheus container to confirm the real cgroup path/label and adjust the id regex here.",
+  "description": "Container internals from cAdvisor (host cgroups). Metrics key on the `id` label: /machine.slice/container@<name>.service is the container root; /payload/**/<svc>.service are the services inside it. Use the $container / $service variables to drill from a whole container down to a single unit.",
   "editable": true,
-  "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "links": [],
-  "liveNow": false,
-  "panels": [
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never" }, "unit": "percentunit" }, "overrides": [] },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
-      "id": 1,
-      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "title": "CPU usage (cores)",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "label_replace(sum by (id) (rate(container_cpu_usage_seconds_total{id=~\".*container@.+\\\\.service\"}[5m])), \"container\", \"$1\", \"id\", \".*container@(.+)\\\\.service\")",
-          "legendFormat": "{{container}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never" }, "unit": "bytes" }, "overrides": [] },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
-      "id": 2,
-      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "title": "Memory working set",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "label_replace(sum by (id) (container_memory_working_set_bytes{id=~\".*container@.+\\\\.service\"}), \"container\", \"$1\", \"id\", \".*container@(.+)\\\\.service\")",
-          "legendFormat": "{{container}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never" }, "unit": "Bps" }, "overrides": [] },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
-      "id": 3,
-      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "title": "Network RX",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "label_replace(sum by (id) (rate(container_network_receive_bytes_total{id=~\".*container@.+\\\\.service\"}[5m])), \"container\", \"$1\", \"id\", \".*container@(.+)\\\\.service\")",
-          "legendFormat": "{{container}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never" }, "unit": "Bps" }, "overrides": [] },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
-      "id": 4,
-      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "title": "Network TX",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "label_replace(sum by (id) (rate(container_network_transmit_bytes_total{id=~\".*container@.+\\\\.service\"}[5m])), \"container\", \"$1\", \"id\", \".*container@(.+)\\\\.service\")",
-          "legendFormat": "{{container}}",
-          "refId": "A"
-        }
-      ]
-    }
-  ],
-  "refresh": "30s",
   "schemaVersion": 39,
   "tags": ["cadvisor", "containers"],
-  "templating": { "list": [] },
   "time": { "from": "now-6h", "to": "now" },
-  "timepicker": {},
-  "timezone": "",
-  "title": "Containers — cAdvisor",
+  "timezone": "browser",
+  "title": "Containers — cAdvisor internals",
   "uid": "cadvisor-containers",
-  "version": 1,
-  "weekStart": ""
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "container",
+        "label": "Container",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "query": "label_values(container_last_seen, id)", "refId": "StandardVariableQuery" },
+        "regex": "/container@(?<value>[^/]+?)\\.service$/",
+        "refresh": 2, "sort": 1, "includeAll": true, "allValue": "[^/]+", "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "service",
+        "label": "Service (in container)",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "query": "label_values(container_memory_working_set_bytes{id=~`^/machine\\.slice/container@($container)\\.service/payload/.*\\.service$`}, id)", "refId": "StandardVariableQuery" },
+        "regex": "/([^/]+?)\\.service$/",
+        "refresh": 2, "sort": 1, "includeAll": true, "allValue": ".+", "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    { "type": "row", "title": "Per-service resource usage ($container / $service)", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "id": 100 },
+
+    {
+      "title": "Memory by service (stacked)", "type": "timeseries", "id": 1,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 25, "lineWidth": 1, "showPoints": "never", "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "label_replace(label_replace(container_memory_working_set_bytes{id=~`^/machine\\.slice/container@($container)\\.service/payload/.*($service)\\.service$`}, `svc`, `$1`, `id`, `^.*/([^/]+)\\.service$`), `container`, `$1`, `id`, `^.*container@([^/]+)\\.service.*$`)", "legendFormat": "{{container}} / {{svc}}" } ]
+    },
+    {
+      "title": "CPU by service (stacked)", "type": "timeseries", "id": 2,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "none", "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 25, "lineWidth": 1, "showPoints": "never", "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "label_replace(label_replace(rate(container_cpu_usage_seconds_total{id=~`^/machine\\.slice/container@($container)\\.service/payload/.*($service)\\.service$`}[$__rate_interval]), `svc`, `$1`, `id`, `^.*/([^/]+)\\.service$`), `container`, `$1`, `id`, `^.*container@([^/]+)\\.service.*$`)", "legendFormat": "{{container}} / {{svc}}" } ]
+    },
+
+    { "type": "row", "title": "Container health ($container)", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 11 }, "id": 101 },
+
+    {
+      "title": "Memory composition (working set = rss + active file cache)", "type": "timeseries", "id": 3,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 12 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "label_replace(container_memory_rss{id=~`^/machine\\.slice/container@($container)\\.service$`}, `container`, `$1`, `id`, `^.*container@([^/]+)\\.service$`)", "legendFormat": "{{container}} rss" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "label_replace(container_memory_cache{id=~`^/machine\\.slice/container@($container)\\.service$`}, `container`, `$1`, `id`, `^.*container@([^/]+)\\.service$`)", "legendFormat": "{{container}} cache" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "label_replace(container_memory_swap{id=~`^/machine\\.slice/container@($container)\\.service$`}, `container`, `$1`, `id`, `^.*container@([^/]+)\\.service$`)", "legendFormat": "{{container}} swap" }
+      ]
+    },
+    {
+      "title": "CPU throttling (throttled seconds/s)", "type": "timeseries", "id": 4,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 12 },
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "never", "gradientMode": "opacity" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "label_replace(rate(container_cpu_cfs_throttled_seconds_total{id=~`^/machine\\.slice/container@($container)\\.service$`}[$__rate_interval]), `container`, `$1`, `id`, `^.*container@([^/]+)\\.service$`)", "legendFormat": "{{container}}" } ]
+    },
+    {
+      "title": "Processes per container", "type": "timeseries", "id": 5,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 21 },
+      "fieldConfig": { "defaults": { "unit": "none", "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "label_replace(container_processes{id=~`^/machine\\.slice/container@($container)\\.service$`}, `container`, `$1`, `id`, `^.*container@([^/]+)\\.service$`)", "legendFormat": "{{container}}" } ]
+    },
+    {
+      "title": "Threads per container", "type": "timeseries", "id": 6,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 21 },
+      "fieldConfig": { "defaults": { "unit": "none", "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "label_replace(container_threads{id=~`^/machine\\.slice/container@($container)\\.service$`}, `container`, `$1`, `id`, `^.*container@([^/]+)\\.service$`)", "legendFormat": "{{container}}" } ]
+    },
+    {
+      "title": "OOM events (1h increase)", "type": "timeseries", "id": 7,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 21 },
+      "fieldConfig": { "defaults": { "unit": "none", "min": 0, "custom": { "drawStyle": "bars", "fillOpacity": 60, "lineWidth": 1 }, "color": { "mode": "fixed", "fixedColor": "red" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "label_replace(increase(container_oom_events_total{id=~`^/machine\\.slice/container@($container)\\.service$`}[1h]), `container`, `$1`, `id`, `^.*container@([^/]+)\\.service$`)", "legendFormat": "{{container}}" } ]
+    }
+  ]
 }

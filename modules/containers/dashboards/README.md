@@ -31,8 +31,37 @@ If a dashboard uses a differently-named datasource input (not `DS_PROMETHEUS`
 / `DS_LOKI`), add a matching `sed` line to the `dashboards` derivation in
 `grafana.nix`.
 
-## Recommended starters
+## Custom dashboards (this repo)
 
-- **1860** node-exporter-full — host + per-container metrics.
+- **homelab-overview** — the entry point. Host/fleet header → per-container
+  CPU/mem/net/disk (+ % of MemoryMax / CPU quota) → per-service drill-down → logs.
+  Variables `$container`, `$service`, `$search` filter the whole board top to bottom.
+- **cadvisor-containers** — container internals: per-service memory/CPU (stacked),
+  memory composition (rss/cache/swap), CPU throttling, processes/threads, OOM events.
+
+### cAdvisor label convention (how the filtering works)
+
+cAdvisor labels every cgroup with a single `id` = its full path. There is **no**
+`name` label for nspawn cgroups, so all queries key on `id`:
+
+| Scope | `id` shape |
+|-------|-----------|
+| host root | `/` |
+| container root (whole container) | `/machine.slice/container@<name>.service` |
+| a service inside a container | `/machine.slice/container@<name>.service/payload/**/<svc>.service` |
+
+- Container name is pulled into a clean legend with
+  `label_replace(<expr>, "container", "$1", "id", "^.*container@([^/]+)\.service.*$")`.
+- Service name: `label_replace(..., "svc", "$1", "id", "^.*/([^/]+)\.service$")`.
+- The `$container` variable is `label_values(container_last_seen, id)` filtered by the
+  extraction regex `/container@(?<value>[^/]+?)\.service$/` — the trailing `$` makes it
+  match container **roots** only (service ids have more path after `.service`).
+
+`machine_cpu_cores` / `machine_memory_bytes` give host totals for the % gauges.
+
+## Recommended starters (grafana.com)
+
+- **1860** node-exporter-full — host metrics (note: inside containers node_exporter is
+  host-global; use the cAdvisor dashboards for real per-container usage).
 - **13639** Loki logs / quick search.
 - **17346** Traefik official.
