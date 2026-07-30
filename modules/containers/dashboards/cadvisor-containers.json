@@ -51,7 +51,7 @@
       "gridPos": { "h": 10, "w": 12, "x": 12, "y": 1 },
       "fieldConfig": { "defaults": { "unit": "none", "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 25, "lineWidth": 1, "showPoints": "never", "stacking": { "mode": "normal" } } }, "overrides": [] },
       "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "label_replace(label_replace(rate(container_cpu_usage_seconds_total{id=~`^/machine\\.slice/container@($container)\\.service/payload/.*($service)\\.service$`}[$__rate_interval]), `svc`, `$1`, `id`, `^.*/([^/]+)\\.service$`), `container`, `$1`, `id`, `^.*container@([^/]+)\\.service.*$`)", "legendFormat": "{{container}} / {{svc}}" } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "label_replace(label_replace(sum by (id) (rate(container_cpu_usage_seconds_total{id=~`^/machine\\.slice/container@($container)\\.service/payload/.*($service)\\.service$`}[$__rate_interval])), `svc`, `$1`, `id`, `^.*/([^/]+)\\.service$`), `container`, `$1`, `id`, `^.*container@([^/]+)\\.service.*$`)", "legendFormat": "{{container}} / {{svc}}" } ]
     },
 
     { "type": "row", "title": "Container health ($container)", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 11 }, "id": 101 },

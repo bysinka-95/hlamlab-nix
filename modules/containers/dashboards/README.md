@@ -59,6 +59,19 @@ cAdvisor labels every cgroup with a single `id` = its full path. There is **no**
 
 `machine_cpu_cores` / `machine_memory_bytes` give host totals for the % gauges.
 
+**Two cAdvisor gotchas** (why some metrics don't sit on the container-root `id`):
+
+- **Network** is reported on the host root `id="/"` with `interface="ve-<name>"` (the
+  container's veth), *not* on `container@<name>.service`. Query it as
+  `container_network_receive_bytes_total{id="/",interface=~"ve-($container)"}` and pull the
+  name from the `interface` label.
+- **Disk**: `container_fs_*` is a *device total* duplicated identically across every cgroup —
+  useless per-container. Real per-container disk is `container_blkio_device_usage_total`
+  (per-cgroup, with `operation="Read"/"Write"`).
+- **CPU**: `container_cpu_usage_seconds_total` carries a `cpu="total"` label; `sum by(id)` it
+  before dividing by `container_spec_cpu_quota/period` (which have only `id`), else vector
+  matching drops everything.
+
 ## Recommended starters (grafana.com)
 
 - **1860** node-exporter-full — host metrics (note: inside containers node_exporter is
