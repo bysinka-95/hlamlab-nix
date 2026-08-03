@@ -70,7 +70,7 @@ in
           settings = {
             server = {
               http_addr = "0.0.0.0";
-              http_port = 3000;
+              http_port = svc.grafana.port;
               domain = svc.grafana.fqdn;
               root_url = "${svc.grafana.baseUrl}/";
               enforce_domain = false;
@@ -156,7 +156,4 @@ in
       };
   };
 
-  systemd.tmpfiles.rules = [
-    "d /var/lib/services/grafana 0750 - - -"
-  ];
 }

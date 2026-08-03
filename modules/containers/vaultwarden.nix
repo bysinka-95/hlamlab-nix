@@ -38,7 +38,7 @@ in
 
         config = {
           ROCKET_ADDRESS = "0.0.0.0";
-          ROCKET_PORT = 8222;
+          ROCKET_PORT = svc.vaultwarden.port;
           DOMAIN = svc.vaultwarden.baseUrl;
 
           SIGNUPS_ALLOWED = false;
@@ -62,7 +62,4 @@ in
     };
   };
 
-  systemd.tmpfiles.rules = [
-    "d /var/lib/services/vaultwarden 0750 - - -"
-  ];
 }

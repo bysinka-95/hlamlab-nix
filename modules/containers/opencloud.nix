@@ -40,7 +40,7 @@ in
         enable = true;
         url = svc.opencloud.baseUrl;
         address = "0.0.0.0";
-        port = 9200;
+        port = svc.opencloud.port;
         environmentFile = config.sops.secrets.opencloud-sharing-secret.path;
         environment = {
           PROXY_TLS = "false";
@@ -127,7 +127,4 @@ in
     };
   };
 
-  systemd.tmpfiles.rules = [
-    "d /var/lib/services/opencloud 0750 - - -"
-  ];
 }

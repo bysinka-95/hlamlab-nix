@@ -42,7 +42,7 @@ in
           ldap_host = "0.0.0.0";
           ldap_port = 3890;
           http_host = "0.0.0.0";
-          http_port = 3000;
+          http_port = svc.lldap.port;
           http_url = svc.lldap.baseUrl;
           ldap_base_dn = hostConfig.hlamlab.settings.ldapBaseDn;
           jwt_secret_file = config.sops.secrets.lldap-jwt-secret.path;
@@ -62,7 +62,4 @@ in
     };
   };
 
-  systemd.tmpfiles.rules = [
-    "d /var/lib/services/lldap 0750 - - -"
-  ];
 }

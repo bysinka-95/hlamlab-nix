@@ -50,7 +50,7 @@ in
           environmentFile = config.sops.secrets."searx/env".path;
 
           uwsgiConfig = {
-            http = "0.0.0.0:8888";
+            http = "0.0.0.0:${toString svc.searx.port}";
           };
 
           faviconsSettings = {
@@ -109,7 +109,7 @@ in
 
             server = {
               base_url = svc.searx.baseUrl;
-              port = 8888;
+              port = svc.searx.port;
               bind_address = "0.0.0.0";
               secret_key = "$SEARX_SECRET_KEY";
               limiter = true;
@@ -140,7 +140,4 @@ in
       };
   };
 
-  systemd.tmpfiles.rules = [
-    "d /var/lib/services/searx 0750 - - -"
-  ];
 }

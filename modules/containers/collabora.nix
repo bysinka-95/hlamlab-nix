@@ -29,7 +29,7 @@ in
     containerConfig = { ... }: {
       services.collabora-online = {
         enable = true;
-        port = 9980;
+        port = svc.collabora.port;
 
         settings = {
           ssl = {
@@ -59,7 +59,4 @@ in
     };
   };
 
-  systemd.tmpfiles.rules = [
-    "d /var/lib/services/collabora 0750 - - -"
-  ];
 }

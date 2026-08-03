@@ -36,7 +36,7 @@ in
         enable = true;
         package = pkgs.immich;
         host = "0.0.0.0";
-        port = 2283;
+        port = svc.immich.port;
         mediaLocation = "/var/lib/immich";
 
         settings = {
@@ -84,7 +84,4 @@ in
     };
   };
 
-  systemd.tmpfiles.rules = [
-    "d /var/lib/services/immich 0750 - - -"
-  ];
 }

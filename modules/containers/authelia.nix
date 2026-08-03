@@ -92,7 +92,7 @@ in
           default_2fa_method = "totp";
 
           server = {
-            address = "tcp://0.0.0.0:9091/";
+            address = "tcp://0.0.0.0:${toString svc.authelia.port}/";
           };
 
           log = {
@@ -230,8 +230,4 @@ in
     };
   };
 
-  # Set host directory permissions
-  systemd.tmpfiles.rules = [
-    "d /var/lib/services/authelia 0750 - - -"
-  ];
 }

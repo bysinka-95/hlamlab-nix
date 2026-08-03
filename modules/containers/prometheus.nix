@@ -42,7 +42,7 @@ in
       services.prometheus = {
         enable = true;
         listenAddress = "0.0.0.0";
-        port = 9090;
+        port = svc.prometheus.port;
         retentionTime = "30d";
         stateDir = "prometheus2";
 
@@ -59,7 +59,7 @@ in
           }
           {
             job_name = "prometheus";
-            static_configs = [{ targets = [ "127.0.0.1:9090" ]; }];
+            static_configs = [{ targets = [ "127.0.0.1:${toString svc.prometheus.port}" ]; }];
           }
           {
             job_name = "grafana";
@@ -98,7 +98,4 @@ in
     };
   };
 
-  systemd.tmpfiles.rules = [
-    "d /var/lib/services/prometheus 0750 - - -"
-  ];
 }

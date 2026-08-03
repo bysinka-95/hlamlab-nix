@@ -425,10 +425,14 @@ in
           enabledServices);
       };
 
-      # 7. Create root services directory if not exists
+      # 7. Host state directories: the /var/lib/services root plus one 0750 dir
+      # per service (the ZFS dataset mountpoint). Folded in here so service
+      # modules don't each repeat their own tmpfiles rule.
       systemd.tmpfiles.rules = [
         "d /var/lib/services 0755 root root -"
-      ];
+      ] ++ lib.mapAttrsToList
+        (name: svc: "d /var/lib/services/${name} 0750 - - -")
+        (lib.filterAttrs (n: svc: svc.zfs.enable) enabledServices);
     }
   ]));
 }

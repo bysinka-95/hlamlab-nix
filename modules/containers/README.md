@@ -114,14 +114,14 @@ In `modules/containers/`, create `<name>.nix`.
       };
       
       systemd.services.myservice.serviceConfig.StateDirectory = "myservice";
-      networking.firewall.allowedTCPPorts = [ 8080 ];
     };
   };
-
-  # Make sure the host directory exists
-  systemd.tmpfiles.rules = [ "d /var/lib/services/myservice 0750 root root -" ];
 }
 ```
+
+> The frame opens the service `port` in the container firewall and creates the host state
+> directory (`/var/lib/services/<name>`, `0750`) for you — no manual `allowedTCPPorts` for the main
+> port or `tmpfiles` rule needed. Only declare `allowedTCPPorts` for *extra* ports (e.g. LDAP `3890`).
 
 ### 3. Register and Enable
 

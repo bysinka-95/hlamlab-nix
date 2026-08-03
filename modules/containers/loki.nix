@@ -1,6 +1,7 @@
 { lib, config, ... }:
 let
   hostConfig = config;
+  svc = hostConfig.hlamlab.services;
 in
 {
   hlamlab.services.loki = {
@@ -34,7 +35,7 @@ in
 
           server = {
             http_listen_address = "0.0.0.0";
-            http_listen_port = 3100;
+            http_listen_port = svc.loki.port;
             grpc_listen_port = 9096;
             log_level = "info";
           };
@@ -84,7 +85,4 @@ in
     };
   };
 
-  systemd.tmpfiles.rules = [
-    "d /var/lib/services/loki 0750 - - -"
-  ];
 }
