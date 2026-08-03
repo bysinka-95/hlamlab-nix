@@ -27,7 +27,7 @@ in
       };
       lokiPushUrl = lib.mkOption {
         type = lib.types.str;
-        default = "http://10.0.0.11:3100/loki/api/v1/push";
+        default = "http://${hostConfig.hlamlab.services.loki.address}/loki/api/v1/push";
         description = "Loki push endpoint each container's log agent forwards to";
       };
     };
@@ -64,6 +64,30 @@ in
           type = lib.types.str;
           default = name;
           description = "Prefix for the domain, e.g. 'auth' for auth.domain.tld";
+        };
+
+        # Derived read-only handles. Reference these from sibling services
+        # instead of hardcoding another service's prefix, IP, or port — change a
+        # domainPrefix/ip/port once and every cross-reference follows.
+        fqdn = lib.mkOption {
+          type = lib.types.str;
+          default = "${config.domainPrefix}.${hostConfig.hlamlab.settings.domain}";
+          readOnly = true;
+          description = "Fully-qualified public hostname (domainPrefix + settings.domain).";
+        };
+
+        baseUrl = lib.mkOption {
+          type = lib.types.str;
+          default = "https://${config.fqdn}";
+          readOnly = true;
+          description = "Public HTTPS base URL (https://<fqdn>).";
+        };
+
+        address = lib.mkOption {
+          type = lib.types.str;
+          default = "${config.ip}:${toString config.port}";
+          readOnly = true;
+          description = "Internal container address (ip:port) for sibling services to reach directly over the private network.";
         };
 
         storageQuota = lib.mkOption {
@@ -178,7 +202,7 @@ in
           enable = lib.mkOption { type = lib.types.bool; default = true; description = "Enable Traefik routing"; };
           rule = lib.mkOption {
             type = lib.types.str;
-            default = "Host(`${config.domainPrefix}.${hostConfig.hlamlab.settings.domain}`)";
+            default = "Host(`${config.fqdn}`)";
             description = "Traefik router rule";
           };
         };

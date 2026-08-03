@@ -1,7 +1,7 @@
 { lib, config, ... }:
 let
   hostConfig = config;
-  domain = hostConfig.hlamlab.settings.domain;
+  svc = hostConfig.hlamlab.services;
 in
 {
   hlamlab.services.grafana = {
@@ -71,8 +71,8 @@ in
             server = {
               http_addr = "0.0.0.0";
               http_port = 3000;
-              domain = "grafana.${domain}";
-              root_url = "https://grafana.${domain}/";
+              domain = svc.grafana.fqdn;
+              root_url = "${svc.grafana.baseUrl}/";
               enforce_domain = false;
             };
 
@@ -99,9 +99,9 @@ in
               client_secret = "$__file{${config.sops.secrets.grafana-oidc-secret.path}}";
               scopes = "openid profile email groups";
               empty_scopes = false;
-              auth_url = "https://auth.${domain}/api/oidc/authorization";
-              token_url = "https://auth.${domain}/api/oidc/token";
-              api_url = "https://auth.${domain}/api/oidc/userinfo";
+              auth_url = "${svc.authelia.baseUrl}/api/oidc/authorization";
+              token_url = "${svc.authelia.baseUrl}/api/oidc/token";
+              api_url = "${svc.authelia.baseUrl}/api/oidc/userinfo";
               login_attribute_path = "preferred_username";
               groups_attribute_path = "groups";
               name_attribute_path = "name";
@@ -126,7 +126,7 @@ in
                   type = "prometheus";
                   uid = "prometheus"; # pinned — dashboards rewritten to this UID
                   access = "proxy";
-                  url = "http://10.0.0.10:9090";
+                  url = "http://${svc.prometheus.address}";
                   isDefault = true;
                   jsonData.timeInterval = "15s";
                 }
@@ -135,7 +135,7 @@ in
                   type = "loki";
                   uid = "loki"; # pinned
                   access = "proxy";
-                  url = "http://10.0.0.11:3100";
+                  url = "http://${svc.loki.address}";
                 }
               ];
             };

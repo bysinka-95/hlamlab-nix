@@ -1,6 +1,7 @@
 { lib, config, ... }:
 let
   hostConfig = config;
+  svc = hostConfig.hlamlab.services;
 in
 {
   hlamlab.services.lldap = {
@@ -42,7 +43,7 @@ in
           ldap_port = 3890;
           http_host = "0.0.0.0";
           http_port = 3000;
-          http_url = "https://lldap.${hostConfig.hlamlab.settings.domain}";
+          http_url = svc.lldap.baseUrl;
           ldap_base_dn = hostConfig.hlamlab.settings.ldapBaseDn;
           jwt_secret_file = config.sops.secrets.lldap-jwt-secret.path;
           ldap_user_email = "admin@${hostConfig.hlamlab.settings.domain}";

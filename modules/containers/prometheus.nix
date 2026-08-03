@@ -2,10 +2,11 @@
 let
   hostConfig = config;
   nodePort = hostConfig.hlamlab.observability.nodeExporterPort;
+  svc = hostConfig.hlamlab.services;
 
   # Every enabled service container runs a node_exporter (injected by frame.nix).
   # Build one scrape target per container from its IP.
-  enabledServices = lib.filterAttrs (n: v: v.enable) hostConfig.hlamlab.services;
+  enabledServices = lib.filterAttrs (n: v: v.enable) svc;
   nodeTargets = lib.mapAttrsToList
     (name: svc: {
       labels.instance = name;
@@ -63,16 +64,16 @@ in
           {
             job_name = "grafana";
             metrics_path = "/metrics";
-            static_configs = [{ targets = [ "10.0.0.9:3000" ]; }];
+            static_configs = [{ targets = [ svc.grafana.address ]; }];
           }
           {
             job_name = "loki";
             metrics_path = "/metrics";
-            static_configs = [{ targets = [ "10.0.0.11:3100" ]; }];
+            static_configs = [{ targets = [ svc.loki.address ]; }];
           }
           {
             job_name = "authelia";
-            static_configs = [{ targets = [ "10.0.0.5:9959" ]; }];
+            static_configs = [{ targets = [ "${svc.authelia.ip}:9959" ]; }];
           }
           {
             # Traefik runs on the host; reachable from the container at the gateway IP.

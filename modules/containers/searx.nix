@@ -1,6 +1,7 @@
 { lib, config, ... }:
 let
   hostConfig = config;
+  svc = hostConfig.hlamlab.services;
 in
 {
   hlamlab.services.searx = {
@@ -107,7 +108,7 @@ in
             };
 
             server = {
-              base_url = "https://searxng.${hostConfig.hlamlab.settings.domain}";
+              base_url = svc.searx.baseUrl;
               port = 8888;
               bind_address = "0.0.0.0";
               secret_key = "$SEARX_SECRET_KEY";

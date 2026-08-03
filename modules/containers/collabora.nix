@@ -1,6 +1,7 @@
 { lib, config, ... }:
 let
   hostConfig = config;
+  svc = hostConfig.hlamlab.services;
 in
 {
   hlamlab.services.collabora = {
@@ -38,10 +39,10 @@ in
 
           storage.wopi = {
             "@allow" = true;
-            host = [ "opencloud.${hostConfig.hlamlab.settings.domain}" ];
+            host = [ svc.opencloud.fqdn ];
           };
 
-          server_name = "collabora.${hostConfig.hlamlab.settings.domain}";
+          server_name = svc.collabora.fqdn;
         };
       };
     };
@@ -51,8 +52,8 @@ in
     headers = {
       sslRedirect = true;
       frameDeny = false;
-      customFrameOptionsValue = "ALLOW-FROM https://opencloud.${hostConfig.hlamlab.settings.domain}";
-      contentSecurityPolicy = "frame-ancestors 'self' https://opencloud.${hostConfig.hlamlab.settings.domain}";
+      customFrameOptionsValue = "ALLOW-FROM ${svc.opencloud.baseUrl}";
+      contentSecurityPolicy = "frame-ancestors 'self' ${svc.opencloud.baseUrl}";
       contentTypeNosniff = true;
       browserXssFilter = true;
     };

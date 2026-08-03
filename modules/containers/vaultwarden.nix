@@ -1,6 +1,7 @@
 { lib, config, ... }:
 let
   hostConfig = config;
+  svc = hostConfig.hlamlab.services;
 in
 {
   hlamlab.services.vaultwarden = {
@@ -38,7 +39,7 @@ in
         config = {
           ROCKET_ADDRESS = "0.0.0.0";
           ROCKET_PORT = 8222;
-          DOMAIN = "https://vault.${hostConfig.hlamlab.settings.domain}";
+          DOMAIN = svc.vaultwarden.baseUrl;
 
           SIGNUPS_ALLOWED = false;
 
@@ -46,7 +47,7 @@ in
 
           SSO_ENABLED = true;
           SSO_ONLY = true;
-          SSO_AUTHORITY = "https://auth.${hostConfig.hlamlab.settings.domain}";
+          SSO_AUTHORITY = svc.authelia.baseUrl;
           SSO_CLIENT_ID = "vaultwarden";
           SSO_CLIENT_CACHE_EXPIRATION = 600;
           SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION = true;

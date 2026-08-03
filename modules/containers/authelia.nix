@@ -1,6 +1,7 @@
 { lib, config, ... }:
 let
   hostConfig = config;
+  svc = hostConfig.hlamlab.services;
 in
 {
   hlamlab.services.authelia = {
@@ -108,7 +109,7 @@ in
           authentication_backend = {
             ldap = {
               implementation = "lldap";
-              address = "ldap://10.0.0.6:3890";
+              address = "ldap://${svc.lldap.ip}:3890";
               base_dn = hostConfig.hlamlab.settings.ldapBaseDn;
               user = "uid=admin,ou=people,${hostConfig.hlamlab.settings.ldapBaseDn}";
             };
@@ -129,7 +130,7 @@ in
             cookies = [
               {
                 domain = hostConfig.hlamlab.settings.domain;
-                authelia_url = "https://auth.${hostConfig.hlamlab.settings.domain}";
+                authelia_url = svc.authelia.baseUrl;
               }
             ];
             redis = {
@@ -166,7 +167,7 @@ in
                   public = false;
                   authorization_policy = "one_factor";
                   redirect_uris = [
-                    "https://immich.${hostConfig.hlamlab.settings.domain}/auth/login"
+                    "${svc.immich.baseUrl}/auth/login"
                     "app.immich:///oauth-callback"
                   ];
                   scopes = [ "openid" "profile" "email" ];
@@ -179,9 +180,9 @@ in
                   public = true;
                   authorization_policy = "one_factor";
                   redirect_uris = [
-                    "https://opencloud.${hostConfig.hlamlab.settings.domain}/"
-                    "https://opencloud.${hostConfig.hlamlab.settings.domain}/oidc-callback.html"
-                    "https://opencloud.${hostConfig.hlamlab.settings.domain}/oidc-silent-redirect.html"
+                    "${svc.opencloud.baseUrl}/"
+                    "${svc.opencloud.baseUrl}/oidc-callback.html"
+                    "${svc.opencloud.baseUrl}/oidc-silent-redirect.html"
                   ];
                   scopes = [ "openid" "profile" "email" "groups" ];
                   userinfo_signed_response_alg = "none";
@@ -194,7 +195,7 @@ in
                   public = false;
                   authorization_policy = "one_factor";
                   redirect_uris = [
-                    "https://vault.${hostConfig.hlamlab.settings.domain}/identity/connect/oidc-signin"
+                    "${svc.vaultwarden.baseUrl}/identity/connect/oidc-signin"
                   ];
                   scopes = [ "openid" "profile" "email" "offline_access" ];
                   userinfo_signed_response_alg = "none";
@@ -208,7 +209,7 @@ in
                   public = false;
                   authorization_policy = "one_factor";
                   redirect_uris = [
-                    "https://grafana.${hostConfig.hlamlab.settings.domain}/login/generic_oauth"
+                    "${svc.grafana.baseUrl}/login/generic_oauth"
                   ];
                   scopes = [ "openid" "profile" "email" "groups" ];
                   userinfo_signed_response_alg = "none";

@@ -28,6 +28,37 @@ Each service resides in a dedicated file (e.g., `modules/containers/myservice.ni
 `frame.nix` abstraction. This frame automatically handles ZFS datasets, Sanoid snapshots,
 systemd limits, DNS, Traefik routing, and users based on a simple set of attributes.
 
+## Cross-service references — never hardcode another service's prefix, IP, or port
+
+When one service needs another's URL or address (OIDC issuer, redirect URI, datasource, LDAP
+backend, WOPI host, CSP entry, scrape target…), **reference the target service's derived handles**
+instead of writing a literal like `https://auth.${domain}` or `10.0.0.11:3100`. The frame exposes
+three read-only handles on every `hlamlab.services.<name>`:
+
+| Handle     | Value                                          | Use for                                                                  |
+|------------|------------------------------------------------|--------------------------------------------------------------------------|
+| `.fqdn`    | `<domainPrefix>.<settings.domain>` (bare host) | cookie domains, `server_name`, `IDP_DOMAIN`, CSP hosts                   |
+| `.baseUrl` | `https://<fqdn>`                               | OIDC issuer/redirect URIs, `externalDomain`, any public URL              |
+| `.address` | `<ip>:<port>` (internal)                       | datasource URLs, Prometheus targets, direct container-to-container calls |
+
+Bind `svc = config.hlamlab.services;` at the top of the module (`let svc = config.hlamlab.services; in`)
+and reference siblings through it:
+
+```nix
+# ✅ follows a prefix/IP change automatically
+issuerUrl = svc.authelia.baseUrl;                    # https://auth.<domain>
+IDP_DOMAIN = svc.authelia.fqdn;                      # auth.<domain>
+url = "http://${svc.prometheus.address}";            # http://10.0.0.10:9090
+redirect_uris = [ "${svc.grafana.baseUrl}/login/generic_oauth" ];
+
+# ❌ breaks the moment someone changes authelia's domainPrefix or prometheus's ip
+issuerUrl = "https://auth.${config.hlamlab.settings.domain}";
+url = "http://10.0.0.10:9090";
+```
+
+Only use `config.hlamlab.settings.domain` directly for the **whole domain** itself (wildcard ACL
+rules `*.<domain>`, session cookie scope, email addresses) — not for a specific service's host.
+
 ## Adding a Service
 
 **Follow these 3 steps:**

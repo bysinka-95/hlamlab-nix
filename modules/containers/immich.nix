@@ -1,6 +1,7 @@
 { lib, config, ... }:
 let
   hostConfig = config;
+  svc = hostConfig.hlamlab.services;
 in
 {
   hlamlab.services.immich = {
@@ -39,12 +40,12 @@ in
         mediaLocation = "/var/lib/immich";
 
         settings = {
-          server.externalDomain = "https://immich.${hostConfig.hlamlab.settings.domain}";
+          server.externalDomain = svc.immich.baseUrl;
           passwordLogin.enabled = false;
 
           oauth = {
             enabled = true;
-            issuerUrl = "https://auth.${hostConfig.hlamlab.settings.domain}";
+            issuerUrl = svc.authelia.baseUrl;
             clientId = "immich";
             clientSecret._secret = config.sops.secrets.immich-oidc-client-secret.path;
             scope = "openid email profile";
