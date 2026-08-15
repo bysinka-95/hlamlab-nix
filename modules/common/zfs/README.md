@@ -4,8 +4,7 @@ Declarative ZFS dataset management via Disko and disko-zfs.
 
 - **Single source of truth**: all datasets in [
   `hosts/playground/disk-config.nix`](../../../hosts/playground/disk-config.nix)
-- **Automatic management**: disko-zfs applies changes on every `nixos-rebuild switch` — no manual
-  `zfs create`
+- **Automatic management**: disko-zfs applies changes on every deploy — no manual `zfs create`
 - **Snapshots**: hourly/daily/weekly/monthly via sanoid
 - **Compression**: lz4; **Integrity**: weekly scrubbing
 
@@ -28,7 +27,7 @@ hlamlab.settings.hostId = "a1b2c3d4";
 3. Install/deploy
 
 ```bash
-nix run nixpkgs#nixos-rebuild -- switch --flake .#playground --target-host hlamnix@<ip> ...
+nix run nixpkgs#deploy-rs -- .#playground
 ```
 
 Important: do not change `networking.hostId` after the initial install. If it changes later, `tank`
@@ -128,7 +127,7 @@ For automated replication, add `services.syncoid` in `modules/common/zfs/default
 **Pool not importing at boot (`tank/root` unavailable)** — verify `networking.hostId` was set before
 first install and has not changed since.
 
-**Quota exceeded** — increase `quota` in `disk-config.nix`, then `nixos-rebuild switch`.
+**Quota exceeded** — increase `quota` in `disk-config.nix`, then redeploy.
 
 **Snapshot space** — `zfs list -t snapshot -o name,used -s used`; destroy old ones with
 `zfs destroy`.

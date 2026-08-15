@@ -41,8 +41,11 @@ services.avahi = {
 
 ```bash
 ssh hlamnix@playground.local
-nixos-rebuild switch --target-host hlamnix@playground.local ...
 ```
+
+`flake.nix` points deploy-rs at `playground.local`, so deploys depend on mDNS resolving. If it
+does not (Avahi still starting, or a network that blocks mDNS), pass the IP for that run:
+`nix run nixpkgs#deploy-rs -- .#playground --hostname 192.168.x.y`.
 
 Linux clients need `avahi-daemon` + `libnss-mdns`. macOS has built-in Bonjour support.
 

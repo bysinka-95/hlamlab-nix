@@ -98,9 +98,9 @@ For container management commands and how to add new services, see
 - Nix with flakes enabled on the build machine.
 - SSH reachability to the target (root or nixos user) and your SSH public key present on the target.
 - For fresh installs: access to the target disk (`/dev/sda` assumed) and ability to reboot.
-- Tools (install via Nix if needed):
-    - `nixos-anywhere` for remote installations.
-    - `nixos-rebuild` via `nix run nixpkgs#nixos-rebuild` for deploys.
+- Tools (run straight from Nix, nothing to install):
+    - `nixos-anywhere` — first install onto a bare machine.
+    - `deploy-rs` — every deploy after that. Auto-rollback included.
 - Default admin user: `hlamnix` (wheel/networkmanager). Set its hashed password in [
   `hosts/playground/configuration.nix`](hosts/playground/configuration.nix)
   by replacing `<replace-with-mkpasswd-sha-512>` with the output of `mkpasswd -m sha-512`.
@@ -125,31 +125,126 @@ See **[INSTALLATION.md](INSTALLATION.md)** for the complete guide (pre-install c
 nixos-anywhere, post-install
 steps, and troubleshooting).
 
-## Rebuild / Deploy Changes
+## Deploy
 
-Run from the repo root after editing configs:
+Deploys go through **deploy-rs**. Run from the repo root after editing configs:
 
 ```sh
-nix run nixpkgs#nixos-rebuild -- switch \
-  --flake .#playground \
-  --target-host hlamnix@<playground-ip> \
-  --build-host hlamnix@<playground-ip> \
-  --sudo \
-  --ask-sudo-password
+git add -A                            # Nix ignores untracked files — stage first
+nix run nixpkgs#deploy-rs -- .#playground
 ```
 
-**Options:**
+That is the whole command. Everything it needs — target hostname, SSH user, activation user,
+remote build, timeouts, rollback — is declared in [`flake.nix`](flake.nix) under `deploy`, not
+passed on the command line.
 
-- Build locally and push: replace `--build-host hlamnix@<playground-ip>` with
-  `--build-host localhost`
-- Dry-run test: add `--dry-run` to see what would change
+### What it does
+
+1. Runs `nix flake check` on the repo.
+2. Builds the system closure **on `playground` itself** (`remoteBuild = true`) — the workstation
+   is aarch64-darwin and cannot build x86_64-linux.
+3. SSHes in as `hlamnix`, activates the profile as `root` via passwordless sudo.
+4. **Magic rollback**: after activation it reconnects over SSH to confirm the host is still
+   reachable. No confirmation within `confirmTimeout` → the host rolls itself back automatically.
+   This is the safety net a plain `nixos-rebuild switch` does not have: a change that breaks
+   sshd, the firewall, or networking undoes itself instead of locking you out.
+
+### Useful flags
+
+| Flag | Effect |
+|------|--------|
+| `--dry-activate` | Build and push the closure, print what activation *would* change, change nothing |
+| `--test` | Activate now, but leave the bootloader pointing at the current generation (reboot = back to known-good) |
+| `--boot` | Opposite: stage for next boot without activating now |
+| `-i` | Confirm interactively before anything is pushed |
+| `-s` | Skip the `nix flake check` pre-flight (faster iteration; only when you just ran it) |
+| `-d` | Debug logs, when a deploy hangs or fails opaquely |
+
+Safe escalation for a risky change: `--dry-activate` → `--test` → plain deploy.
+
+### Rollback
+
+Magic rollback covers *unreachable*. For a host that is reachable but misbehaving, roll back
+on the host:
+
+```sh
+ssh hlamnix@playground.local
+sudo nix-env --profile /nix/var/nix/profiles/system --rollback
+sudo /nix/var/nix/profiles/system/bin/switch-to-configuration switch
+```
+
+Or pick an older generation from the GRUB menu at boot. List them with
+`sudo nix-env --profile /nix/var/nix/profiles/system --list-generations`.
+
+### Expected warnings
+
+These are normal and not a problem:
+
+| Warning | Meaning |
+|---------|---------|
+| `unknown flake output 'deploy'` | Nix has no schema for deploy-rs' `deploy` attribute. Cosmetic. |
+| `The check omitted these incompatible systems: x86_64-linux` | `nix flake check` on macOS cannot realise Linux derivations, so it skips the deploy checks. They run on a Linux builder or in CI. |
+| `Git tree ... is dirty` | You have uncommitted changes. Fine — but **untracked** files are invisible to Nix, hence the `git add -A` above. |
+
+## Upgrading
+
+This repo is a flake, so there is no `nixos-rebuild --upgrade` and no channels. **Everything —
+kernel, systemd, and every containerised service — is pinned by `flake.lock`.** Upgrading means
+moving that lock, then deploying.
+
+### Packages and services (the common case)
+
+Bump nixpkgs only. That upgrades Immich, Vaultwarden, Grafana, Traefik, the kernel — everything
+that comes from nixpkgs — while leaving disko/sops-nix/deploy-rs where they are:
+
+```sh
+nix flake update nixpkgs
+git add flake.lock
+nix run nixpkgs#deploy-rs -- .#playground --dry-activate   # look before you leap
+nix run nixpkgs#deploy-rs -- .#playground
+```
+
+`--dry-activate` lists which units will restart. If a service jumped a major version, check its
+release notes first — nixpkgs will happily hand you Immich v2 on a v1 database.
+
+### Everything (flake inputs)
+
+```sh
+nix flake update            # all inputs: nixpkgs, disko, disko-zfs, sops-nix, deploy-rs
+git add flake.lock
+nix run nixpkgs#deploy-rs -- .#playground
+```
+
+Riskier than the above — module interfaces move, not just package versions. Individual inputs:
+`nix flake update disko sops-nix`.
+
+Roll back a bad update with `git checkout flake.lock` and redeploy. The lock file is the record
+of what is running; commit it with the change that caused it.
+
+### Automatic upgrades — know what is enabled
+
+`modules/common/nix.nix` turns on `system.autoUpgrade`: **every night at 04:00 the host pulls
+`github:bysinka-95/hlamlab-nix#playground` and rebuilds itself, rebooting if the kernel changed.**
+
+Two consequences worth internalising:
+
+- The host tracks the **pushed** repo, not your working copy. A deploy-rs deploy of unpushed
+  local changes survives only until 04:00.
+- It re-evaluates against the committed `flake.lock`, so it does *not* silently drift to newer
+  packages — but it will happily apply a broken commit you pushed, unattended, with
+  `allowReboot = true` and no magic rollback.
+
+To make the host track only what you deploy, set `system.autoUpgrade.enable = false;` in
+`modules/common/nix.nix`.
+
+Unrelated but adjacent: the same file runs weekly GC (`--delete-older-than 14d`), which also
+prunes the old generations you would roll back to. Don't count on a three-week-old generation
+still being there.
 
 ## Misc
 
-- **Update flake inputs**: `nix flake update` then rebuild.
 - **Add a new host**: copy `hosts/playground/`, adjust hostname/disk/hardware config, add to
-  `flake.nix`, install with
-  nixos-anywhere.
+  `nixosConfigurations` *and* `deploy.nodes` in `flake.nix`, install with nixos-anywhere.
 - **Disk layout**: GPT on `/dev/sda` — 1M BIOS boot, 512M ESP, ZFS pool. Edit [
   `disk-config.nix`](hosts/playground/disk-config.nix) to change.
 - **Secrets**: see [modules/secrets/README.md](modules/secrets/README.md).
@@ -161,7 +256,7 @@ See the full [documentation index](DOCS.md) for module-specific guides.
 
 | File | Contents |
 | :--- | :--- |
-| [README.md](README.md) | Repo layout, current services (IPs, ports, URLs, ZFS datasets), deploy command |
+| [README.md](README.md) | Repo layout, current services (IPs, ports, URLs, ZFS datasets), deploy + upgrade + rollback |
 | [INSTALLATION.md](INSTALLATION.md) | Fresh install: pre-install config, nixos-anywhere, post-install, verification |
 | [modules/common/network/README.md](modules/common/network/README.md) | SSH, mDNS, Traefik + Cloudflare Tunnel, mTLS certificates |
 | [modules/common/zfs/README.md](modules/common/zfs/README.md) | ZFS datasets, snapshots, backup/replication, management commands |

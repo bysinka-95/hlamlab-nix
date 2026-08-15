@@ -60,7 +60,30 @@
     ];
   };
 
+  # deploy-rs SSHes in as `hlamnix` and activates as root, non-interactively.
+  # Swap this for `interactiveSudo = true` on the node in flake.nix if you would
+  # rather type the password on every deploy.
+  security.sudo.extraRules = [{
+    groups = [ "wheel" ];
+    commands = [{
+      command = "ALL";
+      options = [ "NOPASSWD" ];
+    }];
+  }];
+
   time.timeZone = "Europe/Chisinau";
+
+  # nixpkgs recently added `systemd-machined.socket` to the upstream unit set. On a
+  # host running nspawn containers, the containers D-Bus-activate
+  # systemd-machined.service before switch-to-configuration gets round to starting
+  # the socket, which then dies with:
+  #   systemd-machined.socket: Socket service systemd-machined.service already active, refusing.
+  # That failed unit makes the whole switch exit non-zero — and deploy-rs rolls back.
+  # The socket only exposes machined's optional Varlink API; the service itself is
+  # D-Bus activated, so machinectl / nixos-container / journalctl -M keep working.
+  # Suppress (drop from /etc), do NOT mask: masking a *running* machined makes
+  # systemd ignore its watchdog pings and SIGABRT it three minutes later.
+  systemd.suppressedSystemUnits = [ "systemd-machined.socket" ];
 
   system.stateVersion = "26.05";
 }

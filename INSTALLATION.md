@@ -1,6 +1,13 @@
 # Installation Guide
 
-Deploying this config to a fresh machine with nixos-anywhere.
+Getting this config onto a fresh machine. Two different tools, one each:
+
+| Stage                       | Tool               | Why                                                                                                                       |
+|-----------------------------|--------------------|---------------------------------------------------------------------------------------------------------------------------|
+| First install, bare machine | **nixos-anywhere** | Partitions the disk (disko) and installs NixOS over SSH from the installer ISO. There is nothing to deploy *to* yet.      |
+| Every deploy after that     | **deploy-rs**      | Builds on the target, activates with auto-rollback if the host goes unreachable. See [README § Deploy](README.md#deploy). |
+
+Do not reach for nixos-anywhere again after Part 2 — it repartitions the disk.
 
 ---
 
@@ -244,13 +251,24 @@ nix run nixpkgs#sops -- updatekeys modules/secrets/secrets.yaml
 
 ### 3. Deploy
 
+From here on every deploy is deploy-rs. The target host, SSH user, remote build and rollback
+behaviour all live in [`flake.nix`](flake.nix) under `deploy`, so the command carries no flags:
+
 ```bash
-nix run nixpkgs#nixos-rebuild -- switch \
-  --flake .#playground \
-  --target-host hlamnix@<target-ip> \
-  --build-host hlamnix@<target-ip> \
-  --sudo --ask-sudo-password
+git add -A  # Nix ignores untracked files — stage first
+nix run nixpkgs#deploy-rs -- .#playground
 ```
+
+`flake.nix` targets `playground.local` over mDNS. Avahi needs ~30s after boot, and some networks
+block mDNS entirely — override for this deploy without editing the flake:
+
+```bash
+nix run nixpkgs#deploy-rs -- .#playground --hostname <target-ip>
+```
+
+If activation succeeds but the host stops answering SSH, deploy-rs does **not** confirm and the
+host rolls itself back — you get your previous generation, not a brick. See
+[README § Deploy](README.md#deploy) for `--dry-activate` / `--test` and manual rollback.
 
 ### 4. Update real secrets
 
@@ -318,3 +336,29 @@ Check key is in `.sops.yaml` (`grep age1 .sops.yaml`), then re-run `sops updatek
 **ZFS pool not importing** — `sudo zpool import -f tank`. Verify `networking.hostId` was set before first install and has not changed since installation.
 
 **Disk errors** — `sudo wipefs -a /dev/sda` (⚠ destroys all data), then re-run nixos-anywhere.
+
+**deploy-rs: your change isn't in the build** — Nix cannot see untracked files. `git add -A` and
+redeploy. `Git tree ... is dirty` is only a warning; *untracked* is the silent failure.
+
+**deploy-rs: `Failed to confirm the deployment`** — activation worked but the confirmation SSH
+never landed, so the host rolled back. Either the change broke connectivity (that is the feature
+working), or the box was still busy starting containers. Bump `confirmTimeout` in `flake.nix`, or
+re-run with `--confirm-timeout 300`.
+
+**deploy-rs: sudo prompts or permission denied** — activation runs as `root` via passwordless
+sudo (`security.sudo.extraRules` in `hosts/playground/configuration.nix`). If you removed that
+rule, set `interactiveSudo = true;` on the node in `flake.nix` instead.
+
+**`systemd-machined.socket: ... already active, refusing`** — nspawn containers D-Bus-activate
+machined before switch-to-configuration starts its socket unit; the failed unit then fails the
+whole switch and deploy-rs rolls back. Handled by
+`systemd.suppressedSystemUnits = [ "systemd-machined.socket" ]` in the host config. Do not "fix"
+it by masking `systemd-machined.service` — masking it while it runs makes systemd drop its
+watchdog pings and SIGABRT it three minutes later, and takes `machinectl` with it.
+
+---
+
+## Next steps
+
+Day-to-day deploys, upgrading nixpkgs, and rollback: [README § Deploy](README.md#deploy) and
+[README § Upgrading](README.md#upgrading).

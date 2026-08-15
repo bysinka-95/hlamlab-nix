@@ -7,24 +7,24 @@
 # - Creates base ZFS structure (pool, root datasets)
 # - Creates initial service datasets (opencloud, immich)
 #
-# After installation (nixos-rebuild switch):
+# After installation (on every deploy):
 # - disko-zfs automatically detects changes to this file
 # - Creates new datasets, updates properties, applies quotas
 # - No manual 'zfs create' commands needed!
 #
 # To add a new service:
 # 1. Add dataset declaration to this file (see template at bottom)
-# 2. Run: nixos-rebuild switch
+# 2. Deploy: nix run nixpkgs#deploy-rs -- .#playground
 # 3. Dataset is automatically created with all properties
 #
 # To update properties (quota, compression, etc.):
 # 1. Edit values in this file
-# 2. Run: nixos-rebuild switch
+# 2. Deploy: nix run nixpkgs#deploy-rs -- .#playground
 # 3. Properties automatically updated
 #
 # This provides:
 # - Single source of truth for all datasets (installation + runtime)
-# - Declarative dataset management via nixos-rebuild
+# - Declarative dataset management applied on every deploy
 # - Automatic property updates
 # - Infrastructure-as-code
 

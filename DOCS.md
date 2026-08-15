@@ -2,8 +2,8 @@
 
 | Module/Path                                                          | Contents                                                            |
 |:---------------------------------------------------------------------|:--------------------------------------------------------------------|
-| [README.md](README.md)                                               | High-level architecture, service inventory, deploy instructions.    |
-| [INSTALLATION.md](INSTALLATION.md)                                   | Fresh host installation and initial setup.                          |
+| [README.md](README.md)                                               | Architecture, service inventory, deploy / upgrade / rollback.       |
+| [INSTALLATION.md](INSTALLATION.md)                                   | Fresh host installation (nixos-anywhere) and initial setup.         |
 | [hosts/README.md](hosts/README.md)                                   | Complete guide for configuring host settings and container options. |
 | [AGENTS.md](AGENTS.md)                                               | (Internal) AI agent instructions.                                   |
 | [modules/common/network/README.md](modules/common/network/README.md) | SSH, mDNS, Traefik infrastructure, Cloudflare Tunnel setup.         |
