@@ -221,18 +221,22 @@ Riskier than the above — module interfaces move, not just package versions. In
 Roll back a bad update with `git checkout flake.lock` and redeploy. The lock file is the record
 of what is running; commit it with the change that caused it.
 
-### Automatic upgrades — know what is enabled
+### Automatic upgrades — off, and why
 
-`modules/common/nix.nix` turns on `system.autoUpgrade`: **every night at 04:00 the host pulls
-`github:bysinka-95/hlamlab-nix#playground` and rebuilds itself, rebooting if the kernel changed.**
+`modules/common/nix.nix` declares `system.autoUpgrade` but leaves it **disabled**. Enabling it
+would have the host pull `github:bysinka-95/hlamlab-nix#playground` nightly at 04:00 and rebuild
+itself unattended. Three reasons that is currently wrong here:
 
-Two consequences worth internalising:
+- It tracks the **pushed** repo, not your working copy. Any deploy-rs deploy of unpushed local
+  changes would survive only until 04:00.
+- The committed `hosts/playground/configuration.nix` still holds placeholder settings
+  (`domain = "yourdomain.com"`, `hostId = "1a23bc45"`). Activating that generation would give the
+  host the wrong `networking.hostId`, and the next boot would fail to `zpool import tank`.
+- There is no equivalent of deploy-rs' magic rollback. A broken commit you pushed applies
+  unattended with nothing to catch it. `allowReboot` is `false`, so kernel and initrd updates
+  would be built but never actually booted until you reboot by hand.
 
-- The host tracks the **pushed** repo, not your working copy. A deploy-rs deploy of unpushed
-  local changes survives only until 04:00.
-- It re-evaluates against the committed `flake.lock`, so it does *not* silently drift to newer
-  packages — but it will happily apply a broken commit you pushed, unattended, with
-  `allowReboot = true` and no magic rollback.
+Re-enable only after pushing a commit that reproduces the running host exactly.
 
 To make the host track only what you deploy, set `system.autoUpgrade.enable = false;` in
 `modules/common/nix.nix`.

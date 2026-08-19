@@ -63,13 +63,11 @@
   # deploy-rs SSHes in as `hlamnix` and activates as root, non-interactively.
   # Swap this for `interactiveSudo = true` on the node in flake.nix if you would
   # rather type the password on every deploy.
-  security.sudo.extraRules = [{
-    groups = [ "wheel" ];
-    commands = [{
-      command = "ALL";
-      options = [ "NOPASSWD" ];
-    }];
-  }];
+  #
+  # Use the module's own option rather than a hand-written `extraRules` entry: an
+  # extra rule is appended *after* the module's order-600 wheel rule, and sudoers is
+  # last-match-wins, so it silently drops the `SETENV` tag and breaks `sudo -E`.
+  security.sudo.wheelNeedsPassword = false;
 
   time.timeZone = "Europe/Chisinau";
 
