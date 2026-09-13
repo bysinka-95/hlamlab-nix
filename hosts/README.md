@@ -1,10 +1,13 @@
 # Host Configuration Guide
 
-This document explains how to set up your hosts (like `hosts/playground/configuration.nix`), how to configure global environment settings, and how to declare, configure, and extend containerized services.
+This document explains how to set up your hosts (like `hosts/playground/configuration.nix`), how to
+configure global environment settings, and how to declare, configure, and extend containerized
+services.
 
 ## 1. Global Settings (`hlamlab.settings`)
 
-Global settings define the cluster-wide environment that your services and Traefik router rely on. These must be defined in your host's `configuration.nix`.
+Global settings define the cluster-wide environment that your services and Traefik router rely on.
+These must be defined in your host's `configuration.nix`.
 
 ```nix
   hlamlab.settings = {
@@ -25,7 +28,8 @@ Global settings define the cluster-wide environment that your services and Traef
 
 ## 2. Enabling and Configuring Services
 
-All services (like Authelia, Immich, OpenCloud) are disabled by default. You opt-in to running them on a specific host by enabling them in `hlamlab.services.<name>`.
+All services (like Authelia, Immich, OpenCloud) are disabled by default. You opt-in to running them
+on a specific host by enabling them in `hlamlab.services.<name>`.
 
 ### Basic Example
 
@@ -40,7 +44,9 @@ To simply enable a service with its default resource limits, IP address, and sto
 
 ### Overriding Resource Limits & Networking
 
-Every service comes with sensible default resource limits and network IP addresses. If you need to scale up a heavy service or change its IP to avoid conflicts on a new host, you can easily override any property:
+Every service comes with sensible default resource limits and network IP addresses. If you need to
+scale up a heavy service or change its IP to avoid conflicts on a new host, you can easily override
+any property:
 
 ```nix
   hlamlab.services.immich = {
@@ -66,34 +72,17 @@ Every service comes with sensible default resource limits and network IP address
 
 ## 3. Advanced Configuration
 
-The container framework is designed to be highly extensible. You can inject custom NixOS configuration directly into the isolated container, map custom secrets, or alter Traefik routing.
-
-### Using `extraContainerConfig`
-
-`extraContainerConfig` allows you to inject arbitrary NixOS modules directly into the container. This is extremely useful if you need to install additional packages inside the container, configure a cron job, or tweak a systemd service without modifying the base service definition in `modules/containers/<name>.nix`.
-
-```nix
-  hlamlab.services.opencloud = {
-    enable = true;
-    
-    extraContainerConfig = { pkgs, ... }: {
-      # Install additional packages inside the OpenCloud container
-      environment.systemPackages = [ pkgs.ffmpeg pkgs.imagemagick ];
-      
-      # Override the systemd service to increase the file descriptor limit
-      systemd.services.opencloud.serviceConfig.LimitNOFILE = 1048576;
-      
-      # Add a custom hosts entry inside the container's /etc/hosts
-      networking.extraHosts = "192.168.1.100 external-db.local";
-    };
-  };
-```
+Beyond the per-service defaults, you can map custom secrets and alter Traefik routing from the host.
 
 ### Managing Secrets
 
-The `secrets` option simplifies `sops-nix` configuration. When a secret is declared here, the framework automatically maps the host's sops secret into the container, ensures it has the correct `0400` permissions, assigns ownership to the service user, and restarts the required systemd units when the secret changes.
+The `secrets` option simplifies `sops-nix` configuration. When a secret is declared here, the
+framework automatically maps the host's sops secret into the container, ensures it has the correct
+`0400` permissions, assigns ownership to the service user, and restarts the required systemd units
+when the secret changes.
 
-*Note: You usually declare these inside the service definition (`modules/containers/<name>.nix`), but you can extend them from the host.*
+*Note: You usually declare these inside the service definition (`modules/containers/<name>.nix`),
+but you can extend them from the host.*
 
 ```nix
   hlamlab.services.myservice = {
@@ -115,63 +104,57 @@ The `secrets` option simplifies `sops-nix` configuration. When a secret is decla
 
 ### Network and Traefik Overrides
 
-If you need to bypass Traefik entirely, or want to map a container to multiple domain names, you can manipulate the `traefik` and `extraHosts` options.
-
 ```nix
   hlamlab.services.customapp = {
     enable = true;
-    
-    # Disable Traefik routing if you want to access the container via IP only,
-    # or if you are using a different reverse proxy.
+
+    # Skip Traefik entirely — internal-only services (prometheus, loki) do this.
     traefik.enable = false;
-    
-    # Or, provide a highly custom Traefik rule (e.g., matching a specific path)
-    traefik.rule = "Host(`custom.yourdomain.com`) && PathPrefix(`/api`)";
-    
-    # Provide custom Traefik middlewares
+
+    # Extra middlewares beyond the default [ "security-headers" ].
     traefikMiddlewares = [ "security-headers" "rate-limit" ];
-    
-    # Manage how the container is mapped in the HOST's /etc/hosts.
-    # By default, the container is mapped to its name (e.g. "customapp").
-    extraHosts = [ "customapp" "customapp-internal" "db-alias" ];
+
+    # Only when the upstream NixOS module insists on a path of its own; the
+    # ZFS-backed state directory is bind-mounted here and chowned to serviceUser.
+    dataDir = "/var/lib/cool";
+    serviceUser = "cool";
   };
 ```
 
 ## Complete Reference Table
 
-Here is the complete list of options available under `hlamlab.services.<name>`:
+Every option under `hlamlab.services.<name>`. The `description` strings in
+`modules/containers/frame.nix` are the source of truth; this table mirrors them.
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| **Core** | | | |
-| `enable` | `bool` | `false` | Enable the service on this host. |
-| `autoStart` | `bool` | `true` | Automatically start the container on boot. |
-| `privateNetwork`| `bool` | `true` | Enable a private network (virtual ethernet) for the container. |
-| `stateVersion` | `str` | Host's `stateVersion`| The stateVersion for the container environment. |
-| **Networking** | | | |
-| `ip` | `str` | *Required* | Container local IP address (e.g., `10.0.0.5`). |
-| `port` | `int` | *Required* | Container service port exposed to Traefik. |
-| `domainPrefix` | `str` | `<name>` | Prefix for the domain routing (e.g., `'auth'`). |
-| `nameservers` | `list` | `[]` | DNS nameservers for the container (e.g., `[ "1.1.1.1" ]`). |
-| `extraHosts` | `list` | `[ "<name>" ]` | Hostnames mapped to the container's IP in the host's `/etc/hosts`. |
-| `traefik.*` | `attrs` | *Enabled by default* | `enable` toggle and Traefik router `rule`. |
-| `traefikMiddlewares`| `list` | `["security-headers"]` | Traefik middlewares applied to this service's router. |
-| **Resources** | | | |
-| `cpuLimit` | `str` | `"100%"` | Hard CPU limit (`CPUQuota`). |
-| `cpuWeight` | `int` | `100` | CPU weight relative to other containers (`CPUWeight`). |
-| `ramLimit` | `str` | `"1G"` | Hard RAM limit (`MemoryMax`). |
-| `ramHigh` | `str` | `"512M"` | Soft RAM limit (`MemoryHigh`). |
-| `memorySwapMax` | `str` | `"0B"` | Maximum swap usage (`MemorySwapMax`). |
-| `ioWeight` | `int` | `100` | Block I/O weight (`IOWeight`). |
-| `tasksMax` | `int` | `512` | Maximum number of processes/threads (`TasksMax`). |
-| **Storage (ZFS)**| | | |
-| `zfs.enable` | `bool` | `true` | Enable automatic ZFS dataset creation for this service. |
-| `storageQuota` | `str` | `"10G"` | ZFS dataset maximum quota. |
-| `storageReservation`| `str` | `"1G"` | ZFS dataset guaranteed reservation. |
-| `sanoid.enable` | `bool` | `true` | Enable Sanoid automatic snapshots. |
-| `bindMounts` | `attrs` | `{}` | Additional host-to-container path bind mounts. |
-| **Advanced** | | | |
-| `createServiceUser`| `bool` | `true` | Automatically create a system user/group. |
-| `serviceUser` | `str` | `<name>` | Name of the auto-created service user. |
-| `secrets` | `attrs` | `{}` | sops-nix secret mapping definitions. |
-| `extraContainerConfig`| `module`| `{}` | Arbitrary NixOS configuration injected into the container. |
+| Option                  | Type     | Default                   | Description                                                                                                  |
+|-------------------------|----------|---------------------------|--------------------------------------------------------------------------------------------------------------|
+| **Core**                |          |                           |                                                                                                              |
+| `enable`                | `bool`   | `false`                   | Enable the service on this host.                                                                             |
+| `containerConfig`       | `module` | *Required*                | NixOS configuration for inside the container.                                                                |
+| **Networking**          |          |                           |                                                                                                              |
+| `ip`                    | `str`    | *Required*                | Container local IP address (e.g., `10.0.0.5`).                                                               |
+| `port`                  | `int`    | *Required*                | Container service port exposed to Traefik.                                                                   |
+| `domainPrefix`          | `str`    | `<name>`                  | Prefix for the domain routing (e.g., `'auth'`).                                                              |
+| `nameservers`           | `list`   | `[ "1.1.1.1" "1.0.0.1" ]` | Resolvers for the container. Public, so containers resolve each other's public names during OIDC handshakes. |
+| `traefik.enable`        | `bool`   | `true`                    | Publish this service through Traefik.                                                                        |
+| `traefikMiddlewares`    | `list`   | `[ "security-headers" ]`  | Traefik middlewares applied to this service's router.                                                        |
+| **Derived (read-only)** |          |                           |                                                                                                              |
+| `fqdn`                  | `str`    | `<domainPrefix>.<domain>` | Public hostname.                                                                                             |
+| `baseUrl`               | `str`    | `https://<fqdn>`          | Public HTTPS base URL.                                                                                       |
+| `address`               | `str`    | `<ip>:<port>`             | Internal container address.                                                                                  |
+| **Resources**           |          |                           |                                                                                                              |
+| `cpuLimit`              | `str`    | `"100%"`                  | Hard CPU limit (`CPUQuota`).                                                                                 |
+| `ramLimit`              | `str`    | `"1G"`                    | Hard RAM limit (`MemoryMax`).                                                                                |
+| `ramHigh`               | `str`    | `"512M"`                  | Soft RAM limit (`MemoryHigh`).                                                                               |
+| **Storage (ZFS)**       |          |                           |                                                                                                              |
+| `zfs.enable`            | `bool`   | `true`                    | Dataset, snapshot schedule and `dataDir` bind mount for this service.                                        |
+| `dataDir`               | `str`    | `/var/lib/<name>`         | Where the state directory is mounted inside the container, chowned to `serviceUser`.                         |
+| `storageQuota`          | `str`    | `"10G"`                   | ZFS dataset maximum quota.                                                                                   |
+| `storageReservation`    | `str`    | `"1G"`                    | ZFS dataset guaranteed reservation.                                                                          |
+| `bindMounts`            | `attrs`  | `{}`                      | Bind mounts beyond the automatic `dataDir` and sops key.                                                     |
+| **Identity**            |          |                           |                                                                                                              |
+| `serviceUser`           | `str`    | `<name>`                  | Name of the auto-created service user; owns secrets and `dataDir`.                                           |
+| `secrets`               | `attrs`  | `{}`                      | sops-nix secret mapping definitions.                                                                         |
+
+Set only what differs from these defaults, and without `lib.mkDefault` — a service module is the
+only place its own values are ever set.

@@ -52,7 +52,7 @@ You simply set the storage requirements in the service definition (
     
     # Optional: ZFS datasets and Sanoid schedules can be disabled per service
     # zfs.enable = false;
-    # sanoid.enable = false;
+    # zfs.enable = false;   # no dataset, no snapshots, no dataDir mount
   };
 }
 ```

@@ -28,10 +28,7 @@ in
   config = {
     # Default ldapBaseDn derived from domain (only if domain is set)
     hlamlab.settings.ldapBaseDn = lib.mkIf (cfg.domain != "") (lib.mkDefault (
-      let
-        parts = builtins.filter (x: builtins.typeOf x == "string" && x != "") (builtins.split "\\." cfg.domain);
-      in
-      builtins.concatStringsSep "," (map (p: "dc=${p}") parts)
+      builtins.concatStringsSep "," (map (p: "dc=${p}") (lib.splitString "." cfg.domain))
     ));
   };
 }

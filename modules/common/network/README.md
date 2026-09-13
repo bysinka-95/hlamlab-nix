@@ -115,13 +115,14 @@ mTLS established → request proxied to container
 - **Per-service**: Traefik routing is automatically managed by `frame.nix` for every
   service defined via `hlamlab.services.<name>`. It maps `Host(\`<domainPrefix>.<domain>\`)` to the
   container.
-    - You can override `traefik.rule` or disable routing entirely (`traefik.enable = false`) in the
+    - You can disable routing entirely (`traefik.enable = false`) in the
       service configuration.
 - **Dashboard**: `https://traefik.yourdomain` (basic auth); logs at `/var/log/traefik/`
 
 ### Cloudflared Configuration
 
-- Tunnel ID and Domain from the host's `hlamlab.settings` configuration (keys `tunnelId` and `domain`).
+- Tunnel ID and Domain from the host's `hlamlab.settings` configuration (keys `tunnelId` and
+  `domain`).
 - Ingress: `*.yourdomain` → `https://localhost:443`
 - mTLS CA: `/var/lib/cloudflared/origin-ca.pem`
 

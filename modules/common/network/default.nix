@@ -9,17 +9,13 @@
     };
   };
 
-  # Enable mDNS for .local domain resolution
+  # mDNS, so deploy-rs can reach the host as `playground.local`.
   services.avahi = {
     enable = true;
-    nssmdns4 = true; # Enable mDNS for IPv4
+    nssmdns4 = true;
     publish = {
       enable = true;
       addresses = true;
-      domain = true;
-      hinfo = true;
-      userServices = true;
-      workstation = true;
     };
   };
 
@@ -27,6 +23,6 @@
     ./traefik.nix
     ./cloudflared.nix
     ./alloy.nix
-    ./cadvisor.nix
+    ./exporters.nix
   ];
 }

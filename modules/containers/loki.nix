@@ -1,30 +1,20 @@
-{ lib, config, ... }:
+{ config, ... }:
 let
-  hostConfig = config;
-  svc = hostConfig.hlamlab.services;
+  svc = config.hlamlab.services;
 in
 {
   hlamlab.services.loki = {
-    ip = lib.mkDefault "10.0.0.11";
-    port = lib.mkDefault 3100;
-    domainPrefix = lib.mkDefault "loki";
+    ip = "10.0.0.11";
+    port = 3100;
 
-    storageQuota = lib.mkDefault "20G";
-    storageReservation = lib.mkDefault "2G";
+    storageQuota = "20G";
+    storageReservation = "2G";
 
-    cpuLimit = lib.mkDefault "100%";
-    ramLimit = lib.mkDefault "512M";
-    ramHigh = lib.mkDefault "256M";
+    ramLimit = "512M";
+    ramHigh = "256M";
 
     # Internal only — receives pushes from the host Alloy, queried by Grafana.
-    traefik.enable = lib.mkDefault false;
-
-    bindMounts = {
-      "/var/lib/loki" = {
-        hostPath = "/var/lib/services/loki";
-        isReadOnly = false;
-      };
-    };
+    traefik.enable = false;
 
     containerConfig = { ... }: {
       services.loki = {
@@ -81,7 +71,6 @@ in
         };
       };
 
-      systemd.services.loki.serviceConfig.StateDirectory = "loki";
     };
   };
 

@@ -1,9 +1,10 @@
-{ config, ... }:
+{ ... }:
 {
   nix = {
     settings = {
       experimental-features = [ "nix-command" "flakes" ];
-      # Optimise the store automatically on every build/fetch
+      # Hard-link duplicate files as they land in the store. This is the
+      # continuous form of `nix-store --optimise`, so no periodic optimise job.
       auto-optimise-store = true;
       # deploy-rs (and `nixos-rebuild --build-host`) connect as a wheel user and
       # pass client-side settings such as `store`. Without this the daemon logs
@@ -24,33 +25,8 @@
       automatic = true;
       dates = "weekly";
     };
-
-    # Periodic store optimisation (finding and hard-linking duplicate files)
-    optimise = {
-      automatic = true;
-      dates = [ "weekly" ];
-    };
   };
 
-  # Automatic System Upgrades — DISABLED.
-  #
-  # This pulls the *pushed* repo, which is not what deploy-rs put on the host. The
-  # committed hosts/playground/configuration.nix still carries placeholder values
-  # (domain = "yourdomain.com", hostId = "1a23bc45"); the real ones live only in the
-  # working tree. A nightly unattended switch would therefore activate a generation
-  # with the wrong `networking.hostId`, and the next boot would fail to
-  # `zpool import tank` on a root-on-ZFS host.
-  #
-  # Before re-enabling: push a commit that actually reproduces the running host, and
-  # accept that deploys of unpushed local changes then survive only until 04:00.
-  # It also has no equivalent of deploy-rs' magic rollback, so a bad pushed commit
-  # activates unattended with nothing to catch it.
-  system.autoUpgrade = {
-    enable = false;
-    dates = "04:00";
-    # Dynamically targets the configuration for the current host
-    flake = "github:bysinka-95/hlamlab-nix#${config.networking.hostName}";
-    # Do NOT reboot automatically if a new kernel/initrd is built
-    allowReboot = false;
-  };
+  # No system.autoUpgrade: deploys go through deploy-rs, which has magic rollback
+  # and carries the working tree rather than the last pushed commit.
 }

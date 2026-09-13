@@ -1,8 +1,7 @@
 # Container Services
 
-Each service is self-contained via a single `default.nix` module which defines the container,
-Traefik routing, ZFS datasets, and system users via the `hlamlab.services.<name>` submodule
-abstraction.
+Each service is one flat `<name>.nix` file defining the container, Traefik routing, ZFS dataset,
+and system user through the `hlamlab.services.<name>` submodule the frame provides.
 
 ## Structure
 
@@ -75,53 +74,47 @@ In `modules/containers/`, create `<name>.nix`.
 **`<name>.nix`** (App configuration):
 
 ```nix
-{ lib, config, ... }:
+{ config, ... }:
+let
+  svc = config.hlamlab.services;
+in
 {
   hlamlab.services.myservice = {
-    # Using lib.mkDefault allows you to easily override these from hosts/<name>/configuration.nix!
-    ip = lib.mkDefault "10.0.0.N"; # Check main README.md for next available IP
-    port = lib.mkDefault 8080;
-    domainPrefix = lib.mkDefault "myservice"; # Will map to https://myservice.yourdomain
-    storageQuota = lib.mkDefault "10G";
-    storageReservation = lib.mkDefault "1G";
-    
-    cpuLimit = lib.mkDefault "100%";
-    ramLimit = lib.mkDefault "1G";
-    ramHigh = lib.mkDefault "512M";
-    
-    # Optional: Automatically manages sops.secrets inside the container
+    ip = "10.0.0.N"; # Check main README.md for the next available IP
+    port = 8080;
+
+    # Set only what differs from the frame's defaults. domainPrefix, nameservers,
+    # storageQuota/Reservation, cpuLimit, ramLimit/High all have sane ones — see
+    # hosts/README.md. No lib.mkDefault: this module is their only definer.
+    storageQuota = "50G";
+
+    # Optional: automatically manages sops.secrets inside the container
     secrets = {
       myservice-env = {
         key = "myservice/env";
         restartUnits = [ "myservice.service" ];
       };
     };
-    
-    # Storage bindings (ZFS datasets are automatically created and snapshotted)
-    bindMounts = {
-      "/var/lib/myservice" = {
-        hostPath = "/var/lib/services/myservice";
-        isReadOnly = false;
-      };
-    };
 
     # Container-specific NixOS config
-    containerConfig = { lib, pkgs, config, ... }: {
+    containerConfig = { config, ... }: {
       services.myservice = {
         enable = true;
         listenAddress = "0.0.0.0";
+        port = svc.myservice.port;
         environmentFile = config.sops.secrets.myservice-env.path;
       };
-      
-      systemd.services.myservice.serviceConfig.StateDirectory = "myservice";
     };
   };
 }
 ```
 
-> The frame opens the service `port` in the container firewall and creates the host state
-> directory (`/var/lib/services/<name>`, `0750`) for you — no manual `allowedTCPPorts` for the main
-> port or `tmpfiles` rule needed. Only declare `allowedTCPPorts` for *extra* ports (e.g. LDAP `3890`).
+> The frame gives you the ZFS dataset, its snapshot schedule, the host state directory, and the
+> bind mount onto `dataDir` (`/var/lib/myservice` by default) chowned to `serviceUser` — so no
+> `bindMounts` entry, no `tmpfiles` rule, and no `StateDirectory=` added just to fix ownership.
+> It also opens the service `port` in the container firewall; declare `allowedTCPPorts` only for
+> *extra* ports (e.g. LDAP `3890`). Override `dataDir` only when the upstream module insists on
+> another path — collabora wants `/var/lib/cool`.
 
 ### 3. Register and Enable
 
@@ -131,23 +124,11 @@ To actually enable the service on a specific host, edit the host's configuration
 `hosts/playground/configuration.nix`):
 
 ```nix
-hlamlab.services.myservice = {
-  enable = true;
-  
-  # Because the service definition uses lib.mkDefault, you can override properties here seamlessly!
-  # domainPrefix = "override-prefix";
-  # storageQuota = "50G";
-  # ramLimit = "4G";
-  
-  # You can also toggle core container-frame features:
-  # traefik.enable = false;
-  # zfs.enable = false;
-  # sanoid.enable = false;
-  
-  # And you can inject custom NixOS config into the container:
-  # extraContainerConfig = { services.nginx.enable = true; };
-};
+hlamlab.services.myservice.enable = true;
 ```
+
+Host-level overrides of anything else are possible but unused today — the service module owns its
+own values. See [`hosts/README.md`](../../hosts/README.md) for the full option table.
 
 ---
 
@@ -188,34 +169,31 @@ sudo nixos-container start/stop <name>
 
 ## Resource Limits
 
-Limits are defined directly in the service definition (e.g., `myservice.nix`) and can be overridden in
-`hosts/.../configuration.nix`.
+Limits are defined in the service definition (e.g., `myservice.nix`) and applied by the frame to
+`container@<name>.service` as `CPUQuota` / `MemoryMax` / `MemoryHigh`. Every container also gets a
+fixed `MemorySwapMax=0B` and `TasksMax=512`.
 
 ```nix
   hlamlab.services.myservice = {
     # ...
-    cpuLimit = "100%";
-    cpuWeight = 100;
+    cpuLimit = "200%";
     ramLimit = "2G";
     ramHigh = "1.5G";
-    memorySwapMax = "0B";
   };
 ```
 
 **Sizing guide:**
 
 - Light (API/cache): 50% CPU, 512M RAM
-- Medium (web/db): 100%, 2G
+- Medium (web/db): 100%, 2G — the defaults
 - Heavy (ML/media): 200%, 4G+
-
-For a full list of overridable options (including IO and TasksMax limits), refer to [`hosts/README.md`](../../hosts/README.md).
 
 ---
 
 ## Persistent Storage
 
-Use `bindMounts` to map paths to `/var/lib/services/<name>` on the host. ZFS datasets and Sanoid
-backup schedules are automatically created by the container frame based on your `storageQuota` and
-`storageReservation` settings.
+The frame creates the ZFS dataset, its Sanoid snapshot schedule (sized by `storageQuota` /
+`storageReservation`), and bind-mounts `/var/lib/services/<name>` onto `dataDir` inside the
+container, chowned to `serviceUser`. Use `bindMounts` only for paths *beyond* that one.
 
 See [ZFS README](../common/zfs/README.md) for dataset creation and snapshot management.

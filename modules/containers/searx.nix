@@ -1,31 +1,12 @@
-{ lib, config, ... }:
+{ config, ... }:
 let
-  hostConfig = config;
-  svc = hostConfig.hlamlab.services;
+  svc = config.hlamlab.services;
 in
 {
   hlamlab.services.searx = {
-    ip = lib.mkDefault "10.0.0.8";
-    port = lib.mkDefault 8888;
-    domainPrefix = lib.mkDefault "searxng";
-    storageQuota = lib.mkDefault "10G";
-    storageReservation = lib.mkDefault "1G";
-
-    cpuLimit = lib.mkDefault "100%";
-    ramLimit = lib.mkDefault "1G";
-    ramHigh = lib.mkDefault "512M";
-
-    nameservers = [
-      "1.1.1.1"
-      "1.0.0.1"
-    ];
-
-    bindMounts = {
-      "/var/lib/searx" = {
-        hostPath = "/var/lib/services/searx";
-        isReadOnly = false;
-      };
-    };
+    ip = "10.0.0.8";
+    port = 8888;
+    domainPrefix = "searxng";
 
     secrets = {
       "searx/env" = {
@@ -35,14 +16,8 @@ in
     };
 
     containerConfig =
-      { lib, pkgs, config, ... }:
+      { config, ... }:
       {
-        systemd.services.uwsgi.serviceConfig.EnvironmentFile = config.sops.secrets."searx/env".path;
-
-        systemd.tmpfiles.rules = [
-          "d /var/lib/searx 0750 searx searx -"
-        ];
-
         services.searx = {
           enable = true;
           redisCreateLocally = true;

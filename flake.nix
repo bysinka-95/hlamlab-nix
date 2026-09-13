@@ -4,8 +4,6 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    flake-parts.url = "github:hercules-ci/flake-parts";
-
     # deploy-rs drives remote deploys with magic rollback (see README § Deploy).
     # `follows` collapses the second nixpkgs out of the lock — deploy-rs pins one
     # from 2025-03-26, and a stale pin is what broke deploys in the first place.
@@ -30,10 +28,10 @@
     sops-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = inputs@{ self, flake-parts, deploy-rs, ... }:
+  outputs = inputs@{ self, nixpkgs, deploy-rs, ... }:
     let
       system = "x86_64-linux";
-      pkgs = import inputs.nixpkgs { inherit system; };
+      pkgs = import nixpkgs { inherit system; };
 
       # deploy-rs' *lib* (the activation wrapper baked into every deployed
       # generation) paired with nixpkgs' prebuilt *binary*.
@@ -48,7 +46,7 @@
       # nixpkgs ships deploy-rs prebuilt in cache.nixos.org, so this fixes the
       # fetch and means no Rust is ever compiled on the host. Idiom is from
       # deploy-rs' own README.
-      deployPkgs = import inputs.nixpkgs {
+      deployPkgs = import nixpkgs {
         inherit system;
         overlays = [
           deploy-rs.overlays.default
@@ -56,14 +54,11 @@
         ];
       };
     in
-    flake-parts.lib.mkFlake { inherit inputs; } {
-    systems = [ system ];
-
-    flake = {
+    {
       nixosConfigurations = {
         # 1. The Simulation (Proxmox VM)
-        playground = inputs.nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
+        playground = nixpkgs.lib.nixosSystem {
+          inherit system;
           specialArgs = { inherit inputs; };
           modules = [
             inputs.disko.nixosModules.disko
@@ -84,8 +79,9 @@
         sshUser = "hlamnix";
         user = "root";
 
-        # Build on the target. The workstation might bedifferent architecture (i.e. aarch64-darwin)
-        # and cannot build x86_64-linux; this also keeps the closure off the LAN.
+        # Build on the target. The workstation might be a different architecture
+        # (i.e. aarch64-darwin) and cannot build x86_64-linux; this also keeps the
+        # closure off the LAN.
         remoteBuild = true;
 
         # Roll back if activation fails outright...
@@ -114,5 +110,4 @@
       # x86_64-linux"); they fire from CI or any Linux builder.
       checks.${system} = deployPkgs.deploy-rs.lib.deployChecks self.deploy;
     };
-  };
 }

@@ -1,30 +1,13 @@
-{ lib, config, ... }:
+{ config, ... }:
 let
-  hostConfig = config;
-  svc = hostConfig.hlamlab.services;
+  svc = config.hlamlab.services;
 in
 {
   hlamlab.services.grafana = {
-    ip = lib.mkDefault "10.0.0.9";
-    port = lib.mkDefault 3000;
-    domainPrefix = lib.mkDefault "grafana";
+    ip = "10.0.0.9";
+    port = 3000;
 
-    storageQuota = lib.mkDefault "10G";
-    storageReservation = lib.mkDefault "1G";
-
-    cpuLimit = lib.mkDefault "100%";
-    ramLimit = lib.mkDefault "768M";
-    ramHigh = lib.mkDefault "512M";
-
-    # Needs to reach Authelia over its public URL for the OIDC handshake.
-    nameservers = [ "1.1.1.1" "1.0.0.1" ];
-
-    bindMounts = {
-      "/var/lib/grafana" = {
-        hostPath = "/var/lib/services/grafana";
-        isReadOnly = false;
-      };
-    };
+    ramLimit = "768M";
 
     secrets = {
       grafana-oidc-secret = {
@@ -152,7 +135,6 @@ in
           };
         };
 
-        systemd.services.grafana.serviceConfig.StateDirectory = "grafana";
       };
   };
 

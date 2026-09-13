@@ -1,54 +1,22 @@
-{ config, lib, pkgs, inputs, ... }:
+{ config, lib, inputs, ... }:
 let
   hostConfig = config;
   cfg = hostConfig.hlamlab.services;
   enabledServices = lib.filterAttrs (n: v: v.enable) cfg;
+  alloyConfig = import ../common/network/alloy-config.nix;
 in
 {
-  options.hlamlab.observability = {
-    enable = lib.mkEnableOption "inject node_exporter + per-container log agent into every container";
-    nodeExporterPort = lib.mkOption {
-      type = lib.types.int;
-      # Defaulting to 9101 to avoid conflict with opencloud's services
-      default = 9101;
-      description = "Port every container's node_exporter listens on (scraped by Prometheus)";
-    };
-    logAgent = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = ''
-          Run an Alloy log agent inside every container that ships its own
-          journal (real per-service logs) to Loki. nspawn does not surface the
-          inner service journals to the host, so a host-side reader only sees the
-          `container@<name>` spawn wrapper — this agent is what gets
-          `immich-server.service` & friends into Grafana.
-        '';
-      };
-      lokiPushUrl = lib.mkOption {
-        type = lib.types.str;
-        default = "http://${hostConfig.hlamlab.services.loki.address}/loki/api/v1/push";
-        description = "Loki push endpoint each container's log agent forwards to";
-      };
-    };
-  };
+  options.hlamlab.observability.enable = lib.mkEnableOption ''
+    per-container observability: persistent journald, an Alloy agent shipping the
+    container's own journal to Loki, and a node_exporter restricted to the
+    collectors that are actually namespaced. nspawn surfaces neither the inner
+    journals nor the inner systemd to the host, so both agents have to run inside
+  '';
 
   options.hlamlab.services = lib.mkOption {
     type = lib.types.attrsOf (lib.types.submodule ({ name, config, ... }: {
       options = {
         enable = lib.mkEnableOption "Enable ${name} service";
-
-        autoStart = lib.mkOption {
-          type = lib.types.bool;
-          default = true;
-          description = "Automatically start the container on boot";
-        };
-
-        privateNetwork = lib.mkOption {
-          type = lib.types.bool;
-          default = true;
-          description = "Enable private network for the container";
-        };
 
         ip = lib.mkOption {
           type = lib.types.str;
@@ -90,6 +58,16 @@ in
           description = "Internal container address (ip:port) for sibling services to reach directly over the private network.";
         };
 
+        dataDir = lib.mkOption {
+          type = lib.types.str;
+          default = "/var/lib/${name}";
+          description = ''
+            Path inside the container that the service's ZFS-backed state
+            directory is bind-mounted onto. Override only when the upstream
+            NixOS module insists on another path (collabora wants /var/lib/cool).
+          '';
+        };
+
         storageQuota = lib.mkOption {
           type = lib.types.str;
           default = "10G";
@@ -105,7 +83,7 @@ in
         bindMounts = lib.mkOption {
           type = lib.types.attrs;
           default = { };
-          description = "Additional bind mounts for the container";
+          description = "Bind mounts in addition to the automatic dataDir and sops key mounts";
         };
 
         traefikMiddlewares = lib.mkOption {
@@ -114,16 +92,10 @@ in
           description = "Traefik middlewares for the router";
         };
 
-        createServiceUser = lib.mkOption {
-          type = lib.types.bool;
-          default = true;
-          description = "Automatically create a system user and group for this service";
-        };
-
         serviceUser = lib.mkOption {
           type = lib.types.str;
           default = name;
-          description = "The name of the service user to create, and to use as default owner for secrets";
+          description = "The name of the service user to create, and to use as default owner for secrets and dataDir";
         };
 
         secrets = lib.mkOption {
@@ -156,69 +128,26 @@ in
           description = "CPU limit (CPUQuota) for the container";
         };
 
-        cpuWeight = lib.mkOption {
-          type = lib.types.int;
-          default = 100;
-          description = "CPU weight (CPUWeight) for the container";
-        };
-
-        memorySwapMax = lib.mkOption {
-          type = lib.types.str;
-          default = "0B";
-          description = "Maximum swap limit (MemorySwapMax) for the container";
-        };
-
-        ioWeight = lib.mkOption {
-          type = lib.types.int;
-          default = 100;
-          description = "IO weight (IOWeight) for the container";
-        };
-
-        tasksMax = lib.mkOption {
-          type = lib.types.int;
-          default = 512;
-          description = "Maximum tasks (TasksMax) for the container";
-        };
-
-        stateVersion = lib.mkOption {
-          type = lib.types.str;
-          default = hostConfig.system.stateVersion;
-          description = "The stateVersion for the container (defaults to host's stateVersion)";
-        };
-
         nameservers = lib.mkOption {
           type = lib.types.listOf lib.types.str;
-          default = [ ];
-          description = "List of nameservers for the container. If empty, inherits from host/systemd";
+          default = [ "1.1.1.1" "1.0.0.1" ];
+          description = ''
+            Resolvers for the container. Public by default: OIDC handshakes
+            between services go out through the tunnel and back in by public
+            name, so containers must resolve each other's *public* hostnames.
+          '';
         };
 
-        extraHosts = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = [ name ];
-          description = "List of hostnames to map to the container IP in the host's /etc/hosts";
+        traefik.enable = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Publish this service through Traefik";
         };
 
-        traefik = {
-          enable = lib.mkOption { type = lib.types.bool; default = true; description = "Enable Traefik routing"; };
-          rule = lib.mkOption {
-            type = lib.types.str;
-            default = "Host(`${config.fqdn}`)";
-            description = "Traefik router rule";
-          };
-        };
-
-        zfs = {
-          enable = lib.mkOption { type = lib.types.bool; default = true; description = "Enable ZFS dataset creation"; };
-        };
-
-        sanoid = {
-          enable = lib.mkOption { type = lib.types.bool; default = true; description = "Enable Sanoid snapshots"; };
-        };
-
-        extraContainerConfig = lib.mkOption {
-          type = lib.types.deferredModule;
-          default = { };
-          description = "Arbitrary NixOS configuration injected into the container";
+        zfs.enable = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Give this service its own ZFS dataset, bind mount and snapshot schedule";
         };
 
         containerConfig = lib.mkOption {
@@ -230,209 +159,199 @@ in
     default = { };
   };
 
-  config = lib.mkIf (enabledServices != { }) (lib.mkMerge ([
-    {
-      # 1. Container configurations
-      containers = lib.mapAttrs
-        (name: svc: {
-          autoStart = svc.autoStart;
-          privateNetwork = svc.privateNetwork;
-          hostAddress = "10.0.0.1";
-          localAddress = svc.ip;
+  config = lib.mkIf (enabledServices != { }) {
+    # 1. Container configurations
+    containers = lib.mapAttrs
+      (name: svc: {
+        autoStart = true;
+        privateNetwork = true;
+        hostAddress = "10.0.0.1";
+        localAddress = svc.ip;
 
-          bindMounts = {
-            "/var/lib/sops-nix/key.txt" = {
-              hostPath = "/var/lib/sops-nix/key.txt";
-              isReadOnly = true;
-            };
-          } // svc.bindMounts;
-
-          config = { ... }: {
-            imports = [
-              inputs.sops-nix.nixosModules.sops
-              svc.containerConfig
-              svc.extraContainerConfig
-            ];
-
-            config = lib.mkMerge [
-              {
-                sops = {
-                  defaultSopsFile = ../secrets/secrets.yaml;
-                  defaultSopsFormat = "yaml";
-                  age.keyFile = "/var/lib/sops-nix/key.txt";
-                  secrets = lib.mapAttrs
-                    (sname: sval: {
-                      key = sval.key;
-                      owner = if sval.owner == name then svc.serviceUser else sval.owner;
-                      group = if sval.owner == name then svc.serviceUser else sval.owner;
-                      mode = "0400";
-                      restartUnits = sval.restartUnits;
-                    })
-                    svc.secrets;
-                };
-
-                networking.nameservers = svc.nameservers;
-                networking.firewall.allowedTCPPorts = [ svc.port ];
-                system.stateVersion = svc.stateVersion;
-              }
-              (lib.optionalAttrs svc.createServiceUser {
-                users.users.${svc.serviceUser} = {
-                  isSystemUser = true;
-                  group = svc.serviceUser;
-                  description = lib.mkDefault "${name} service user";
-                };
-                users.groups.${svc.serviceUser} = { };
-              })
-              # Observability: node_exporter for the container's own /proc view +
-              # persistent journald (so the log agent has a stable journal to read).
-              # NOTE: nspawn shares the host kernel and does not virtualize
-              # /proc/{meminfo,stat} or /sys, so this node_exporter reports
-              # HOST-GLOBAL mem/cpu/disk, identical across containers. True
-              # per-container resource usage comes from cgroups via cAdvisor on the
-              # host — see modules/common/network/cadvisor.nix.
-              (lib.optionalAttrs hostConfig.hlamlab.observability.enable {
-                services.prometheus.exporters.node = {
-                  enable = true;
-                  listenAddress = "0.0.0.0";
-                  port = hostConfig.hlamlab.observability.nodeExporterPort;
-                  openFirewall = true;
-                  enabledCollectors = [ "systemd" ];
-                };
-                services.journald.settings.Journal = {
-                  Storage = "persistent";
-                  SystemMaxUse = "100M";
-                };
-              })
-              # Per-container log agent: reads THIS container's own journal (which
-              # holds the real service logs — immich-server.service, etc. — that
-              # never reach the host journal) and ships to Loki. Labelled
-              # job=<container> so Grafana's Log Viewer lists each service by name;
-              # narrow further with the `unit` filter.
-              (lib.optionalAttrs (hostConfig.hlamlab.observability.enable && hostConfig.hlamlab.observability.logAgent.enable) {
-                services.alloy.enable = true;
-                systemd.services.alloy.serviceConfig.SupplementaryGroups = [ "systemd-journal" ];
-                environment.etc."alloy/config.alloy".text = ''
-                  loki.write "default" {
-                    endpoint {
-                      url = "${hostConfig.hlamlab.observability.logAgent.lokiPushUrl}"
-                    }
-                  }
-
-                  loki.relabel "journal" {
-                    forward_to = []
-
-                    rule {
-                      source_labels = ["__journal__systemd_unit"]
-                      target_label  = "unit"
-                    }
-                    rule {
-                      source_labels = ["__journal_priority_keyword"]
-                      target_label  = "level"
-                    }
-                  }
-
-                  loki.source.journal "read" {
-                    path          = "/var/log/journal"
-                    max_age       = "12h"
-                    relabel_rules = loki.relabel.journal.rules
-                    labels        = { job = "${name}", container = "${name}", host = "${name}" }
-                    forward_to    = [loki.write.default.receiver]
-                  }
-                '';
-              })
-            ];
+        bindMounts = {
+          "/var/lib/sops-nix/key.txt" = {
+            hostPath = "/var/lib/sops-nix/key.txt";
+            isReadOnly = true;
           };
-        })
-        enabledServices;
-
-      # 2. DNS Mapping (Host -> Container)
-      networking.hosts = lib.mkMerge (lib.mapAttrsToList
-        (name: svc: lib.optionalAttrs (svc.extraHosts != [ ]) {
-          "${svc.ip}" = svc.extraHosts;
-        })
-        enabledServices);
-
-      # 3. ZFS Datasets
-      disko.devices.zpool.tank.datasets = lib.mkMerge (lib.mapAttrsToList
-        (name: svc: lib.optionalAttrs svc.zfs.enable {
-          "services/${name}" = {
-            type = "zfs_fs";
-            options = {
-              mountpoint = "/var/lib/services/${name}";
-              quota = svc.storageQuota;
-              reservation = svc.storageReservation;
-              compression = "lz4";
-              atime = "off";
-            };
+        }
+        // lib.optionalAttrs svc.zfs.enable {
+          ${svc.dataDir} = {
+            hostPath = "/var/lib/services/${name}";
+            isReadOnly = false;
           };
-        })
-        enabledServices);
+        }
+        // svc.bindMounts;
 
-      # 4. Sanoid Snapshots
-      services.sanoid.datasets = lib.mkMerge (lib.mapAttrsToList
-        (name: svc: lib.optionalAttrs svc.sanoid.enable {
-          "tank/services/${name}" = {
-            hourly = 24;
-            daily = 7;
-            weekly = 4;
-            monthly = 12;
-            autosnap = true;
-            autoprune = true;
-          };
-        })
-        enabledServices);
+        config = { ... }: {
+          imports = [
+            inputs.sops-nix.nixosModules.sops
+            svc.containerConfig
+          ];
 
-      # 5. Resource Limits
-      systemd.services = lib.mkMerge (lib.mapAttrsToList
-        (name: svc: {
-          "container@${name}" = {
-            serviceConfig = {
-              CPUQuota = svc.cpuLimit;
-              CPUWeight = svc.cpuWeight;
-              MemoryMax = svc.ramLimit;
-              MemoryHigh = svc.ramHigh;
-              MemorySwapMax = svc.memorySwapMax;
-              IOWeight = svc.ioWeight;
-              TasksMax = svc.tasksMax;
-            };
-          };
-        })
-        enabledServices);
-
-      # 6. Traefik Routing
-      services.traefik.dynamicConfigOptions.http = {
-        routers = lib.mkMerge (lib.mapAttrsToList
-          (name: svc: lib.optionalAttrs svc.traefik.enable {
-            "${name}" = {
-              rule = svc.traefik.rule;
-              service = name;
-              entryPoints = [ "https" ];
-              tls = { };
-              middlewares = svc.traefikMiddlewares;
-            };
-          })
-          enabledServices);
-
-        services = lib.mkMerge (lib.mapAttrsToList
-          (name: svc: lib.optionalAttrs svc.traefik.enable {
-            "${name}" = {
-              loadBalancer = {
-                servers = [{ url = "http://${svc.ip}:${toString svc.port}"; }];
-                passHostHeader = true;
+          config = lib.mkMerge [
+            {
+              sops = {
+                defaultSopsFile = ../secrets/secrets.yaml;
+                defaultSopsFormat = "yaml";
+                age.keyFile = "/var/lib/sops-nix/key.txt";
+                secrets = lib.mapAttrs
+                  (sname: sval: {
+                    key = sval.key;
+                    owner = if sval.owner == name then svc.serviceUser else sval.owner;
+                    group = if sval.owner == name then svc.serviceUser else sval.owner;
+                    mode = "0400";
+                    restartUnits = sval.restartUnits;
+                  })
+                  svc.secrets;
               };
-            };
-          })
-          enabledServices);
-      };
 
-      # 7. Host state directories: the /var/lib/services root plus one 0750 dir
-      # per service (the ZFS dataset mountpoint). Folded in here so service
-      # modules don't each repeat their own tmpfiles rule.
-      systemd.tmpfiles.rules = [
-        "d /var/lib/services 0755 root root -"
-      ] ++ lib.mapAttrsToList
-        (name: svc: "d /var/lib/services/${name} 0750 - - -")
-        (lib.filterAttrs (n: svc: svc.zfs.enable) enabledServices);
-    }
-  ]));
+              networking.nameservers = svc.nameservers;
+              networking.firewall.allowedTCPPorts = [ svc.port ];
+              system.stateVersion = hostConfig.system.stateVersion;
+
+              users.users.${svc.serviceUser} = {
+                isSystemUser = true;
+                group = svc.serviceUser;
+                description = lib.mkDefault "${name} service user";
+              };
+              users.groups.${svc.serviceUser} = { };
+            }
+            # The bind mount arrives owned by root:root from the host. Hand it to
+            # the user that actually runs the service — upstream units that set
+            # `StateDirectory=` would do this themselves, but the ones that run
+            # under uwsgi or a DynamicUser emperor (searx) never do.
+            (lib.optionalAttrs svc.zfs.enable {
+              systemd.tmpfiles.rules = [
+                "d ${svc.dataDir} 0750 ${svc.serviceUser} ${svc.serviceUser} -"
+              ];
+            })
+            # Persistent journald so the log agent below has a stable journal to
+            # read across container restarts.
+            (lib.optionalAttrs hostConfig.hlamlab.observability.enable {
+              services.journald.settings.Journal = {
+                Storage = "persistent";
+                SystemMaxUse = "100M";
+              };
+
+              # nspawn shares the host kernel and does NOT virtualise /proc, so
+              # cpu/meminfo/loadavg/diskstats read host-global here — ten
+              # containers would report ten identical copies. Those come from the
+              # host's own node_exporter and from cAdvisor's cgroup view instead
+              # (modules/common/network/exporters.nix).
+              #
+              # What IS per-container, and has no host-side substitute:
+              #   systemd     - the container's own D-Bus. Unit state for
+              #                 immich-server.service & co; neither the host's
+              #                 systemd nor cAdvisor can see these at all.
+              #   filesystem  - the container's mount namespace, i.e. the usage of
+              #                 its bind-mounted ZFS dataset. cAdvisor reports no
+              #                 filesystem stats for nspawn cgroups.
+              #   netdev      - privateNetwork gives each container its own netns,
+              #                 so /proc/net/dev is genuinely its own.
+              # disable-defaults keeps it to exactly those three.
+              services.prometheus.exporters.node = {
+                enable = true;
+                listenAddress = "0.0.0.0";
+                # Not 9100: opencloud's microservices claim ports from 9100 up.
+                port = 9101;
+                openFirewall = true;
+                enabledCollectors = [ "systemd" "filesystem" "netdev" ];
+                extraFlags = [ "--collector.disable-defaults" ];
+              };
+
+              services.alloy.enable = true;
+              systemd.services.alloy.serviceConfig.SupplementaryGroups = [ "systemd-journal" ];
+              # Labelled job=<container> so Grafana's Log Viewer lists each
+              # service by name; narrow further with the `unit` filter.
+              environment.etc."alloy/config.alloy".text = alloyConfig {
+                lokiUrl = "http://${cfg.loki.address}/loki/api/v1/push";
+                labels = ''job = "${name}", container = "${name}"'';
+              };
+            })
+          ];
+        };
+      })
+      enabledServices;
+
+    # 2. DNS Mapping (Host -> Container)
+    networking.hosts = lib.mapAttrs' (name: svc: lib.nameValuePair svc.ip [ name ]) enabledServices;
+
+    # 3. ZFS Datasets
+    disko.devices.zpool.tank.datasets = lib.mkMerge (lib.mapAttrsToList
+      (name: svc: lib.optionalAttrs svc.zfs.enable {
+        "services/${name}" = {
+          type = "zfs_fs";
+          options = {
+            mountpoint = "/var/lib/services/${name}";
+            quota = svc.storageQuota;
+            reservation = svc.storageReservation;
+            compression = "lz4";
+            atime = "off";
+          };
+        };
+      })
+      enabledServices);
+
+    # 4. Sanoid Snapshots
+    services.sanoid.datasets = lib.mkMerge (lib.mapAttrsToList
+      (name: svc: lib.optionalAttrs svc.zfs.enable {
+        "tank/services/${name}" = {
+          hourly = 24;
+          daily = 7;
+          weekly = 4;
+          monthly = 12;
+          autosnap = true;
+          autoprune = true;
+        };
+      })
+      enabledServices);
+
+    # 5. Resource Limits
+    systemd.services = lib.mapAttrs'
+      (name: svc: lib.nameValuePair "container@${name}" {
+        serviceConfig = {
+          CPUQuota = svc.cpuLimit;
+          MemoryMax = svc.ramLimit;
+          MemoryHigh = svc.ramHigh;
+          MemorySwapMax = "0B";
+          TasksMax = 512;
+        };
+      })
+      enabledServices;
+
+    # 6. Traefik Routing
+    services.traefik.dynamicConfigOptions.http = {
+      routers = lib.mkMerge (lib.mapAttrsToList
+        (name: svc: lib.optionalAttrs svc.traefik.enable {
+          "${name}" = {
+            rule = "Host(`${svc.fqdn}`)";
+            service = name;
+            entryPoints = [ "https" ];
+            tls = { };
+            middlewares = svc.traefikMiddlewares;
+          };
+        })
+        enabledServices);
+
+      services = lib.mkMerge (lib.mapAttrsToList
+        (name: svc: lib.optionalAttrs svc.traefik.enable {
+          "${name}" = {
+            loadBalancer = {
+              servers = [{ url = "http://${svc.address}"; }];
+              passHostHeader = true;
+            };
+          };
+        })
+        enabledServices);
+    };
+
+    # 7. Host state directories: the /var/lib/services root plus one 0750 dir
+    # per service (the ZFS dataset mountpoint). Folded in here so service
+    # modules don't each repeat their own tmpfiles rule.
+    systemd.tmpfiles.rules = [
+      "d /var/lib/services 0755 root root -"
+    ] ++ lib.mapAttrsToList
+      (name: svc: "d /var/lib/services/${name} 0750 - - -")
+      (lib.filterAttrs (n: svc: svc.zfs.enable) enabledServices);
+  };
 }

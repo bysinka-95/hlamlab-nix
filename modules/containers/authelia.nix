@@ -1,30 +1,18 @@
-{ lib, config, ... }:
+{ config, ... }:
 let
-  hostConfig = config;
-  svc = hostConfig.hlamlab.services;
+  settings = config.hlamlab.settings;
+  svc = config.hlamlab.services;
 in
 {
   hlamlab.services.authelia = {
-    ip = lib.mkDefault "10.0.0.5";
-    port = lib.mkDefault 9091;
-    domainPrefix = lib.mkDefault "auth";
-    storageQuota = lib.mkDefault "10G";
-    storageReservation = lib.mkDefault "1G";
+    ip = "10.0.0.5";
+    port = 9091;
+    domainPrefix = "auth";
 
-    cpuLimit = lib.mkDefault "100%";
-    ramLimit = lib.mkDefault "1G";
-    ramHigh = lib.mkDefault "512M";
-
-    nameservers = [ "1.1.1.1" "1.0.0.1" ];
-
+    # The NixOS module names the instance's unit and state dir after the
+    # instance, not the service.
     serviceUser = "authelia-main";
-
-    bindMounts = {
-      "/var/lib/authelia-main" = {
-        hostPath = "/var/lib/services/authelia";
-        isReadOnly = false;
-      };
-    };
+    dataDir = "/var/lib/authelia-main";
 
     secrets = {
       authelia-jwt-secret = {
@@ -65,7 +53,7 @@ in
       };
     };
 
-    containerConfig = { config, pkgs, ... }: {
+    containerConfig = { config, ... }: {
       # Prometheus metrics endpoint (scraped at 10.0.0.5:9959).
       networking.firewall.allowedTCPPorts = [ 9959 ];
 
@@ -110,8 +98,8 @@ in
             ldap = {
               implementation = "lldap";
               address = "ldap://${svc.lldap.ip}:3890";
-              base_dn = hostConfig.hlamlab.settings.ldapBaseDn;
-              user = "uid=admin,ou=people,${hostConfig.hlamlab.settings.ldapBaseDn}";
+              base_dn = settings.ldapBaseDn;
+              user = "uid=admin,ou=people,${settings.ldapBaseDn}";
             };
           };
 
@@ -119,7 +107,7 @@ in
             default_policy = "deny";
             rules = [
               {
-                domain = "*.${hostConfig.hlamlab.settings.domain}";
+                domain = "*.${settings.domain}";
                 policy = "one_factor";
               }
             ];
@@ -129,7 +117,7 @@ in
             name = "authelia_session";
             cookies = [
               {
-                domain = hostConfig.hlamlab.settings.domain;
+                domain = settings.domain;
                 authelia_url = svc.authelia.baseUrl;
               }
             ];
@@ -225,7 +213,6 @@ in
       systemd.services.authelia-main.serviceConfig = {
         SupplementaryGroups = [ config.services.redis.servers.authelia.group ];
         ReadWritePaths = [ "/var/lib/authelia-main" ];
-        StateDirectory = "authelia-main";
       };
     };
   };

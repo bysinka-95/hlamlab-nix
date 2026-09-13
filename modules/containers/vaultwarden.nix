@@ -1,28 +1,12 @@
-{ lib, config, ... }:
+{ config, ... }:
 let
-  hostConfig = config;
-  svc = hostConfig.hlamlab.services;
+  svc = config.hlamlab.services;
 in
 {
   hlamlab.services.vaultwarden = {
-    ip = lib.mkDefault "10.0.0.7";
-    port = lib.mkDefault 8222;
-    domainPrefix = lib.mkDefault "vault";
-    storageQuota = lib.mkDefault "10G";
-    storageReservation = lib.mkDefault "1G";
-
-    cpuLimit = lib.mkDefault "100%";
-    ramLimit = lib.mkDefault "1G";
-    ramHigh = lib.mkDefault "512M";
-
-    nameservers = [ "1.1.1.1" "1.0.0.1" ];
-
-    bindMounts = {
-      "/var/lib/vaultwarden" = {
-        hostPath = "/var/lib/services/vaultwarden";
-        isReadOnly = false;
-      };
-    };
+    ip = "10.0.0.7";
+    port = 8222;
+    domainPrefix = "vault";
 
     secrets = {
       vaultwarden-env = {
@@ -31,7 +15,7 @@ in
       };
     };
 
-    containerConfig = { lib, pkgs, config, ... }: {
+    containerConfig = { config, ... }: {
       services.vaultwarden = {
         enable = true;
         environmentFile = config.sops.secrets.vaultwarden-env.path;
@@ -55,10 +39,7 @@ in
         };
       };
 
-      systemd.services.vaultwarden.serviceConfig = {
-        ReadWritePaths = [ "/var/lib/vaultwarden" ];
-        StateDirectory = "vaultwarden";
-      };
+      systemd.services.vaultwarden.serviceConfig.ReadWritePaths = [ "/var/lib/vaultwarden" ];
     };
   };
 

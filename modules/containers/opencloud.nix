@@ -1,30 +1,16 @@
-{ lib, config, ... }:
+{ config, ... }:
 let
-  hostConfig = config;
-  svc = hostConfig.hlamlab.services;
+  svc = config.hlamlab.services;
 in
 {
   hlamlab.services.opencloud = {
-    ip = lib.mkDefault "10.0.0.2";
-    port = lib.mkDefault 9200;
-    domainPrefix = lib.mkDefault "opencloud";
-    storageQuota = lib.mkDefault "50G";
-    storageReservation = lib.mkDefault "10G";
+    ip = "10.0.0.2";
+    port = 9200;
+    storageQuota = "50G";
+    storageReservation = "10G";
 
-    cpuLimit = lib.mkDefault "100%";
-    ramLimit = lib.mkDefault "2G";
-    ramHigh = lib.mkDefault "1.5G";
-
-    nameservers = [ "1.1.1.1" "1.0.0.1" ];
-
-    bindMounts = {
-      "/var/lib/opencloud" = {
-        hostPath = "/var/lib/services/opencloud";
-        isReadOnly = false;
-      };
-    };
-
-    traefikMiddlewares = [ "opencloud-headers" ];
+    ramLimit = "2G";
+    ramHigh = "1.5G";
 
     secrets = {
       opencloud-sharing-secret = {
@@ -33,7 +19,7 @@ in
       };
     };
 
-    containerConfig = { lib, pkgs, config, ... }: {
+    containerConfig = { config, ... }: {
       networking.firewall.allowedTCPPorts = [ 9300 ];
 
       services.opencloud = {
@@ -113,18 +99,6 @@ in
         };
       };
 
-      systemd.services.opencloud.serviceConfig.StateDirectory = "opencloud";
     };
   };
-
-  # Define custom middleware for Traefik on the host
-  services.traefik.dynamicConfigOptions.http.middlewares.opencloud-headers = {
-    headers = {
-      sslRedirect = true;
-      frameDeny = true;
-      contentTypeNosniff = true;
-      browserXssFilter = true;
-    };
-  };
-
 }

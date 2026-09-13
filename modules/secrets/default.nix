@@ -1,7 +1,4 @@
 { ... }:
-let
-  vars = import ../common/settings.nix;
-in
 {
   # sops-nix secrets management configuration
   sops = {

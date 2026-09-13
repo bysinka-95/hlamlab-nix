@@ -74,7 +74,8 @@ cAdvisor labels every cgroup with a single `id` = its full path. There is **no**
 
 ## Recommended starters (grafana.com)
 
-- **1860** node-exporter-full — host metrics (note: inside containers node_exporter is
-  host-global; use the cAdvisor dashboards for real per-container usage).
+- **1860** node-exporter-full — host metrics (job `node`). Containers share the host kernel, so
+  their own exporters (job `node-container`) carry only systemd unit state, filesystem and netdev;
+  use the cAdvisor dashboards for real per-container CPU/memory usage.
 - **13639** Loki logs / quick search.
 - **17346** Traefik official.

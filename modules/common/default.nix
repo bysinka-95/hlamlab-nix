@@ -10,7 +10,6 @@
     bat
     eza
     fastfetch
-    zsh-history-substring-search
   ];
 
   imports = [

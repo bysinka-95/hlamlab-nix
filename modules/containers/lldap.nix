@@ -1,24 +1,12 @@
-{ lib, config, ... }:
+{ config, ... }:
 let
-  hostConfig = config;
-  svc = hostConfig.hlamlab.services;
+  settings = config.hlamlab.settings;
+  svc = config.hlamlab.services;
 in
 {
   hlamlab.services.lldap = {
-    ip = lib.mkDefault "10.0.0.6";
-    port = lib.mkDefault 3000;
-    domainPrefix = lib.mkDefault "lldap";
-    storageQuota = lib.mkDefault "10G";
-    storageReservation = lib.mkDefault "1G";
-
-    nameservers = [ "1.1.1.1" "1.0.0.1" ];
-
-    bindMounts = {
-      "/var/lib/lldap" = {
-        hostPath = "/var/lib/services/lldap";
-        isReadOnly = false;
-      };
-    };
+    ip = "10.0.0.6";
+    port = 3000;
 
     secrets = {
       lldap-jwt-secret = {
@@ -31,10 +19,8 @@ in
       };
     };
 
-    containerConfig = { lib, pkgs, config, ... }: {
+    containerConfig = { lib, config, ... }: {
       networking.firewall.allowedTCPPorts = [ 3890 ];
-
-      environment.systemPackages = with pkgs; [ lldap ];
 
       services.lldap = {
         enable = true;
@@ -44,9 +30,9 @@ in
           http_host = "0.0.0.0";
           http_port = svc.lldap.port;
           http_url = svc.lldap.baseUrl;
-          ldap_base_dn = hostConfig.hlamlab.settings.ldapBaseDn;
+          ldap_base_dn = settings.ldapBaseDn;
           jwt_secret_file = config.sops.secrets.lldap-jwt-secret.path;
-          ldap_user_email = "admin@${hostConfig.hlamlab.settings.domain}";
+          ldap_user_email = "admin@${settings.domain}";
           ldap_user_dn = "admin";
           ldap_user_pass_file = config.sops.secrets.lldap-user-pass.path;
           force_ldap_user_pass_reset = "always";
@@ -57,7 +43,6 @@ in
       systemd.services.lldap.serviceConfig = {
         ReadWritePaths = [ "/var/lib/lldap" ];
         DynamicUser = lib.mkForce false;
-        StateDirectory = "lldap";
       };
     };
   };

@@ -4,9 +4,6 @@
   services.traefik = {
     enable = true;
 
-    # Let NixOS handle directory creation
-    dataDir = "/var/lib/traefik";
-
     # Static Configuration
     staticConfigOptions = {
       global = {
@@ -160,14 +157,6 @@
             };
           };
         };
-
-        # Certificates - make the origin cert available
-        certificates = [
-          {
-            certFile = "/var/lib/traefik/certs/origin.crt";
-            keyFile = "/var/lib/traefik/certs/origin.key";
-          }
-        ];
 
         # TLS options for Cloudflare mTLS
         options = {

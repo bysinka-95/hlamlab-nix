@@ -32,13 +32,17 @@ Paste the output hash into `users.users.hlamnix.hashedPassword` in [
 
 ### 3. Verify disk device
 
-Check [`hosts/playground/disk-config.nix`](hosts/playground/disk-config.nix) — default device is `/dev/sda`. If your
-target machine uses a different disk (e.g., NVMe drives often show as `/dev/nvme0n1`), update the device path
+Check [`hosts/playground/disk-config.nix`](hosts/playground/disk-config.nix) — default device is
+`/dev/sda`. If your
+target machine uses a different disk (e.g., NVMe drives often show as `/dev/nvme0n1`), update the
+device path
 accordingly.
 
 ### 4. Set ZFS host ID (before first install)
 
-Read the host ID from the target machine during installation, then set it in [`hosts/playground/configuration.nix`](hosts/playground/configuration.nix) **before** running `nixos-anywhere`.
+Read the host ID from the target machine during installation, then set it in [
+`hosts/playground/configuration.nix`](hosts/playground/configuration.nix) **before** running
+`nixos-anywhere`.
 
 ```bash
 # On the target machine (installer shell)
@@ -49,7 +53,8 @@ head -c 8 /etc/machine-id; echo
   hlamlab.settings.hostId = "<8-hex-chars>";
 ```
 
-> Important: do not change this value after initial installation. If the pool was created/imported with a different host ID, changing `hostId` later can prevent `tank` from importing at boot.
+> Important: do not change this value after initial installation. If the pool was created/imported
+> with a different host ID, changing `hostId` later can prevent `tank` from importing at boot.
 
 ### 5. Set up secrets
 
@@ -148,7 +153,8 @@ grafana:
 
 **Generate Application Secrets:**
 
-To generate secure values, we use the `authelia` CLI tool via Nix to ensure they meet length and complexity requirements perfectly, and `openssl` for the RSA keys:
+To generate secure values, we use the `authelia` CLI tool via Nix to ensure they meet length and
+complexity requirements perfectly, and `openssl` for the RSA keys:
 
 ```bash
 # Generate 64-character alphanumeric secrets for Authelia
@@ -197,7 +203,8 @@ rm private.pem
 
 Replace the placeholders in your `secrets.yaml` file with the generated values.
 
-Real certificates are added post-install. See [network README](modules/common/network/README.md#required-certificates).
+Real certificates are added post-install.
+See [network README](modules/common/network/README.md#required-certificates).
 
 ### 7. Validate
 
@@ -209,7 +216,8 @@ nix flake check
 
 ## Part 2: Installation
 
-Boot the target machine with the [NixOS installer ISO](https://nixos.org/download.html#nixos-iso), then:
+Boot the target machine with the [NixOS installer ISO](https://nixos.org/download.html#nixos-iso),
+then:
 
 ```bash
 # On target machine:
@@ -325,15 +333,18 @@ ssh hlamnix@playground.local "curl -s 10.0.0.10:9090/api/v1/targets | grep -o '\
 
 ## Troubleshooting
 
-**SSH fails post-install** — verify target is booted (`ping <ip>`); check `systemctl status sshd` via console.
+**SSH fails post-install** — verify target is booted (`ping <ip>`); check `systemctl status sshd`
+via console.
 
-**`playground.local` not resolving** — wait 30s after boot for Avahi; use IP directly in the meantime.
+**`playground.local` not resolving** — wait 30s after boot for Avahi; use IP directly in the
+meantime.
 
 **Secrets decryption fails** — verify age key is at the right path (macOS:
 `~/Library/Application Support/sops/age/keys.txt`; Linux: `~/.config/sops/age/keys.txt`).
 Check key is in `.sops.yaml` (`grep age1 .sops.yaml`), then re-run `sops updatekeys`.
 
-**ZFS pool not importing** — `sudo zpool import -f tank`. Verify `networking.hostId` was set before first install and has not changed since installation.
+**ZFS pool not importing** — `sudo zpool import -f tank`. Verify `networking.hostId` was set before
+first install and has not changed since installation.
 
 **Disk errors** — `sudo wipefs -a /dev/sda` (⚠ destroys all data), then re-run nixos-anywhere.
 

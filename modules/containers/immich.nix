@@ -1,28 +1,17 @@
-{ lib, config, ... }:
+{ config, ... }:
 let
-  hostConfig = config;
-  svc = hostConfig.hlamlab.services;
+  svc = config.hlamlab.services;
 in
 {
   hlamlab.services.immich = {
-    ip = lib.mkDefault "10.0.0.3";
-    port = lib.mkDefault 2283;
-    domainPrefix = lib.mkDefault "immich";
-    storageQuota = lib.mkDefault "300G";
-    storageReservation = lib.mkDefault "10G";
+    ip = "10.0.0.3";
+    port = 2283;
+    storageQuota = "300G";
+    storageReservation = "10G";
 
-    cpuLimit = lib.mkDefault "200%";
-    ramLimit = lib.mkDefault "4G";
-    ramHigh = lib.mkDefault "3G";
-
-    nameservers = [ "1.1.1.1" "1.0.0.1" ];
-
-    bindMounts = {
-      "/var/lib/immich" = {
-        hostPath = "/var/lib/services/immich";
-        isReadOnly = false;
-      };
-    };
+    cpuLimit = "200%";
+    ramLimit = "4G";
+    ramHigh = "3G";
 
     secrets = {
       immich-oidc-client-secret = {
@@ -31,13 +20,17 @@ in
       };
     };
 
-    containerConfig = { pkgs, config, ... }: {
+    containerConfig = { config, pkgs, ... }: {
+      # Pinned to the major version the existing cluster was initdb'd with.
+      # NixOS derives this default from system.stateVersion, so leaving it out
+      # would silently step 16 -> 17 and postgres would refuse to start on the
+      # old PGDATA. Bumping it means a manual pg_upgrade first.
+      services.postgresql.package = pkgs.postgresql_16;
+
       services.immich = {
         enable = true;
-        package = pkgs.immich;
         host = "0.0.0.0";
         port = svc.immich.port;
-        mediaLocation = "/var/lib/immich";
 
         settings = {
           server.externalDomain = svc.immich.baseUrl;
@@ -55,32 +48,7 @@ in
             tokenEndpointAuthMethod = "client_secret_post";
           };
         };
-
-        database = {
-          enable = true;
-          createDB = true;
-          host = "/run/postgresql";
-          name = "immich";
-          user = "immich";
-        };
-
-        redis = {
-          enable = true;
-          host = "127.0.0.1";
-          port = 6379;
-        };
-
-        machine-learning.enable = true;
       };
-
-      services.postgresql = {
-        enable = true;
-        package = pkgs.postgresql_16;
-      };
-
-      services.redis.servers."".enable = true;
-
-      systemd.services.immich-server.serviceConfig.StateDirectory = "immich";
     };
   };
 

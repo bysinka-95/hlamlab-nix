@@ -6,16 +6,24 @@ the eventual host migration.
 
 ## Repo layout
 
-- [`flake.nix`](flake.nix): Flake inputs and `flake-parts` based `nixosConfigurations`.
-- [`modules/common/`](modules/common): Shared defaults (nix settings, allowUnfree, SSH policy, base packages, GC, auto-upgrades) and settings definitions.
-- [`modules/common/network/`](modules/common/network): Network services (Traefik reverse proxy with usersFile auth, Cloudflare Tunnel, mDNS).
-- [`modules/common/zfs/`](modules/common/zfs): ZFS configuration (declarative datasets, snapshots, weekly scrubbing).
-- [`modules/secrets/`](modules/secrets): sops-nix configuration and encrypted secrets. Only secret keys live inside `secrets.yaml`.
-- [`modules/containers/`](modules/containers): Flat service configuration files using the `hlamlab.services` container `frame.nix`.
+- [`flake.nix`](flake.nix): Flake inputs, `nixosConfigurations`, and `deploy-rs` targets.
+- [`modules/common/`](modules/common): Shared defaults (nix settings, allowUnfree, SSH policy, base
+  packages, GC, auto-upgrades) and settings definitions.
+- [`modules/common/network/`](modules/common/network): Network services (Traefik reverse proxy with
+  usersFile auth, Cloudflare Tunnel, mDNS).
+- [`modules/common/zfs/`](modules/common/zfs): ZFS configuration (declarative datasets, snapshots,
+  weekly scrubbing).
+- [`modules/secrets/`](modules/secrets): sops-nix configuration and encrypted secrets. Only secret
+  keys live inside `secrets.yaml`.
+- [`modules/containers/`](modules/containers): Flat service configuration files using the
+  `hlamlab.services` container `frame.nix`.
 - [`hosts/playground/`](hosts/playground)
-    - [`configuration.nix`](hosts/playground/configuration.nix): System config (boot, networking, users). This is where services are explicitly enabled.
-    - [`disk-config.nix`](hosts/playground/disk-config.nix): Disko ZFS layout for `/dev/sda` (GPT + ESP + ZFS pool).
-    - [`hardware-configuration.nix`](hosts/playground/hardware-configuration.nix): Generated hardware profile; replace/regenerate per machine.
+    - [`configuration.nix`](hosts/playground/configuration.nix): System config (boot, networking,
+      users). This is where services are explicitly enabled.
+    - [`disk-config.nix`](hosts/playground/disk-config.nix): Disko ZFS layout for `/dev/sda` (GPT +
+      ESP + ZFS pool).
+    - [`hardware-configuration.nix`](hosts/playground/hardware-configuration.nix): Generated
+      hardware profile; replace/regenerate per machine.
 
 ## Current Services
 
@@ -37,56 +45,59 @@ the eventual host migration.
 
 ### Application Containers
 
-| Service      | IP:Port            | URL                                                         | Storage Path                   | CPU  | RAM (high → max) | ZFS Quota / Res |
-|--------------|--------------------|-------------------------------------------------------------|--------------------------------|------|------------------|-----------------|
-| opencloud    | 10.0.0.2:9200      | https://opencloud.yourdomain                                | /var/lib/services/opencloud    | 100% | 1.5G → 2G        | 50G / 10G       |
-| immich       | 10.0.0.3:2283      | https://immich.yourdomain                                   | /var/lib/services/immich       | 200% | 3G → 4G          | 300G / 10G      |
-| collabora    | 10.0.0.4:9980      | https://collabora.yourdomain                                | /var/lib/services/collabora    | 100% | 1G → 1.5G        | 20G / 5G        |
-| authelia     | 10.0.0.5:9091      | https://auth.yourdomain                                     | /var/lib/services/authelia     | 100% | 512M → 1G        | 10G / 1G        |
-| lldap        | 10.0.0.6:3000      | https://lldap.yourdomain                                    | /var/lib/services/lldap        | 100% | 512M → 1G        | 10G / 1G        |
-| vaultwarden  | 10.0.0.7:8222      | https://vault.yourdomain                                    | /var/lib/services/vaultwarden  | 100% | 512M → 1G        | 10G / 1G        |
-| searx        | 10.0.0.8:8888      | https://searxng.yourdomain                                  | /var/lib/services/searx        | 100% | 512M → 1G        | 10G / 1G        |
-| grafana      | 10.0.0.9:3000      | https://grafana.yourdomain                                  | /var/lib/services/grafana      | 100% | 512M → 768M      | 10G / 1G        |
-| prometheus   | 10.0.0.10:9090     | internal only (via Grafana)                                 | /var/lib/services/prometheus   | 100% | 512M → 1G        | 20G / 2G        |
-| loki         | 10.0.0.11:3100     | internal only (via Grafana)                                 | /var/lib/services/loki         | 100% | 256M → 512M      | 20G / 2G        |
-| —            | 10.0.0.12+         | —                                                           | —                              | —    | —                | —               |
+| Service     | IP:Port        | URL                          | Storage Path                  | CPU  | RAM (high → max) | ZFS Quota / Res |
+|-------------|----------------|------------------------------|-------------------------------|------|------------------|-----------------|
+| opencloud   | 10.0.0.2:9200  | https://opencloud.yourdomain | /var/lib/services/opencloud   | 100% | 1.5G → 2G        | 50G / 10G       |
+| immich      | 10.0.0.3:2283  | https://immich.yourdomain    | /var/lib/services/immich      | 200% | 3G → 4G          | 300G / 10G      |
+| collabora   | 10.0.0.4:9980  | https://collabora.yourdomain | /var/lib/services/collabora   | 100% | 1G → 1.5G        | 20G / 5G        |
+| authelia    | 10.0.0.5:9091  | https://auth.yourdomain      | /var/lib/services/authelia    | 100% | 512M → 1G        | 10G / 1G        |
+| lldap       | 10.0.0.6:3000  | https://lldap.yourdomain     | /var/lib/services/lldap       | 100% | 512M → 1G        | 10G / 1G        |
+| vaultwarden | 10.0.0.7:8222  | https://vault.yourdomain     | /var/lib/services/vaultwarden | 100% | 512M → 1G        | 10G / 1G        |
+| searx       | 10.0.0.8:8888  | https://searxng.yourdomain   | /var/lib/services/searx       | 100% | 512M → 1G        | 10G / 1G        |
+| grafana     | 10.0.0.9:3000  | https://grafana.yourdomain   | /var/lib/services/grafana     | 100% | 512M → 768M      | 10G / 1G        |
+| prometheus  | 10.0.0.10:9090 | internal only (via Grafana)  | /var/lib/services/prometheus  | 100% | 512M → 1G        | 20G / 2G        |
+| loki        | 10.0.0.11:3100 | internal only (via Grafana)  | /var/lib/services/loki        | 100% | 256M → 512M      | 20G / 2G        |
+| —           | 10.0.0.12+     | —                            | —                             | —    | —                | —               |
 
 **IP 10.0.0.1** is reserved for the host gateway. **Next available:** 10.0.0.12.
 
 **Observability** — Prometheus (metrics, 30d) + Loki (logs, 30d) + Grafana (OIDC via
 Authelia only), enabled by `hlamlab.observability.enable`.
 
-- **Metrics** are pulled. Per-container resource usage (CPU/mem/net/IO) comes from
-  **cAdvisor** on the host (`modules/common/network/cadvisor.nix`, `:8080`), which reads the
-  cgroup tree — the only source that separates containers, since nspawn shares the host
-  `/proc`. Each container also runs a `node_exporter` (`frame.nix`); note its mem/cpu/disk
-  numbers are **host-global** (shared kernel), useful for systemd unit state, not per-container
-  usage. Traefik, Authelia, and cloudflared are scraped too.
+- **Metrics** are pulled from three sources. On the host (`modules/common/network/exporters.nix`):
+  **node_exporter** (`:9100`, job `node`) for machine
+  CPU/mem/load/disk — collected once, since nspawn shares the host `/proc` — and **cAdvisor**
+  (`:8080`) reading the cgroup tree, the only source of real per-container CPU/mem/net/IO. Inside
+  each container (`frame.nix`): a **node_exporter** on `:9101` (job `node-container`) cut down with
+  `--collector.disable-defaults` to `systemd`, `filesystem` and `netdev` — the three collectors
+  that *are* namespaced, giving per-service systemd unit state, ZFS dataset usage and netns
+  counters that nothing on the host can see. Traefik, Authelia, and cloudflared are scraped too.
 - **Logs** — a host-level **Alloy** captures the host journal (incl. `container@<name>` spawn
-  wrappers) and Traefik's files. Each container additionally runs its **own Alloy**
-  (`hlamlab.observability.logAgent`, on by default) that ships its private journal — the real
-  service logs (`immich-server.service` &c.) that nspawn never surfaces to the host — to Loki,
-  labelled `job=<container>`. Filter by that job then `unit` in Grafana's Log Viewer.
+  wrappers) and Traefik's files. Each container additionally runs its **own Alloy** that ships
+  its private journal — the real service logs (`immich-server.service` &c.) that nspawn never
+  surfaces to the host — to Loki, labelled `job=<container>`. Filter by that job then `unit` in
+  Grafana's Log Viewer. Both agents render the same river config from
+  `modules/common/network/alloy-config.nix`.
 
 ### ZFS Datasets
 
-| Dataset                      | Mount                          | Quota | Reservation | Compression |
-|------------------------------|--------------------------------|-------|-------------|-------------|
-| tank/root                    | /                              | —     | —           | lz4         |
-| tank/nix                     | /nix                           | —     | —           | lz4         |
-| tank/home                    | /home                          | —     | —           | lz4         |
-| tank/services                | /var/lib/services              | —     | —           | lz4         |
-| tank/services/opencloud      | /var/lib/services/opencloud    | 50G   | 10G         | lz4         |
-| tank/services/immich         | /var/lib/services/immich       | 300G  | 10G         | lz4         |
-| tank/services/collabora      | /var/lib/services/collabora    | 20G   | 5G          | lz4         |
-| tank/services/authelia       | /var/lib/services/authelia     | 10G   | 1G          | lz4         |
-| tank/services/lldap          | /var/lib/services/lldap        | 10G   | 1G          | lz4         |
-| tank/services/vaultwarden    | /var/lib/services/vaultwarden  | 10G   | 1G          | lz4         |
-| tank/services/searx          | /var/lib/services/searx        | 10G   | 1G          | lz4         |
-| tank/services/grafana        | /var/lib/services/grafana      | 10G   | 1G          | lz4         |
-| tank/services/prometheus     | /var/lib/services/prometheus   | 20G   | 2G          | lz4         |
-| tank/services/loki           | /var/lib/services/loki         | 20G   | 2G          | lz4         |
-| tank/backups                 | /var/backups                   | —     | —           | gzip        |
+| Dataset                   | Mount                         | Quota | Reservation | Compression |
+|---------------------------|-------------------------------|-------|-------------|-------------|
+| tank/root                 | /                             | —     | —           | lz4         |
+| tank/nix                  | /nix                          | —     | —           | lz4         |
+| tank/home                 | /home                         | —     | —           | lz4         |
+| tank/services             | /var/lib/services             | —     | —           | lz4         |
+| tank/services/opencloud   | /var/lib/services/opencloud   | 50G   | 10G         | lz4         |
+| tank/services/immich      | /var/lib/services/immich      | 300G  | 10G         | lz4         |
+| tank/services/collabora   | /var/lib/services/collabora   | 20G   | 5G          | lz4         |
+| tank/services/authelia    | /var/lib/services/authelia    | 10G   | 1G          | lz4         |
+| tank/services/lldap       | /var/lib/services/lldap       | 10G   | 1G          | lz4         |
+| tank/services/vaultwarden | /var/lib/services/vaultwarden | 10G   | 1G          | lz4         |
+| tank/services/searx       | /var/lib/services/searx       | 10G   | 1G          | lz4         |
+| tank/services/grafana     | /var/lib/services/grafana     | 10G   | 1G          | lz4         |
+| tank/services/prometheus  | /var/lib/services/prometheus  | 20G   | 2G          | lz4         |
+| tank/services/loki        | /var/lib/services/loki        | 20G   | 2G          | lz4         |
+| tank/backups              | /var/backups                  | —     | —           | gzip        |
 
 For ZFS management commands, snapshot operations, and adding new datasets, see
 [ZFS Module Documentation](modules/common/zfs/README.md).
@@ -151,14 +162,14 @@ passed on the command line.
 
 ### Useful flags
 
-| Flag | Effect |
-|------|--------|
-| `--dry-activate` | Build and push the closure, print what activation *would* change, change nothing |
-| `--test` | Activate now, but leave the bootloader pointing at the current generation (reboot = back to known-good) |
-| `--boot` | Opposite: stage for next boot without activating now |
-| `-i` | Confirm interactively before anything is pushed |
-| `-s` | Skip the `nix flake check` pre-flight (faster iteration; only when you just ran it) |
-| `-d` | Debug logs, when a deploy hangs or fails opaquely |
+| Flag             | Effect                                                                                                  |
+|------------------|---------------------------------------------------------------------------------------------------------|
+| `--dry-activate` | Build and push the closure, print what activation *would* change, change nothing                        |
+| `--test`         | Activate now, but leave the bootloader pointing at the current generation (reboot = back to known-good) |
+| `--boot`         | Opposite: stage for next boot without activating now                                                    |
+| `-i`             | Confirm interactively before anything is pushed                                                         |
+| `-s`             | Skip the `nix flake check` pre-flight (faster iteration; only when you just ran it)                     |
+| `-d`             | Debug logs, when a deploy hangs or fails opaquely                                                       |
 
 Safe escalation for a risky change: `--dry-activate` → `--test` → plain deploy.
 
@@ -180,11 +191,11 @@ Or pick an older generation from the GRUB menu at boot. List them with
 
 These are normal and not a problem:
 
-| Warning | Meaning |
-|---------|---------|
-| `unknown flake output 'deploy'` | Nix has no schema for deploy-rs' `deploy` attribute. Cosmetic. |
+| Warning                                                      | Meaning                                                                                                                           |
+|--------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| `unknown flake output 'deploy'`                              | Nix has no schema for deploy-rs' `deploy` attribute. Cosmetic.                                                                    |
 | `The check omitted these incompatible systems: x86_64-linux` | `nix flake check` on macOS cannot realise Linux derivations, so it skips the deploy checks. They run on a Linux builder or in CI. |
-| `Git tree ... is dirty` | You have uncommitted changes. Fine — but **untracked** files are invisible to Nix, hence the `git add -A` above. |
+| `Git tree ... is dirty`                                      | You have uncommitted changes. Fine — but **untracked** files are invisible to Nix, hence the `git add -A` above.                  |
 
 ## Upgrading
 
@@ -259,11 +270,11 @@ still being there.
 
 See the full [documentation index](DOCS.md) for module-specific guides.
 
-| File | Contents |
-| :--- | :--- |
-| [README.md](README.md) | Repo layout, current services (IPs, ports, URLs, ZFS datasets), deploy + upgrade + rollback |
-| [INSTALLATION.md](INSTALLATION.md) | Fresh install: pre-install config, nixos-anywhere, post-install, verification |
-| [modules/common/network/README.md](modules/common/network/README.md) | SSH, mDNS, Traefik + Cloudflare Tunnel, mTLS certificates |
-| [modules/common/zfs/README.md](modules/common/zfs/README.md) | ZFS datasets, snapshots, backup/replication, management commands |
-| [modules/containers/README.md](modules/containers/README.md) | Container structure, service skeletons, resource limits, persistent storage |
-| [modules/secrets/README.md](modules/secrets/README.md) | sops-nix setup, age keys, secrets vs config variables |
+| File                                                                 | Contents                                                                                    |
+|:---------------------------------------------------------------------|:--------------------------------------------------------------------------------------------|
+| [README.md](README.md)                                               | Repo layout, current services (IPs, ports, URLs, ZFS datasets), deploy + upgrade + rollback |
+| [INSTALLATION.md](INSTALLATION.md)                                   | Fresh install: pre-install config, nixos-anywhere, post-install, verification               |
+| [modules/common/network/README.md](modules/common/network/README.md) | SSH, mDNS, Traefik + Cloudflare Tunnel, mTLS certificates                                   |
+| [modules/common/zfs/README.md](modules/common/zfs/README.md)         | ZFS datasets, snapshots, backup/replication, management commands                            |
+| [modules/containers/README.md](modules/containers/README.md)         | Container structure, service skeletons, resource limits, persistent storage                 |
+| [modules/secrets/README.md](modules/secrets/README.md)               | sops-nix setup, age keys, secrets vs config variables                                       |
