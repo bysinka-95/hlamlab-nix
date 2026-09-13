@@ -74,6 +74,11 @@ in
                 "https://embed.diagrams.net/"
                 svc.collabora.baseUrl
                 "https://docs.opencloud.eu"
+                # OIDC silent renew loads the IdP's authorize endpoint in a
+                # hidden iframe. Without this, default-src 'none' blocks it, the
+                # iframe never posts back, and oidc-client waits out its timeout
+                # four times (~1 min) before falling back to interactive login.
+                svc.authelia.baseUrl
               ];
               img-src = [
                 "'self'"
