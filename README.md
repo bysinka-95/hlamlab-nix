@@ -252,7 +252,8 @@ still being there.
 - **Disk layout**: GPT on `/dev/sda` — 1M BIOS boot, 512M ESP, ZFS pool. Edit [
   `disk-config.nix`](hosts/playground/disk-config.nix) to change.
 - **Secrets**: see [modules/secrets/README.md](modules/secrets/README.md).
-- **Validate**: `nix flake check`. Logs on host: `journalctl -b`.
+- **Validate**: `nix eval .#deploy.nodes.playground.profiles.system.path` — forces every
+  container's config, which `nix flake check` alone does not. Logs on host: `journalctl -b`.
 
 ## Documentation
 

@@ -7,12 +7,12 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
 
     # deploy-rs drives remote deploys with magic rollback (see README § Deploy).
-    # Deliberately NOT `follows`-ing nixpkgs: deploy-rs pins the nixpkgs it is tested
-    # against, and its activation wrapper is baked into every deployed generation.
-    # Pointing it at nixos-unstable would rebuild the Rust crate against whatever
-    # toolchain unstable ships that week — a deploy tool is the last thing that
-    # should break on a `nix flake update`.
+    # `follows` collapses the second nixpkgs out of the lock — deploy-rs pins one
+    # from 2025-03-26, and a stale pin is what broke deploys in the first place.
+    # Safe to follow only because the deployPkgs overlay below means deploy-rs'
+    # own Rust is never compiled here; the binary comes prebuilt from nixpkgs.
     deploy-rs.url = "github:serokell/deploy-rs";
+    deploy-rs.inputs.nixpkgs.follows = "nixpkgs";
 
     # Disko is required for nix-anywhere to partition the disk automatically
     disko.url = "github:nix-community/disko";
@@ -30,8 +30,34 @@
     sops-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = inputs@{ self, flake-parts, deploy-rs, ... }: flake-parts.lib.mkFlake { inherit inputs; } {
-    systems = [ "x86_64-linux" ];
+  outputs = inputs@{ self, flake-parts, deploy-rs, ... }:
+    let
+      system = "x86_64-linux";
+      pkgs = import inputs.nixpkgs { inherit system; };
+
+      # deploy-rs' *lib* (the activation wrapper baked into every deployed
+      # generation) paired with nixpkgs' prebuilt *binary*.
+      #
+      # Building deploy-rs from its own flake drags in the nixpkgs it pins —
+      # 2025-03-26 as of this writing — whose `fetchCrate` still downloads from
+      # `crates.io/api/v1/crates/<name>/<version>/download`. crates.io answers 403
+      # there now; current nixpkgs fetches `static.crates.io` instead. So the pin
+      # meant to stop a `nix flake update` breaking the deploy tool broke it by
+      # going stale, and deploys died compiling cbitset 0.2.0 on the target.
+      #
+      # nixpkgs ships deploy-rs prebuilt in cache.nixos.org, so this fixes the
+      # fetch and means no Rust is ever compiled on the host. Idiom is from
+      # deploy-rs' own README.
+      deployPkgs = import inputs.nixpkgs {
+        inherit system;
+        overlays = [
+          deploy-rs.overlays.default
+          (final: prev: { deploy-rs = { inherit (pkgs) deploy-rs; lib = prev.deploy-rs.lib; }; })
+        ];
+      };
+    in
+    flake-parts.lib.mkFlake { inherit inputs; } {
+    systems = [ system ];
 
     flake = {
       nixosConfigurations = {
@@ -76,7 +102,7 @@
         nodes.playground = {
           hostname = "playground.local";
           profiles.system.path =
-            deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.playground;
+            deployPkgs.deploy-rs.lib.activate.nixos self.nixosConfigurations.playground;
         };
       };
 
@@ -86,7 +112,7 @@
       # the target's system closure and cannot be realised on different architectures.
       # There nix skips them ("omitted these incompatible systems:
       # x86_64-linux"); they fire from CI or any Linux builder.
-      checks.x86_64-linux = deploy-rs.lib.x86_64-linux.deployChecks self.deploy;
+      checks.${system} = deployPkgs.deploy-rs.lib.deployChecks self.deploy;
     };
   };
 }

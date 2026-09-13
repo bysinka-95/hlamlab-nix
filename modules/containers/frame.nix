@@ -298,10 +298,10 @@ in
                   openFirewall = true;
                   enabledCollectors = [ "systemd" ];
                 };
-                services.journald.extraConfig = ''
-                  Storage=persistent
-                  SystemMaxUse=100M
-                '';
+                services.journald.settings.Journal = {
+                  Storage = "persistent";
+                  SystemMaxUse = "100M";
+                };
               })
               # Per-container log agent: reads THIS container's own journal (which
               # holds the real service logs — immich-server.service, etc. — that
