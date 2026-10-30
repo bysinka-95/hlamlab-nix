@@ -30,8 +30,11 @@
 
   outputs = inputs@{ self, nixpkgs, deploy-rs, ... }:
     let
-      system = "x86_64-linux";
-      pkgs = import nixpkgs { inherit system; };
+      # The host's platform, as its hardware-configuration.nix declares it
+      # (`nixpkgs.hostPlatform`). The deploy wrapper must be built for the same
+      # one — it runs on the target.
+      system = self.nixosConfigurations.playground.pkgs.stdenv.hostPlatform.system;
+      pkgs = nixpkgs.legacyPackages.${system};
 
       # deploy-rs' *lib* (the activation wrapper baked into every deployed
       # generation) paired with nixpkgs' prebuilt *binary*.
@@ -58,7 +61,6 @@
       nixosConfigurations = {
         # 1. The Simulation (Proxmox VM)
         playground = nixpkgs.lib.nixosSystem {
-          inherit system;
           specialArgs = { inherit inputs; };
           modules = [
             inputs.disko.nixosModules.disko
@@ -104,10 +106,10 @@
 
       # deploy-rs' own validation of the `deploy` attribute above, wired into
       # `nix flake check` — which deploy-rs runs itself before every deploy.
-      # x86_64-linux only: both checks embed `profiles.*.path`, so they depend on
-      # the target's system closure and cannot be realised on different architectures.
-      # There nix skips them ("omitted these incompatible systems:
-      # x86_64-linux"); they fire from CI or any Linux builder.
+      # Target's system only: both checks embed `profiles.*.path`, so they depend
+      # on the target's system closure and cannot be realised on different
+      # architectures. There nix skips them ("omitted these incompatible
+      # systems: ..."); they fire from CI or any builder of that system.
       checks.${system} = deployPkgs.deploy-rs.lib.deployChecks self.deploy;
     };
 }
