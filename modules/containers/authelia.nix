@@ -91,7 +91,8 @@ in
           telemetry = {
             metrics = {
               enabled = true;
-              address = "tcp://0.0.0.0:9959/";
+              # The path is part of the address; Prometheus scrapes /metrics.
+              address = "tcp://0.0.0.0:9959/metrics";
             };
           };
 
