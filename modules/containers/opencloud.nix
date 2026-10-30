@@ -19,11 +19,14 @@ in
       };
     };
 
-    containerConfig = { config, ... }: {
+    containerConfig = { config, pkgs, ... }: {
       networking.firewall.allowedTCPPorts = [ 9300 ];
 
       services.opencloud = {
         enable = true;
+        # The module has no default since nixpkgs split rolling and production
+        # releases. Rolling is what ran before, and OpenCloud cannot downgrade.
+        package = pkgs.opencloud;
         url = svc.opencloud.baseUrl;
         address = "0.0.0.0";
         port = svc.opencloud.port;
