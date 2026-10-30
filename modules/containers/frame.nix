@@ -289,8 +289,11 @@ in
               systemd.services.alloy.serviceConfig.SupplementaryGroups = [ "systemd-journal" ];
               # Labelled job=<container> so Grafana's Log Viewer lists each
               # service by name; narrow further with the `unit` filter.
+              # Pushed to the host Alloy's receiver (:3500, see
+              # modules/common/network/alloy.nix), which forwards to Loki:
+              # containers never reach Loki, so none can read another's logs.
               environment.etc."alloy/config.alloy".text = alloyConfig {
-                lokiUrl = "http://${cfg.loki.address}/loki/api/v1/push";
+                lokiUrl = "http://${hostAddress}:3500/loki/api/v1/push";
                 labels = ''job = "${name}", container = "${name}"'';
               };
             })
