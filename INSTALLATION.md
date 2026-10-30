@@ -293,19 +293,23 @@ ssh hlamnix@<target-ip> "sudo reboot"
 ssh hlamnix@<target-ip> "sudo systemctl restart cloudflared traefik"
 ```
 
-### 5. Create the Grafana admin group in LLDAP
+### 5. Create your everyday user in LLDAP
 
-Grafana grants **server admin** to users in the LLDAP group `grafana-admins` (role
-mapping in `modules/containers/grafana.nix`). Without this, an OIDC user lands on
-`Viewer`. In the LLDAP UI (`https://lldap.<domain>`):
+LLDAP's built-in `admin` (password: `lldap-user-pass`) manages the directory. Keep it for
+that — don't log in to the services with it. Create yourself a separate everyday user
+in the LLDAP UI (`https://lldap.<domain>`, log in as `admin`):
 
-1. Create a group named `grafana-admins`.
-2. Add your admin user to it.
-3. (Optional) Create `grafana-editors` for the `Editor` role.
+1. Create the user. Fill in **Display name** and **Email** — OpenCloud refuses users
+   without a display name.
+2. Add it to the group `admins` (created on deploy by `lldap-bootstrap` in
+   `modules/containers/lldap.nix`). Members of `admins` become Grafana server admins and
+   Immich admins; everyone else gets Grafana `Viewer` and a regular Immich account.
+3. Don't add it to `lldap_admin`: that group can edit the directory itself.
+
+Family members get the same treatment, minus step 2.
 
 Log in to Grafana at `https://grafana.<domain>` — you are redirected straight to
-Authelia (the local login form is disabled). Members of `grafana-admins` come back as
-server admins.
+Authelia (the local login form is disabled).
 
 > Break-glass: if OIDC ever breaks, set `auth.disable_login_form = false` in
 > `grafana.nix` for one rebuild and log in with `admin` / `grafana-admin-password`.

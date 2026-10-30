@@ -31,6 +31,8 @@ in
         enable = true;
         host = "0.0.0.0";
         port = svc.immich.port;
+        # No "create the admin" onboarding page: admins come from OIDC.
+        environment.IMMICH_ALLOW_SETUP = "false";
 
         settings = {
           server.externalDomain = svc.immich.baseUrl;
@@ -41,7 +43,8 @@ in
             issuerUrl = svc.authelia.baseUrl;
             clientId = "immich";
             clientSecret._secret = config.sops.secrets.immich-oidc-client-secret.path;
-            scope = "openid email profile";
+            # `immich_role` carries the admin flag (see authelia.nix).
+            scope = "openid email profile immich_role";
             autoRegister = true;
             autoLaunch = false;
             buttonText = "Login with Authelia";

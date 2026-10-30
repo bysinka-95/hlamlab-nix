@@ -103,6 +103,10 @@ in
             };
           };
 
+          # Immich takes its admin flag from the `immich_role` claim; members of
+          # `admins` (declared in lldap.nix) get "admin".
+          definitions.user_attributes.immich_role.expression = ''"admins" in groups ? "admin" : "user"'';
+
           access_control = {
             default_policy = "deny";
             rules = [
@@ -146,11 +150,14 @@ in
               };
               claims_policies = {
                 grafana.id_token = [ "preferred_username" "email" "name" "groups" ];
+                immich.custom_claims.immich_role = { };
               };
+              scopes.immich_role.claims = [ "immich_role" ];
               clients = [
                 {
                   client_id = "immich";
                   client_name = "Immich";
+                  claims_policy = "immich";
                   client_secret = "$plaintext\${{ secret \"${config.sops.secrets.authelia-immich-oidc-client-secret.path}\" }}";
                   public = false;
                   authorization_policy = "one_factor";
@@ -158,7 +165,7 @@ in
                     "${svc.immich.baseUrl}/auth/login"
                     "app.immich:///oauth-callback"
                   ];
-                  scopes = [ "openid" "profile" "email" ];
+                  scopes = [ "openid" "profile" "email" "immich_role" ];
                   userinfo_signed_response_alg = "none";
                   token_endpoint_auth_method = "client_secret_post";
                 }

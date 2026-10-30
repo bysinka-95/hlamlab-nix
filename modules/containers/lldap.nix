@@ -19,7 +19,7 @@ in
       };
     };
 
-    containerConfig = { lib, config, ... }: {
+    containerConfig = { lib, config, pkgs, ... }: {
       networking.firewall.allowedTCPPorts = [ 3890 ];
 
       services.lldap = {
@@ -43,6 +43,27 @@ in
       systemd.services.lldap.serviceConfig = {
         ReadWritePaths = [ "/var/lib/lldap" ];
         DynamicUser = lib.mkForce false;
+      };
+
+      # Groups the service modules grant roles by. lldap's own bootstrap script
+      # (shipped in its source) creates them if missing, and leaves alone what
+      # is managed in the UI: users, memberships, other groups.
+      # `admins` → Grafana server admin, Immich admin.
+      systemd.services.lldap-bootstrap = {
+        after = [ "lldap.service" ];
+        requires = [ "lldap.service" ];
+        wantedBy = [ "multi-user.target" ];
+        path = with pkgs; [ curl jq jo ];
+        environment = {
+          LLDAP_URL = "http://localhost:${toString svc.lldap.port}";
+          GROUP_CONFIGS_DIR = pkgs.writeTextDir "groups.json" (builtins.toJSON { name = "admins"; });
+          LLDAP_SET_PASSWORD_PATH = "${pkgs.lldap}/bin/lldap_set_password";
+        };
+        script = ''
+          LLDAP_ADMIN_PASSWORD="$(cat ${config.sops.secrets.lldap-user-pass.path})" \
+            ${pkgs.bash}/bin/bash ${pkgs.lldap.src}/scripts/bootstrap.sh
+        '';
+        serviceConfig.Type = "oneshot";
       };
     };
   };

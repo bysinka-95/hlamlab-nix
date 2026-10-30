@@ -94,7 +94,8 @@ in
               # Org Admin and a null role lands them on Viewer (the bug you hit).
               allow_assign_grafana_admin = true;
               role_attribute_strict = true;
-              role_attribute_path = "contains(groups[*], 'grafana-admins') && 'GrafanaAdmin' || contains(groups[*], 'grafana-editors') && 'Editor' || 'Viewer'";
+              # `admins` is declared in lldap.nix.
+              role_attribute_path = "contains(groups[*], 'admins') && 'GrafanaAdmin' || 'Viewer'";
             };
           };
 
