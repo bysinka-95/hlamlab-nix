@@ -191,7 +191,12 @@ in
                   ];
                   scopes = [ "openid" "profile" "email" "groups" "opencloud_role" ];
                   userinfo_signed_response_alg = "none";
+                  # OpenCloud's proxy verifies access tokens as JWTs. RFC 9068
+                  # wants them to name their recipient, so every token for this
+                  # client carries OpenCloud as `aud`.
                   access_token_signed_response_alg = "RS256";
+                  audience = [ svc.opencloud.baseUrl ];
+                  requested_audience_mode = "implicit";
                 }
                 {
                   client_id = "vaultwarden";
@@ -203,6 +208,11 @@ in
                     "${svc.vaultwarden.baseUrl}/identity/connect/oidc-signin"
                   ];
                   scopes = [ "openid" "profile" "email" "offline_access" ];
+                  # `offline_access` is only honoured with the refresh_token
+                  # grant; without it Vaultwarden gets no refresh token and
+                  # cannot renew its SSO session.
+                  response_types = [ "code" ];
+                  grant_types = [ "authorization_code" "refresh_token" ];
                   userinfo_signed_response_alg = "none";
                   token_endpoint_auth_method = "client_secret_basic";
                 }
@@ -218,7 +228,9 @@ in
                   ];
                   scopes = [ "openid" "profile" "email" "groups" ];
                   userinfo_signed_response_alg = "none";
-                  access_token_signed_response_alg = "RS256";
+                  # Opaque access token (the default). Grafana reads its claims
+                  # from the ID token; a signed JWT here would also pass at any
+                  # service that accepts Authelia's JWTs — OpenCloud included.
                   token_endpoint_auth_method = "client_secret_basic";
                 }
               ];
