@@ -4,6 +4,16 @@ let
   cfg = hostConfig.hlamlab.services;
   enabledServices = lib.filterAttrs (n: v: v.enable) cfg;
   alloyConfig = import ../common/network/alloy-config.nix;
+
+  # The host's end of every container's veth: the containers' gateway, and
+  # where Traefik answers them.
+  hostAddress = "10.0.0.1";
+
+  # Every name Traefik publishes. Containers resolve these to the host, so a
+  # service calling a sibling by its public URL (OIDC backchannel, WOPI) goes
+  # through the local Traefik — same name, same certificate, never the tunnel.
+  publicNames = lib.mapAttrsToList (n: svc: svc.fqdn)
+    (lib.filterAttrs (n: svc: svc.traefik.enable) enabledServices);
 in
 {
   options.hlamlab.observability.enable = lib.mkEnableOption ''
@@ -132,9 +142,9 @@ in
           type = lib.types.listOf lib.types.str;
           default = [ "1.1.1.1" "1.0.0.1" ];
           description = ''
-            Resolvers for the container. Public by default: OIDC handshakes
-            between services go out through the tunnel and back in by public
-            name, so containers must resolve each other's *public* hostnames.
+            Resolvers for the container, used for internet egress only. Sibling
+            services' public names never reach them: `networking.hosts` maps
+            those to the host's Traefik.
           '';
         };
 
@@ -165,7 +175,7 @@ in
       (name: svc: {
         autoStart = true;
         privateNetwork = true;
-        hostAddress = "10.0.0.1";
+        inherit hostAddress;
         localAddress = svc.ip;
 
         bindMounts = {
@@ -206,6 +216,7 @@ in
               };
 
               networking.nameservers = svc.nameservers;
+              networking.hosts.${hostAddress} = publicNames;
               networking.firewall.allowedTCPPorts = [ svc.port ];
               system.stateVersion = hostConfig.system.stateVersion;
 
