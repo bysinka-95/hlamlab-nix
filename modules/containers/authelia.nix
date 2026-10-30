@@ -103,9 +103,11 @@ in
             };
           };
 
-          # Immich takes its admin flag from the `immich_role` claim; members of
-          # `admins` (declared in lldap.nix) get "admin".
+          # Immich and OpenCloud take their admin role from these claims, in
+          # each one's own vocabulary; members of `admins` (declared in
+          # lldap.nix) get the admin value.
           definitions.user_attributes.immich_role.expression = ''"admins" in groups ? "admin" : "user"'';
+          definitions.user_attributes.opencloud_role.expression = ''"admins" in groups ? "opencloudAdmin" : "opencloudUser"'';
 
           access_control = {
             default_policy = "deny";
@@ -151,8 +153,10 @@ in
               claims_policies = {
                 grafana.id_token = [ "preferred_username" "email" "name" "groups" ];
                 immich.custom_claims.immich_role = { };
+                opencloud.custom_claims.opencloud_role = { };
               };
               scopes.immich_role.claims = [ "immich_role" ];
+              scopes.opencloud_role.claims = [ "opencloud_role" ];
               clients = [
                 {
                   client_id = "immich";
@@ -172,6 +176,7 @@ in
                 {
                   client_id = "opencloud";
                   client_name = "OpenCloud";
+                  claims_policy = "opencloud";
                   public = true;
                   authorization_policy = "one_factor";
                   redirect_uris = [
@@ -179,7 +184,7 @@ in
                     "${svc.opencloud.baseUrl}/oidc-callback.html"
                     "${svc.opencloud.baseUrl}/oidc-silent-redirect.html"
                   ];
-                  scopes = [ "openid" "profile" "email" "groups" ];
+                  scopes = [ "openid" "profile" "email" "groups" "opencloud_role" ];
                   userinfo_signed_response_alg = "none";
                   access_token_signed_response_alg = "RS256";
                 }

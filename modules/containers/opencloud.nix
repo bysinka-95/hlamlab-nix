@@ -47,9 +47,14 @@ in
           OC_OIDC_ISSUER = svc.authelia.baseUrl;
           OC_OIDC_CLIENT_ID = "opencloud";
           WEB_OIDC_CLIENT_ID = "opencloud";
-          WEB_OIDC_SCOPE = "openid profile email groups";
+          WEB_OIDC_SCOPE = "openid profile email groups opencloud_role";
           PROXY_OIDC_REWRITE_WELLKNOWN = "true";
           PROXY_AUTOPROVISION_ACCOUNTS = "true";
+          # Role from the `opencloud_role` claim (see authelia.nix), re-applied on
+          # every login. Uses OpenCloud's default mapping: opencloudAdmin → admin,
+          # opencloudUser → user; a login without a mapped value is refused.
+          PROXY_ROLE_ASSIGNMENT_DRIVER = "oidc";
+          PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM = "opencloud_role";
 
           IDP_DOMAIN = svc.authelia.fqdn;
         };

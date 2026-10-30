@@ -48,7 +48,7 @@ in
       # Groups the service modules grant roles by. lldap's own bootstrap script
       # (shipped in its source) creates them if missing, and leaves alone what
       # is managed in the UI: users, memberships, other groups.
-      # `admins` → Grafana server admin, Immich admin.
+      # `admins` → Grafana server admin, Immich and OpenCloud admin.
       systemd.services.lldap-bootstrap = {
         after = [ "lldap.service" ];
         requires = [ "lldap.service" ];

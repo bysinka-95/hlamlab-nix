@@ -302,11 +302,9 @@ in the LLDAP UI (`https://lldap.<domain>`, log in as `admin`):
 1. Create the user. Fill in **Display name** and **Email** — OpenCloud refuses users
    without a display name.
 2. Add it to the group `admins` (created on deploy by `lldap-bootstrap` in
-   `modules/containers/lldap.nix`). Members of `admins` become Grafana server admins and
-   Immich admins; everyone else gets Grafana `Viewer` and a regular Immich account.
+   `modules/containers/lldap.nix`). Members of `admins` become Grafana server admins,
+   Immich admins and OpenCloud admins; everyone else gets regular accounts.
 3. Don't add it to `lldap_admin`: that group can edit the directory itself.
-
-Family members get the same treatment, minus step 2.
 
 Log in to Grafana at `https://grafana.<domain>` — you are redirected straight to
 Authelia (the local login form is disabled).
