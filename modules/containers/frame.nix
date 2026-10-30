@@ -1,4 +1,4 @@
-{ config, lib, inputs, ... }:
+{ config, lib, ... }:
 let
   hostConfig = config;
   cfg = hostConfig.hlamlab.services;
@@ -93,7 +93,7 @@ in
         bindMounts = lib.mkOption {
           type = lib.types.attrs;
           default = { };
-          description = "Bind mounts in addition to the automatic dataDir and sops key mounts";
+          description = "Bind mounts in addition to the automatic dataDir mount";
         };
 
         traefikMiddlewares = lib.mkOption {
@@ -105,19 +105,44 @@ in
         serviceUser = lib.mkOption {
           type = lib.types.str;
           default = name;
-          description = "The name of the service user to create, and to use as default owner for secrets and dataDir";
+          description = "The name of the service user to create, and the owner of dataDir";
         };
 
+        # Only the host decrypts. Each secret reaches the container as a
+        # systemd credential: copied at container start into a RAM-only,
+        # read-only filesystem, never onto the container's disk. A secret's
+        # change restarts its whole container.
         secrets = lib.mkOption {
-          type = lib.types.attrsOf (lib.types.submodule {
+          type = lib.types.attrsOf (lib.types.submodule ({ name, config, ... }: {
             options = {
-              key = lib.mkOption { type = lib.types.str; };
-              owner = lib.mkOption { type = lib.types.str; default = name; };
-              restartUnits = lib.mkOption { type = lib.types.listOf lib.types.str; default = [ "${name}.service" ]; };
+              key = lib.mkOption {
+                type = lib.types.str;
+                description = "Key path in modules/secrets/secrets.yaml, e.g. `grafana/secret-key`.";
+              };
+              unit = lib.mkOption {
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+                example = "grafana.service";
+                description = ''
+                  The unit whose own, non-root process reads the file. It gets
+                  the credential imported into its private directory. Leave null
+                  when root reads it on the service's behalf — `EnvironmentFile=`,
+                  `LoadCredential=`, the NixOS modules' `*File` options.
+                '';
+              };
+              path = lib.mkOption {
+                type = lib.types.str;
+                readOnly = true;
+                default =
+                  if config.unit == null
+                  then "/run/credentials/@system/${name}"
+                  else "/run/credentials/${config.unit}/${name}";
+                description = "Where the secret is inside the container. Reference this from the service module.";
+              };
             };
-          });
+          }));
           default = { };
-          description = "Simplified sops.secrets configuration";
+          description = "Secrets for this container, keyed by credential id (no `/` in ids).";
         };
 
         ramLimit = lib.mkOption {
@@ -178,13 +203,7 @@ in
         inherit hostAddress;
         localAddress = svc.ip;
 
-        bindMounts = {
-          "/var/lib/sops-nix/key.txt" = {
-            hostPath = "/var/lib/sops-nix/key.txt";
-            isReadOnly = true;
-          };
-        }
-        // lib.optionalAttrs svc.zfs.enable {
+        bindMounts = lib.optionalAttrs svc.zfs.enable {
           ${svc.dataDir} = {
             hostPath = "/var/lib/services/${name}";
             isReadOnly = false;
@@ -192,28 +211,24 @@ in
         }
         // svc.bindMounts;
 
+        # nspawn copies each host-decrypted secret in at start; the container's
+        # PID 1 sees them under /run/credentials/@system.
+        extraFlags = lib.mapAttrsToList
+          (id: _: "--load-credential=${id}:${hostConfig.sops.secrets."${name}/${id}".path}")
+          svc.secrets;
+
         config = { ... }: {
-          imports = [
-            inputs.sops-nix.nixosModules.sops
-            svc.containerConfig
-          ];
+          imports = [ svc.containerConfig ];
 
           config = lib.mkMerge [
             {
-              sops = {
-                defaultSopsFile = ../secrets/secrets.yaml;
-                defaultSopsFormat = "yaml";
-                age.keyFile = "/var/lib/sops-nix/key.txt";
-                secrets = lib.mapAttrs
-                  (sname: sval: {
-                    key = sval.key;
-                    owner = if sval.owner == name then svc.serviceUser else sval.owner;
-                    group = if sval.owner == name then svc.serviceUser else sval.owner;
-                    mode = "0400";
-                    restartUnits = sval.restartUnits;
-                  })
-                  svc.secrets;
-              };
+              # Units whose own process reads a secret import it into their
+              # private /run/credentials/<unit>/.
+              systemd.services = lib.mkMerge (lib.mapAttrsToList
+                (id: secret: lib.optionalAttrs (secret.unit != null) {
+                  ${lib.removeSuffix ".service" secret.unit}.serviceConfig.ImportCredential = [ id ];
+                })
+                svc.secrets);
 
               networking.nameservers = svc.nameservers;
               networking.hosts.${hostAddress} = publicNames;
@@ -283,6 +298,17 @@ in
         };
       })
       enabledServices;
+
+    # 1b. Secrets, decrypted on the host only (root, 0400) and handed to the
+    # container by nspawn. A changed secret restarts that container.
+    sops.secrets = lib.mkMerge (lib.mapAttrsToList
+      (name: svc: lib.mapAttrs'
+        (id: secret: lib.nameValuePair "${name}/${id}" {
+          inherit (secret) key;
+          restartUnits = [ "container@${name}.service" ];
+        })
+        svc.secrets)
+      enabledServices);
 
     # 2. DNS Mapping (Host -> Container)
     networking.hosts = lib.mapAttrs' (name: svc: lib.nameValuePair svc.ip [ name ]) enabledServices;

@@ -1,8 +1,12 @@
 # Secrets Management
 
-Encrypted secrets via sops-nix + age. All secrets declared in [`default.nix`](default.nix),
-encrypted in
-[`secrets.yaml`](secrets.yaml).
+Encrypted secrets via sops-nix + age, in [`secrets.yaml`](secrets.yaml). Host secrets are declared
+in [`default.nix`](default.nix); container secrets in each service module (`secrets.<id>`).
+
+**Only the host decrypts**, with its SSH host key (the host's recipient in `.sops.yaml`). Containers
+hold no key and no sops file: the frame hands each container its own secrets as systemd
+credentials, copied in by nspawn at container start into RAM. See
+[hosts/README.md § Managing Secrets](../../hosts/README.md#managing-secrets).
 
 ---
 

@@ -76,10 +76,12 @@ Beyond the per-service defaults, you can map custom secrets and alter Traefik ro
 
 ### Managing Secrets
 
-The `secrets` option simplifies `sops-nix` configuration. When a secret is declared here, the
-framework automatically maps the host's sops secret into the container, ensures it has the correct
-`0400` permissions, assigns ownership to the service user, and restarts the required systemd units
-when the secret changes.
+Only the host decrypts. For every secret declared here the frame declares a host sops secret
+(root, `0400`) and hands it to the container as a systemd credential: nspawn copies it in at
+container start, into a RAM-only read-only filesystem. The container never holds a key, a sops
+file or another service's secret. Changing a secret restarts its whole container.
+
+Reference a secret through its read-only `path`, e.g. `svc.myservice.secrets.myservice-api-key.path`.
 
 *Note: You usually declare these inside the service definition (`modules/containers/<name>.nix`),
 but you can extend them from the host.*
@@ -90,13 +92,14 @@ but you can extend them from the host.*
     
     secrets = {
       # The attribute name is arbitrary, but conventionally represents the secret's purpose
+      # The attribute name is the credential id (no `/`)
       myservice-api-key = {
         # The key path in your secrets.yaml file
         key = "myservice/api-key";
-        # The systemd units inside the container to restart when the secret changes
-        restartUnits = [ "myservice-backend.service" ];
-        # Optional: override the owner (defaults to the auto-created service user)
-        # owner = "root";
+        # Only when the service's own (non-root) process reads the file, e.g.
+        # a `*_file` setting. Leave unset for EnvironmentFile=, LoadCredential=
+        # and the NixOS modules' `*File` options — root reads those.
+        unit = "myservice-backend.service";
       };
     };
   };
@@ -135,7 +138,7 @@ Every option under `hlamlab.services.<name>`. The `description` strings in
 | `ip`                    | `str`    | *Required*                | Container local IP address (e.g., `10.0.0.5`).                                                               |
 | `port`                  | `int`    | *Required*                | Container service port exposed to Traefik.                                                                   |
 | `domainPrefix`          | `str`    | `<name>`                  | Prefix for the domain routing (e.g., `'auth'`).                                                              |
-| `nameservers`           | `list`   | `[ "1.1.1.1" "1.0.0.1" ]` | Resolvers for the container. Public, so containers resolve each other's public names during OIDC handshakes. |
+| `nameservers`           | `list`   | `[ "1.1.1.1" "1.0.0.1" ]` | Resolvers for internet egress only; sibling services' public names map to the host's Traefik.               |
 | `traefik.enable`        | `bool`   | `true`                    | Publish this service through Traefik.                                                                        |
 | `traefikMiddlewares`    | `list`   | `[ "security-headers" ]`  | Traefik middlewares applied to this service's router.                                                        |
 | **Derived (read-only)** |          |                           |                                                                                                              |
@@ -151,10 +154,12 @@ Every option under `hlamlab.services.<name>`. The `description` strings in
 | `dataDir`               | `str`    | `/var/lib/<name>`         | Where the state directory is mounted inside the container, chowned to `serviceUser`.                         |
 | `storageQuota`          | `str`    | `"10G"`                   | ZFS dataset maximum quota.                                                                                   |
 | `storageReservation`    | `str`    | `"1G"`                    | ZFS dataset guaranteed reservation.                                                                          |
-| `bindMounts`            | `attrs`  | `{}`                      | Bind mounts beyond the automatic `dataDir` and sops key.                                                     |
+| `bindMounts`            | `attrs`  | `{}`                      | Bind mounts beyond the automatic `dataDir`.                                                                  |
 | **Identity**            |          |                           |                                                                                                              |
-| `serviceUser`           | `str`    | `<name>`                  | Name of the auto-created service user; owns secrets and `dataDir`.                                           |
-| `secrets`               | `attrs`  | `{}`                      | sops-nix secret mapping definitions.                                                                         |
+| `serviceUser`           | `str`    | `<name>`                  | Name of the auto-created service user; owns `dataDir`.                                                       |
+| `secrets.<id>.key`      | `str`    | *Required*                | Key path in `secrets.yaml`; `<id>` is the credential id.                                                     |
+| `secrets.<id>.unit`     | `str?`   | `null`                    | Unit whose own process reads the file; it imports the credential.                                            |
+| `secrets.<id>.path`     | `str`    | *read-only*               | Path inside the container: `/run/credentials/@system/<id>`, or `/run/credentials/<unit>/<id>`.               |
 
 Set only what differs from these defaults, and without `lib.mkDefault` — a service module is the
 only place its own values are ever set.

@@ -88,21 +88,21 @@ in
     # hosts/README.md. No lib.mkDefault: this module is their only definer.
     storageQuota = "50G";
 
-    # Optional: automatically manages sops.secrets inside the container
+    # Optional: secrets from secrets.yaml, handed in as credentials (host decrypts)
     secrets = {
       myservice-env = {
         key = "myservice/env";
-        restartUnits = [ "myservice.service" ];
+        # unit = "myservice.service"; # only if the service's own process reads the file
       };
     };
 
     # Container-specific NixOS config
-    containerConfig = { config, ... }: {
+    containerConfig = { ... }: {
       services.myservice = {
         enable = true;
         listenAddress = "0.0.0.0";
         port = svc.myservice.port;
-        environmentFile = config.sops.secrets.myservice-env.path;
+        environmentFile = svc.myservice.secrets.myservice-env.path;
       };
     };
   };
@@ -115,6 +115,12 @@ in
 > It also opens the service `port` in the container firewall; declare `allowedTCPPorts` only for
 > *extra* ports (e.g. LDAP `3890`). Override `dataDir` only when the upstream module insists on
 > another path — collabora wants `/var/lib/cool`.
+>
+> Secrets arrive as systemd credentials: only the host decrypts, and the container gets just its
+> own, in RAM. Reference them through `svc.<name>.secrets.<id>.path`. Set `unit` only when the
+> service's own non-root process reads the file (a `*_file` setting, `$__file{}`); root-read paths
+> (`EnvironmentFile=`, `LoadCredential=`, the NixOS modules' `*File` options) need none. Changing a
+> secret restarts the whole container.
 
 ### 3. Register and Enable
 

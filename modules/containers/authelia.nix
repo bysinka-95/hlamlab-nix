@@ -14,42 +14,40 @@ in
     serviceUser = "authelia-main";
     dataDir = "/var/lib/authelia-main";
 
+    # The module's own `secrets.*File` are LoadCredential-ed by systemd (root),
+    # so they need no unit. Template `{{ secret }}` and `_FILE` env vars are
+    # read by Authelia itself, hence `unit`.
     secrets = {
       authelia-jwt-secret = {
         key = "authelia/jwt-secret";
-        restartUnits = [ "authelia-main.service" ];
       };
       authelia-session-secret = {
         key = "authelia/session-secret";
-        restartUnits = [ "authelia-main.service" ];
       };
       authelia-storage-encryption-key = {
         key = "authelia/storage-encryption-key";
-        restartUnits = [ "authelia-main.service" ];
       };
       authelia-immich-oidc-client-secret = {
         key = "immich/oidc-client-secret";
-        restartUnits = [ "authelia-main.service" ];
+        unit = "authelia-main.service";
       };
       authelia-lldap-user-pass = {
         key = "lldap/user-pass";
-        restartUnits = [ "authelia-main.service" ];
+        unit = "authelia-main.service";
       };
       authelia-vaultwarden-oidc-client-secret = {
         key = "vaultwarden/oidc-client-secret";
-        restartUnits = [ "authelia-main.service" ];
+        unit = "authelia-main.service";
       };
       authelia-grafana-oidc-client-secret = {
         key = "grafana/oidc-client-secret";
-        restartUnits = [ "authelia-main.service" ];
+        unit = "authelia-main.service";
       };
       authelia-oidc-hmac-secret = {
         key = "authelia/oidc-hmac-secret";
-        restartUnits = [ "authelia-main.service" ];
       };
       authelia-oidc-issuer-private-key = {
         key = "authelia/oidc-issuer-private-key";
-        restartUnits = [ "authelia-main.service" ];
       };
     };
 
@@ -63,16 +61,16 @@ in
         enable = true;
 
         secrets = {
-          jwtSecretFile = config.sops.secrets.authelia-jwt-secret.path;
-          sessionSecretFile = config.sops.secrets.authelia-session-secret.path;
-          storageEncryptionKeyFile = config.sops.secrets.authelia-storage-encryption-key.path;
-          oidcHmacSecretFile = config.sops.secrets.authelia-oidc-hmac-secret.path;
-          oidcIssuerPrivateKeyFile = config.sops.secrets.authelia-oidc-issuer-private-key.path;
+          jwtSecretFile = svc.authelia.secrets.authelia-jwt-secret.path;
+          sessionSecretFile = svc.authelia.secrets.authelia-session-secret.path;
+          storageEncryptionKeyFile = svc.authelia.secrets.authelia-storage-encryption-key.path;
+          oidcHmacSecretFile = svc.authelia.secrets.authelia-oidc-hmac-secret.path;
+          oidcIssuerPrivateKeyFile = svc.authelia.secrets.authelia-oidc-issuer-private-key.path;
         };
 
         environmentVariables = {
           X_AUTHELIA_CONFIG_FILTERS = "template";
-          AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE = config.sops.secrets.authelia-lldap-user-pass.path;
+          AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE = svc.authelia.secrets.authelia-lldap-user-pass.path;
         };
 
         settings = {
@@ -162,7 +160,7 @@ in
                   client_id = "immich";
                   client_name = "Immich";
                   claims_policy = "immich";
-                  client_secret = "$plaintext\${{ secret \"${config.sops.secrets.authelia-immich-oidc-client-secret.path}\" }}";
+                  client_secret = "$plaintext\${{ secret \"${svc.authelia.secrets.authelia-immich-oidc-client-secret.path}\" }}";
                   public = false;
                   authorization_policy = "one_factor";
                   redirect_uris = [
@@ -191,7 +189,7 @@ in
                 {
                   client_id = "vaultwarden";
                   client_name = "Vaultwarden";
-                  client_secret = "$plaintext\${{ secret \"${config.sops.secrets.authelia-vaultwarden-oidc-client-secret.path}\" }}";
+                  client_secret = "$plaintext\${{ secret \"${svc.authelia.secrets.authelia-vaultwarden-oidc-client-secret.path}\" }}";
                   public = false;
                   authorization_policy = "one_factor";
                   redirect_uris = [
@@ -205,7 +203,7 @@ in
                   client_id = "grafana";
                   client_name = "Grafana";
                   claims_policy = "grafana";
-                  client_secret = "$plaintext\${{ secret \"${config.sops.secrets.authelia-grafana-oidc-client-secret.path}\" }}";
+                  client_secret = "$plaintext\${{ secret \"${svc.authelia.secrets.authelia-grafana-oidc-client-secret.path}\" }}";
                   public = false;
                   authorization_policy = "one_factor";
                   redirect_uris = [

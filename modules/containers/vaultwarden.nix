@@ -11,14 +11,13 @@ in
     secrets = {
       vaultwarden-env = {
         key = "vaultwarden/env";
-        restartUnits = [ "vaultwarden.service" ];
       };
     };
 
-    containerConfig = { config, ... }: {
+    containerConfig = { ... }: {
       services.vaultwarden = {
         enable = true;
-        environmentFile = config.sops.secrets.vaultwarden-env.path;
+        environmentFile = svc.vaultwarden.secrets.vaultwarden-env.path;
 
         config = {
           ROCKET_ADDRESS = "0.0.0.0";

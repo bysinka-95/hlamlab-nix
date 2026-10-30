@@ -12,23 +12,23 @@ in
     secrets = {
       grafana-oidc-secret = {
         key = "grafana/oidc-client-secret";
-        restartUnits = [ "grafana.service" ];
+        unit = "grafana.service";
       };
       # Break-glass local admin. Only usable if you temporarily flip
       # auth.disable_login_form back to false.
       grafana-admin-password = {
         key = "grafana/admin-password";
-        restartUnits = [ "grafana.service" ];
+        unit = "grafana.service";
       };
       # Grafana DB encryption key (no default in 26.05). Keep this stable —
       # rotating it orphans encrypted secrets in Grafana's DB.
       grafana-secret-key = {
         key = "grafana/secret-key";
-        restartUnits = [ "grafana.service" ];
+        unit = "grafana.service";
       };
     };
 
-    containerConfig = { pkgs, config, ... }:
+    containerConfig = { pkgs, ... }:
       let
         # Provisioned dashboards from grafana.com ship "__inputs" with a
         # ${DS_PROMETHEUS} / ${DS_LOKI} placeholder that only the UI import
@@ -60,8 +60,8 @@ in
             };
 
             # Break-glass only; login form disabled below.
-            security.admin_password = "$__file{${config.sops.secrets.grafana-admin-password.path}}";
-            security.secret_key = "$__file{${config.sops.secrets.grafana-secret-key.path}}";
+            security.admin_password = "$__file{${svc.grafana.secrets.grafana-admin-password.path}}";
+            security.secret_key = "$__file{${svc.grafana.secrets.grafana-secret-key.path}}";
 
             analytics.reporting_enabled = false;
             analytics.check_for_updates = false;
@@ -79,7 +79,7 @@ in
               name = "Authelia";
               icon = "signin";
               client_id = "grafana";
-              client_secret = "$__file{${config.sops.secrets.grafana-oidc-secret.path}}";
+              client_secret = "$__file{${svc.grafana.secrets.grafana-oidc-secret.path}}";
               scopes = "openid profile email groups";
               empty_scopes = false;
               auth_url = "${svc.authelia.baseUrl}/api/oidc/authorization";

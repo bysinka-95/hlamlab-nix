@@ -15,11 +15,10 @@ in
     secrets = {
       opencloud-sharing-secret = {
         key = "opencloud/sharing-secret";
-        restartUnits = [ "opencloud.service" ];
       };
     };
 
-    containerConfig = { config, pkgs, ... }: {
+    containerConfig = { pkgs, ... }: {
       networking.firewall.allowedTCPPorts = [ 9300 ];
 
       services.opencloud = {
@@ -30,7 +29,7 @@ in
         url = svc.opencloud.baseUrl;
         address = "0.0.0.0";
         port = svc.opencloud.port;
-        environmentFile = config.sops.secrets.opencloud-sharing-secret.path;
+        environmentFile = svc.opencloud.secrets.opencloud-sharing-secret.path;
         environment = {
           PROXY_TLS = "false";
           INITIAL_ADMIN_PASSWORD = "admin";

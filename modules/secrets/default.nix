@@ -5,14 +5,10 @@
     defaultSopsFile = ./secrets.yaml;
     defaultSopsFormat = "yaml";
 
-    # Use age for encryption (SSH keys can be converted to age keys)
-    age = {
-      # This will be the age key derived from the host's SSH key
-      keyFile = "/var/lib/sops-nix/key.txt";
-      # Automatically generate the age key from SSH host key if it doesn't exist
-      generateKey = true;
-      sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
-    };
+    # The host decrypts with its SSH host key, converted to age on the fly —
+    # that key is the host's recipient in .sops.yaml. Only the host decrypts:
+    # containers get their own secrets as credentials (containers/frame.nix).
+    age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
 
     secrets = {
       # Cloudflare Tunnel credentials (JSON)

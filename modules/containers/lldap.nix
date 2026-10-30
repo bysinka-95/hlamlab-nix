@@ -8,18 +8,19 @@ in
     ip = "10.0.0.6";
     port = 3000;
 
+    # Both are read by the lldap process itself (`*_file` settings).
     secrets = {
       lldap-jwt-secret = {
         key = "lldap/jwt-secret";
-        restartUnits = [ "lldap.service" ];
+        unit = "lldap.service";
       };
       lldap-user-pass = {
         key = "lldap/user-pass";
-        restartUnits = [ "lldap.service" ];
+        unit = "lldap.service";
       };
     };
 
-    containerConfig = { lib, config, pkgs, ... }: {
+    containerConfig = { lib, pkgs, ... }: {
       networking.firewall.allowedTCPPorts = [ 3890 ];
 
       services.lldap = {
@@ -31,10 +32,10 @@ in
           http_port = svc.lldap.port;
           http_url = svc.lldap.baseUrl;
           ldap_base_dn = settings.ldapBaseDn;
-          jwt_secret_file = config.sops.secrets.lldap-jwt-secret.path;
+          jwt_secret_file = svc.lldap.secrets.lldap-jwt-secret.path;
           ldap_user_email = "admin@${settings.domain}";
           ldap_user_dn = "admin";
-          ldap_user_pass_file = config.sops.secrets.lldap-user-pass.path;
+          ldap_user_pass_file = svc.lldap.secrets.lldap-user-pass.path;
           force_ldap_user_pass_reset = "always";
           database_url = "sqlite:///var/lib/lldap/users.db?mode=rwc";
         };
@@ -60,10 +61,14 @@ in
           LLDAP_SET_PASSWORD_PATH = "${pkgs.lldap}/bin/lldap_set_password";
         };
         script = ''
-          LLDAP_ADMIN_PASSWORD="$(cat ${config.sops.secrets.lldap-user-pass.path})" \
+          LLDAP_ADMIN_PASSWORD="$(cat "$CREDENTIALS_DIRECTORY/lldap-user-pass")" \
             ${pkgs.bash}/bin/bash ${pkgs.lldap.src}/scripts/bootstrap.sh
         '';
-        serviceConfig.Type = "oneshot";
+        serviceConfig = {
+          Type = "oneshot";
+          # The admin password, from the container's own credentials.
+          LoadCredential = [ "lldap-user-pass" ];
+        };
       };
     };
   };

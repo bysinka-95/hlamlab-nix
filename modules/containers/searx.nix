@@ -9,20 +9,18 @@ in
     domainPrefix = "searxng";
 
     secrets = {
-      "searx/env" = {
+      searx-env = {
         key = "searx/env";
-        restartUnits = [ "uwsgi.service" ];
       };
     };
 
-    containerConfig =
-      { config, ... }:
+    containerConfig = { ... }:
       {
         services.searx = {
           enable = true;
           redisCreateLocally = true;
           configureUwsgi = true;
-          environmentFile = config.sops.secrets."searx/env".path;
+          environmentFile = svc.searx.secrets.searx-env.path;
 
           uwsgiConfig = {
             http = "0.0.0.0:${toString svc.searx.port}";

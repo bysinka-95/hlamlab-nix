@@ -16,11 +16,10 @@ in
     secrets = {
       immich-oidc-client-secret = {
         key = "immich/oidc-client-secret";
-        restartUnits = [ "immich-server.service" "immich-microservices.service" ];
       };
     };
 
-    containerConfig = { config, pkgs, ... }: {
+    containerConfig = { pkgs, ... }: {
       # Pinned to the major version the existing cluster was initdb'd with.
       # NixOS derives this default from system.stateVersion, so leaving it out
       # would silently step 16 -> 17 and postgres would refuse to start on the
@@ -42,7 +41,7 @@ in
             enabled = true;
             issuerUrl = svc.authelia.baseUrl;
             clientId = "immich";
-            clientSecret._secret = config.sops.secrets.immich-oidc-client-secret.path;
+            clientSecret._secret = svc.immich.secrets.immich-oidc-client-secret.path;
             # `immich_role` carries the admin flag (see authelia.nix).
             scope = "openid email profile immich_role";
             autoRegister = true;
