@@ -112,6 +112,10 @@ authelia:
     -----BEGIN PRIVATE KEY-----
     placeholder
     -----END PRIVATE KEY-----
+  ldap-password: "placeholder"           # Authelia's LLDAP bind user, created automatically
+  immich-oidc-digest: "placeholder"      # pbkdf2 digests of the clients' secrets, see below
+  vaultwarden-oidc-digest: "placeholder"
+  grafana-oidc-digest: "placeholder"
 
 immich:
   oidc-client-secret: "placeholder"
@@ -135,7 +139,7 @@ opencloud:
     SHARING_SERVICE_ACCOUNT_SECRET=placeholder
 
 grafana:
-  oidc-client-secret: "placeholder" # same value used by the Authelia grafana client
+  oidc-client-secret: "placeholder" # Authelia stores only its digest (authelia.grafana-oidc-digest)
   admin-password: "placeholder"     # break-glass local admin (login form disabled)
   secret-key: "placeholder"         # Grafana DB encryption key — keep stable
 ```
@@ -160,7 +164,7 @@ nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use
 # Choose a strong password for lldap-user-pass
 
 # Generate Vaultwarden secrets
-# SSO client secret (shared between Vaultwarden and Authelia — same value in both keys)
+# SSO client secret: Vaultwarden needs the plaintext twice (both keys); Authelia gets its digest
 nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for vaultwarden-oidc-client-secret AND SSO_CLIENT_SECRET in vaultwarden-env
 
 # ADMIN_TOKEN: generate an Argon2 hash (Vaultwarden accepts this natively)
@@ -175,7 +179,7 @@ nix run nixpkgs#authelia -- crypto hash generate argon2 # Enter a strong passphr
 nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for SEARX_SECRET_KEY in searx-env
 
 # Generate Grafana secrets
-nix run nixpkgs#authelia -- crypto rand --length 72 --charset rfc3986 # Use for grafana-oidc-client-secret (same value in the Authelia grafana client)
+nix run nixpkgs#authelia -- crypto rand --length 72 --charset rfc3986 # Use for grafana-oidc-client-secret
 nix run nixpkgs#authelia -- crypto rand --length 32 --charset alphanumeric # Use for grafana-secret-key (DB encryption key)
 # grafana-admin-password: choose a strong password (break-glass only; the login form is disabled)
 
@@ -188,7 +192,24 @@ openssl genrsa -out private.pem 4096
 # Copy the contents of private.pem into authelia-oidc-issuer-private-key, keeping the indentation
 cat private.pem
 rm private.pem
+
+# Authelia's own LLDAP bind user (read-only; lldap-bootstrap creates it)
+nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for authelia-ldap-password
 ```
+
+**Authelia never holds the OIDC client secrets**, only their pbkdf2 digests — the plaintext stays
+in each client's own container. Once the client secrets are in `secrets.yaml`, derive the digests:
+
+```bash
+for c in immich vaultwarden grafana; do
+  p=$(nix run nixpkgs#sops -- -d --extract "[\"$c\"][\"oidc-client-secret\"]" modules/secrets/secrets.yaml)
+  nix run nixpkgs#authelia -- crypto hash generate pbkdf2 --variant sha512 --password "$p" \
+    | sed -n 's/^Digest: //p' | jq -R . \
+    | nix run nixpkgs#sops -- set --value-stdin modules/secrets/secrets.yaml "[\"authelia\"][\"$c-oidc-digest\"]"
+done; unset p
+```
+
+Rotating a client secret means regenerating its digest too.
 
 Replace the placeholders in your `secrets.yaml` file with the generated values.
 

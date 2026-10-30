@@ -27,20 +27,23 @@ in
       authelia-storage-encryption-key = {
         key = "authelia/storage-encryption-key";
       };
-      authelia-immich-oidc-client-secret = {
-        key = "immich/oidc-client-secret";
+      # Authelia's own read-only LLDAP bind user (declared in lldap.nix).
+      authelia-ldap-password = {
+        key = "authelia/ldap-password";
         unit = "authelia-main.service";
       };
-      authelia-lldap-user-pass = {
-        key = "lldap/user-pass";
+      # pbkdf2-sha512 digests of the OIDC client secrets: the plaintext lives
+      # only in each client's own container.
+      authelia-immich-oidc-digest = {
+        key = "authelia/immich-oidc-digest";
         unit = "authelia-main.service";
       };
-      authelia-vaultwarden-oidc-client-secret = {
-        key = "vaultwarden/oidc-client-secret";
+      authelia-vaultwarden-oidc-digest = {
+        key = "authelia/vaultwarden-oidc-digest";
         unit = "authelia-main.service";
       };
-      authelia-grafana-oidc-client-secret = {
-        key = "grafana/oidc-client-secret";
+      authelia-grafana-oidc-digest = {
+        key = "authelia/grafana-oidc-digest";
         unit = "authelia-main.service";
       };
       authelia-oidc-hmac-secret = {
@@ -70,7 +73,7 @@ in
 
         environmentVariables = {
           X_AUTHELIA_CONFIG_FILTERS = "template";
-          AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE = svc.authelia.secrets.authelia-lldap-user-pass.path;
+          AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE = svc.authelia.secrets.authelia-ldap-password.path;
         };
 
         settings = {
@@ -97,8 +100,12 @@ in
               implementation = "lldap";
               address = "ldap://${svc.lldap.ip}:3890";
               base_dn = settings.ldapBaseDn;
-              user = "uid=admin,ou=people,${settings.ldapBaseDn}";
+              # Read-only bind user (group lldap_strict_readonly), not the
+              # LLDAP admin. Password resets happen in the LLDAP UI.
+              user = "uid=authelia,ou=people,${settings.ldapBaseDn}";
             };
+            # The notifier is a file; users reset passwords in the LLDAP UI.
+            password_reset.disable = true;
           };
 
           # Immich and OpenCloud take their admin role from these claims, in
@@ -160,7 +167,7 @@ in
                   client_id = "immich";
                   client_name = "Immich";
                   claims_policy = "immich";
-                  client_secret = "$plaintext\${{ secret \"${svc.authelia.secrets.authelia-immich-oidc-client-secret.path}\" }}";
+                  client_secret = ''{{ secret "${svc.authelia.secrets.authelia-immich-oidc-digest.path}" }}'';
                   public = false;
                   authorization_policy = "one_factor";
                   redirect_uris = [
@@ -189,7 +196,7 @@ in
                 {
                   client_id = "vaultwarden";
                   client_name = "Vaultwarden";
-                  client_secret = "$plaintext\${{ secret \"${svc.authelia.secrets.authelia-vaultwarden-oidc-client-secret.path}\" }}";
+                  client_secret = ''{{ secret "${svc.authelia.secrets.authelia-vaultwarden-oidc-digest.path}" }}'';
                   public = false;
                   authorization_policy = "one_factor";
                   redirect_uris = [
@@ -203,7 +210,7 @@ in
                   client_id = "grafana";
                   client_name = "Grafana";
                   claims_policy = "grafana";
-                  client_secret = "$plaintext\${{ secret \"${svc.authelia.secrets.authelia-grafana-oidc-client-secret.path}\" }}";
+                  client_secret = ''{{ secret "${svc.authelia.secrets.authelia-grafana-oidc-digest.path}" }}'';
                   public = false;
                   authorization_policy = "one_factor";
                   redirect_uris = [
