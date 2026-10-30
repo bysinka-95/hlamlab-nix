@@ -56,16 +56,14 @@ encrypted in
 
 ## Secrets and Configuration Variables
 
-All secrets (including Cloudflare credentials, CA pull certificates, service environments, OIDC
+All secrets (including Cloudflare credentials and the DNS API token, service environments, OIDC
 client secrets, and passwords) are kept encrypted inside `secrets.yaml` using nested YAML groups:
 
 ```yaml
 cloudflare:
   credentials: "..."
-  origin-ca: "..."
+  dns-api-token: "..."       # Let's Encrypt DNS-01 (Zone:DNS:Edit + Zone:Zone:Read, one zone)
 traefik:
-  origin-cert: "..."
-  origin-key: "..."
   dashboard-auth: "..."
 searx:
   env: "..."

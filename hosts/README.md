@@ -111,8 +111,8 @@ but you can extend them from the host.*
     # Skip Traefik entirely — internal-only services (prometheus, loki) do this.
     traefik.enable = false;
 
-    # Extra middlewares beyond the default [ "security-headers" ].
-    traefikMiddlewares = [ "security-headers" "rate-limit" ];
+    # Replaces the default [ "security-headers" ] (collabora swaps in its own).
+    traefikMiddlewares = [ "collabora-headers" ];
 
     # Only when the upstream NixOS module insists on a path of its own; the
     # ZFS-backed state directory is bind-mounted here and chowned to serviceUser.

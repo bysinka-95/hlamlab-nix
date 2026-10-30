@@ -10,9 +10,9 @@
 
         ingress =
           let
+            # Traefik's certificate is a public Let's Encrypt one, verified
+            # against the system roots. Never `noTLSVerify`.
             originRequest = {
-              # Cloudflare Origin CA certificate for mTLS validation
-              caPool = "/var/lib/cloudflared/origin-ca.pem";
               originServerName = config.hlamlab.settings.domain;
             };
           in
@@ -40,9 +40,4 @@
 
   # Internal-only metrics port (not forwarded by the tunnel).
   networking.firewall.allowedTCPPorts = [ 60123 ];
-
-  # Create directory for cloudflared certificates
-  systemd.tmpfiles.rules = [
-    "d /var/lib/cloudflared 0755 cloudflared cloudflared -"
-  ];
 }

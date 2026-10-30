@@ -7,7 +7,7 @@ SSH, mDNS/Avahi, Traefik reverse proxy, and Cloudflare Tunnel.
 | File              | Purpose                                                        |
 |-------------------|----------------------------------------------------------------|
 | `default.nix`     | SSH server, mDNS/Avahi, imports traefik + cloudflared          |
-| `traefik.nix`     | Core Traefik: entrypoints, mTLS, shared middlewares, dashboard |
+| `traefik.nix`     | Core Traefik: entrypoint, LE certificate, middlewares, dashboard |
 | `cloudflared.nix` | Cloudflare Tunnel ingress → Traefik :443                       |
 
 ---
@@ -57,61 +57,44 @@ Linux clients need `avahi-daemon` + `libnss-mdns`. macOS has built-in Bonjour su
 
 ```
 Internet → Cloudflare Tunnel (cloudflared) → Traefik (HTTPS :443) → Containers (10.0.0.x)
-                         ↓
-              mTLS using origin-ca.pem
 ```
 
-### Required Certificates
+cloudflared runs on the host and connects to Traefik over loopback. Traefik serves a public
+Let's Encrypt wildcard, so cloudflared verifies it against the system roots. Containers that call
+each other by public name reach the same Traefik through their gateway (`10.0.0.1`) and trust the
+same certificate.
 
-Three certificates are involved:
+### Certificate and credentials
 
-#### 1. Origin Certificate — Traefik's identity, presented to Cloudflare
+#### 1. Let's Encrypt wildcard — via DNS-01
 
-1. Cloudflare Dashboard → your domain → SSL/TLS → Origin Server → **Create Certificate**
-2. Hostnames: `yourdomain.com`, `*.yourdomain.com` · Validity: 15 years · Key: RSA 2048
-3. Copy both the **Origin Certificate** and **Private Key**
+Traefik obtains one certificate for `yourdomain` + `*.yourdomain` and renews it itself. DNS-01
+needs no inbound port, so it works behind the tunnel. It only needs a Cloudflare API token:
+
+1. dash.cloudflare.com → avatar → **My Profile** → **API Tokens** → **Create Token** →
+   **Edit zone DNS** template.
+2. Permissions: `Zone · DNS · Edit` plus `Zone · Zone · Read`. Zone Resources:
+   `Include · Specific zone · yourdomain`. No IP filtering, no TTL.
+3. Store it:
 
 ```bash
-sops modules/secrets/secrets.yaml
-# Add:
-#   traefik:
-#     origin-cert: | <certificate>
-#     origin-key:  | <private key>
+read -rs t; printf '%s' "$t" | jq -R . | nix run nixpkgs#sops -- set --value-stdin modules/secrets/secrets.yaml '["cloudflare"]["dns-api-token"]'; unset t
 ```
 
-Deployed to: `/var/lib/traefik/certs/origin.crt` and `/var/lib/traefik/certs/origin.key` (owner:
-`traefik`, 0400)
+Traefik reads it through `CF_DNS_API_TOKEN_FILE`. The certificate is kept in
+`/var/lib/traefik/acme.json`, so restarts and redeploys reuse it — reissuing on every reinstall
+would hit Let's Encrypt's duplicate-certificate limit (5 per week).
 
-#### 2. Cloudflare Authenticated Origin Pull CA — used by Traefik to verify Cloudflare
-
-```bash
-curl https://developers.cloudflare.com/ssl/static/authenticated_origin_pull_ca.pem
-sops modules/secrets/secrets.yaml
-# Add:
-#   cloudflare:
-#     origin-ca: | <certificate>
-```
-
-Deployed to: `/var/lib/cloudflared/origin-ca.pem`
-
-#### 3. Cloudflare Tunnel Credentials
+#### 2. Cloudflare Tunnel Credentials
 
 Stored as `cloudflare/credentials` in `modules/secrets/secrets.yaml`. Get the JSON from
 Cloudflare Dashboard → Zero Trust → Networks → Tunnels → your tunnel → Configure.
 
-### mTLS Flow
-
-```
-Cloudflare sends its cert  →  Traefik verifies with origin-ca.pem     ✓
-Traefik sends origin.crt   →  Cloudflare verifies against its own CA   ✓
-mTLS established → request proxied to container
-```
-
 ### Traefik Configuration
 
-- **Core** ([`traefik.nix`](traefik.nix)): entrypoints (HTTP :80 → HTTPS :443),
-  `requireCloudflareMTLS` TLS option, shared middlewares `security-headers` + `rate-limit`,
-  dashboard router
+- **Core** ([`traefik.nix`](traefik.nix)): the `https` entrypoint (:443) and its TLS (the
+  `letsencrypt` resolver), shared `security-headers` middleware, dashboard router. Routers carry
+  no `tls` block of their own — one would replace the entrypoint's TLS wholesale.
 - **Per-service**: Traefik routing is automatically managed by `frame.nix` for every
   service defined via `hlamlab.services.<name>`. It maps `Host(\`<domainPrefix>.<domain>\`)` to the
   container.
@@ -123,24 +106,24 @@ mTLS established → request proxied to container
 
 - Tunnel ID and Domain from the host's `hlamlab.settings` configuration (keys `tunnelId` and
   `domain`).
-- Ingress: `*.yourdomain` → `https://localhost:443`
-- mTLS CA: `/var/lib/cloudflared/origin-ca.pem`
+- Ingress: `*.yourdomain` → `https://localhost:443`, verifying Traefik's certificate for
+  `yourdomain` (`originServerName`).
 
 ---
 
 ## Troubleshooting
 
-**TLS handshake / "certificate signed by unknown authority"**
+**TLS handshake / Traefik's default certificate is served**
 
 ```bash
-sudo ls -la /var/lib/traefik/certs/         # origin.crt + origin.key must exist
-sudo ls -la /var/lib/cloudflared/origin-ca.pem
-sudo stat /var/lib/traefik/certs/origin.crt  # 0400, owner traefik
+sudo journalctl -u traefik -b | grep -i -e acme -e error   # DNS-01 progress and failures
+sudo jq '.letsencrypt.Certificates[].domain' /var/lib/traefik/acme.json
+echo | openssl s_client -connect localhost:443 -servername yourdomain 2>/dev/null \
+  | openssl x509 -noout -issuer -ext subjectAltName
 ```
 
-**Cloudflared: `x509: certificate signed by unknown authority`**
-— `origin-ca.pem` must be Cloudflare's Origin Pull CA, not your origin cert.
-Re-fetch: `curl https://developers.cloudflare.com/ssl/static/authenticated_origin_pull_ca.pem`
+An ACME error naming the token usually means a missing `Zone · Zone · Read` permission or a token
+scoped to a different zone.
 
 **Traefik 404 / 502**
 

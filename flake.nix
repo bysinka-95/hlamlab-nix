@@ -1,5 +1,5 @@
 {
-  description = "Hlamnix (a.k.a. Hlamlab 3.0)";
+  description = "Hlamnix (Hlamlab 3.0)";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";

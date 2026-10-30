@@ -29,19 +29,19 @@ the eventual host migration.
 
 ### Network Infrastructure
 
-| Service           | Binding    | URL                        | Notes                                    |
-|-------------------|------------|----------------------------|------------------------------------------|
-| Traefik           | :443       | https://traefik.yourdomain | Dashboard (basic auth); HTTP :80 → HTTPS |
-| Cloudflare Tunnel | (outbound) | Covers all `*.yourdomain`  | Routes → Traefik :443 with mTLS          |
+| Service           | Binding    | URL                        | Notes                                           |
+|-------------------|------------|----------------------------|-------------------------------------------------|
+| Traefik           | :443       | https://traefik.yourdomain | Dashboard (basic auth); LE wildcard via DNS-01  |
+| Cloudflare Tunnel | (outbound) | Covers all `*.yourdomain`  | Routes → Traefik :443 (TLS verified)            |
 
 - **Traefik** — [`modules/common/network/traefik.nix`](modules/common/network/traefik.nix):
-  entrypoints, mTLS
-  enforcement, shared middlewares (`security-headers`, `rate-limit`), dashboard router.
+  the `https` entrypoint with a Let's Encrypt wildcard (DNS-01 through the Cloudflare API), shared
+  `security-headers` middleware, dashboard router.
   Logs: `/var/log/traefik/traefik.log` and `/var/log/traefik/access.log`.
 - **Cloudflare Tunnel** — [
   `modules/common/network/cloudflared.nix`](modules/common/network/cloudflared.nix): routes all
-  `*.yourdomain` → `https://localhost:443`. Credentials managed via sops-nix.
-  See [Network README](modules/common/network/README.md) for mTLS certificate setup.
+  `*.yourdomain` → `https://localhost:443`, verifying Traefik's certificate. Credentials managed
+  via sops-nix. See [Network README](modules/common/network/README.md) for the certificate setup.
 
 ### Application Containers
 
@@ -274,7 +274,7 @@ See the full [documentation index](DOCS.md) for module-specific guides.
 |:---------------------------------------------------------------------|:--------------------------------------------------------------------------------------------|
 | [README.md](README.md)                                               | Repo layout, current services (IPs, ports, URLs, ZFS datasets), deploy + upgrade + rollback |
 | [INSTALLATION.md](INSTALLATION.md)                                   | Fresh install: pre-install config, nixos-anywhere, post-install, verification               |
-| [modules/common/network/README.md](modules/common/network/README.md) | SSH, mDNS, Traefik + Cloudflare Tunnel, mTLS certificates                                   |
+| [modules/common/network/README.md](modules/common/network/README.md) | SSH, mDNS, Traefik + Cloudflare Tunnel, Let's Encrypt certificate                           |
 | [modules/common/zfs/README.md](modules/common/zfs/README.md)         | ZFS datasets, snapshots, backup/replication, management commands                            |
 | [modules/containers/README.md](modules/containers/README.md)         | Container structure, service skeletons, resource limits, persistent storage                 |
 | [modules/secrets/README.md](modules/secrets/README.md)               | sops-nix setup, age keys, secrets vs config variables                                       |

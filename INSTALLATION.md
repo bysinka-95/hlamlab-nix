@@ -98,20 +98,9 @@ cloudflare:
       "TunnelID": "...",
       "TunnelSecret": "..."
     }
-  origin-ca: |
-    -----BEGIN CERTIFICATE-----
-    placeholder
-    -----END CERTIFICATE-----
+  dns-api-token: "placeholder" # Let's Encrypt DNS-01, see network README
 
 traefik:
-  origin-cert: |
-    -----BEGIN CERTIFICATE-----
-    placeholder
-    -----END CERTIFICATE-----
-  origin-key: |
-    -----BEGIN PRIVATE KEY-----
-    placeholder
-    -----END PRIVATE KEY-----
   dashboard-auth: "placeholder (htpasswd format: username:bcrypt_hash)"
 
 authelia:
@@ -203,8 +192,9 @@ rm private.pem
 
 Replace the placeholders in your `secrets.yaml` file with the generated values.
 
-Real certificates are added post-install.
-See [network README](modules/common/network/README.md#required-certificates).
+The Cloudflare DNS token and tunnel credentials can be real already — see
+[network README](modules/common/network/README.md#certificate-and-credentials). Traefik obtains
+its Let's Encrypt certificate by itself on first start.
 
 ### 7. Validate
 
@@ -280,8 +270,8 @@ host rolls itself back — you get your previous generation, not a brick. See
 
 ### 4. Update real secrets
 
-Replace placeholder values in secrets with actual Cloudflare certificates and tunnel credentials.
-See [network README](modules/common/network/README.md#required-certificates).
+Replace any remaining placeholders — the Cloudflare DNS token and tunnel credentials in
+particular. See [network README](modules/common/network/README.md#certificate-and-credentials).
 
 After secrets are updated and deployed, reboot once or restart the affected services.
 

@@ -327,7 +327,8 @@ in
             rule = "Host(`${svc.fqdn}`)";
             service = name;
             entryPoints = [ "https" ];
-            tls = { };
+            # No `tls` here: the https entrypoint carries it (traefik.nix), and
+            # a router-level block would replace it wholesale.
             middlewares = svc.traefikMiddlewares;
           };
         })

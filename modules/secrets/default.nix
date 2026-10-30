@@ -22,29 +22,13 @@
         group = "cloudflared";
         mode = "0400";
       };
-      # Cloudflare's Authenticated Origin Pull CA (public certificate)
-      cloudflare-origin-ca = {
-        key = "cloudflare/origin-ca";
-        mode = "0444";
-        path = "/var/lib/cloudflared/origin-ca.pem";
-        restartUnits = [ "traefik.service" ];
-      };
-      # YOUR origin certificate (what Traefik presents to Cloudflare)
-      traefik-origin-cert = {
-        key = "traefik/origin-cert";
+      # Cloudflare API token for Let's Encrypt DNS-01 (Zone:DNS:Edit +
+      # Zone:Zone:Read, this zone only). Read by Traefik via CF_DNS_API_TOKEN_FILE.
+      cloudflare-dns-api-token = {
+        key = "cloudflare/dns-api-token";
         owner = "traefik";
         group = "traefik";
         mode = "0400";
-        path = "/var/lib/traefik/certs/origin.crt";
-        restartUnits = [ "traefik.service" ];
-      };
-      # YOUR origin private key (Traefik's private key)
-      traefik-origin-key = {
-        key = "traefik/origin-key";
-        owner = "traefik";
-        group = "traefik";
-        mode = "0400";
-        path = "/var/lib/traefik/certs/origin.key";
         restartUnits = [ "traefik.service" ];
       };
       # Traefik dashboard basic auth credentials

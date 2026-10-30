@@ -1,5 +1,7 @@
 { config, ... }:
-
+let
+  domain = config.hlamlab.settings.domain;
+in
 {
   services.traefik = {
     enable = true;
@@ -7,7 +9,7 @@
     # Static Configuration
     staticConfigOptions = {
       global = {
-        checkNewVersion = true;
+        checkNewVersion = false;
         sendAnonymousUsage = false;
       };
 
@@ -40,11 +42,6 @@
         };
       };
 
-      # Allow insecure backend connections (for internal services)
-      serversTransport = {
-        insecureSkipVerify = true;
-      };
-
       # Prometheus metrics (scraped by the prometheus container at 10.0.0.1:8082)
       metrics = {
         prometheus = {
@@ -62,31 +59,24 @@
           address = ":8082";
         };
 
-        http = {
-          address = ":80";
-          http = {
-            redirections = {
-              entryPoint = {
-                to = "https";
-                scheme = "https";
-              };
-            };
-          };
-          forwardedHeaders = {
-            trustedIPs = [ "127.0.0.1/8" "::1/128" "10.0.0.0/24" ];
-          };
-        };
-
+        # The only public entrypoint. cloudflared is its sole public client and
+        # connects over loopback; containers reach it at the gateway address
+        # (hairpin). No :80 — nothing outside the tunnel ever spoke plain HTTP.
         https = {
           address = ":443";
+          # Only cloudflared's X-Forwarded-For is kept (Cloudflare appends the
+          # real client IP to it). Containers are not trusted: they could forge
+          # any client IP.
           forwardedHeaders = {
-            trustedIPs = [ "127.0.0.1/8" "::1/128" "10.0.0.0/24" ];
+            trustedIPs = [ "127.0.0.1/32" "::1/128" ];
           };
-          http = {
-            tls = {
-              # Cloudflare mTLS will be configured in dynamic config
-              options = "requireCloudflareMTLS";
-            };
+          # TLS for every router on this entrypoint. Routers must not carry
+          # their own `tls` block: even an empty one replaces this whole section.
+          http.tls = {
+            certResolver = "letsencrypt";
+            # One wildcard, no per-host certificates — keeps service names out
+            # of Certificate Transparency logs.
+            domains = [{ main = domain; sans = [ "*.${domain}" ]; }];
           };
         };
       };
@@ -94,6 +84,20 @@
       # Providers
       providers = {
         providersThrottleDuration = "2s";
+      };
+
+      # Let's Encrypt via DNS-01: needs no inbound port, so it works behind the
+      # tunnel, and its certificate is trusted by every runtime in every
+      # container (the hairpin path depends on that).
+      certificatesResolvers.letsencrypt.acme = {
+        storage = "/var/lib/traefik/acme.json";
+        dnsChallenge = {
+          provider = "cloudflare";
+          # lego checks the TXT record's propagation through these instead of
+          # the host's resolver: a home router's DNS forwarder may not answer
+          # TXT queries at all (UTM's doesn't), and the check then times out.
+          resolvers = [ "1.1.1.1:53" "1.0.0.1:53" ];
+        };
       };
     };
 
@@ -116,15 +120,6 @@
             };
           };
 
-          # Rate limiting middleware
-          rate-limit = {
-            rateLimit = {
-              average = 100;
-              burst = 50;
-              period = "1m";
-            };
-          };
-
           # Dashboard authentication
           dashboard-auth = {
             basicAuth = {
@@ -137,56 +132,26 @@
         routers = {
           # Traefik dashboard router
           dashboard = {
-            rule = "Host(`traefik.${config.hlamlab.settings.domain}`)";
+            rule = "Host(`traefik.${domain}`)";
             service = "api@internal";
             entryPoints = [ "https" ];
-            tls = { };
             middlewares = [ "dashboard-auth" "security-headers" ];
           };
         };
       };
-
-      # TLS configuration for Cloudflare mTLS
-      tls = {
-        # Certificate stores - default certificate for HTTPS
-        stores = {
-          default = {
-            defaultCertificate = {
-              certFile = "/var/lib/traefik/certs/origin.crt";
-              keyFile = "/var/lib/traefik/certs/origin.key";
-            };
-          };
-        };
-
-        # TLS options for Cloudflare mTLS
-        options = {
-          requireCloudflareMTLS = {
-            sniStrict = true;
-            minVersion = "VersionTLS12";
-            clientAuth = {
-              # Cloudflare's Authenticated Origin Pull CA (to verify Cloudflare)
-              caFiles = [ "/var/lib/cloudflared/origin-ca.pem" ];
-              clientAuthType = "RequireAndVerifyClientCert";
-            };
-          };
-        };
-      };
     };
   };
 
-  # Use proper systemd service configuration for directories
   systemd.services.traefik = {
-    serviceConfig = {
-      # This creates:
-      # - /var/log/traefik (for logs)
-      # - /var/lib/traefik/certs (for certificates)
-      # Both with proper permissions automatically
-      LogsDirectory = "traefik";
-      StateDirectory = "traefik/certs";
-    };
+    # /var/log/traefik, with proper permissions. State (acme.json) lives in the
+    # module's own dataDir, /var/lib/traefik.
+    serviceConfig.LogsDirectory = "traefik";
+    # lego's `_FILE` convention: the token never enters the nix store or the
+    # unit's environment.
+    environment.CF_DNS_API_TOKEN_FILE = config.sops.secrets.cloudflare-dns-api-token.path;
   };
 
   # Open firewall ports for Traefik. 8082 is the internal metrics endpoint —
   # reachable only over the container bridge (cloudflared forwards :443 only).
-  networking.firewall.allowedTCPPorts = [ 80 443 8082 ];
+  networking.firewall.allowedTCPPorts = [ 443 8082 ];
 }
