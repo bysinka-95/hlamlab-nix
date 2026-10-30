@@ -33,6 +33,11 @@ the eventual host migration.
 |-------------------|------------|----------------------------|-------------------------------------------------|
 | Traefik           | :443       | https://traefik.yourdomain | Dashboard (basic auth); LE wildcard via DNS-01  |
 | Cloudflare Tunnel | (outbound) | Covers all `*.yourdomain`  | Routes → Traefik :443 (TLS verified)            |
+| Host firewall     | nftables   | —                          | LAN: SSH + mDNS only. Containers: Traefik :443  |
+
+The LAN reaches nothing but SSH and mDNS: services are reached through the tunnel. Traefik's :443
+is open to the containers (hairpin) and to cloudflared over loopback; the metrics ports
+(8080, 8082, 9100, 60123) to the prometheus container only.
 
 - **Traefik** — [`modules/common/network/traefik.nix`](modules/common/network/traefik.nix):
   the `https` entrypoint with a Let's Encrypt wildcard (DNS-01 through the Cloudflare API), shared

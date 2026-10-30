@@ -151,7 +151,10 @@ in
     environment.CF_DNS_API_TOKEN_FILE = config.sops.secrets.cloudflare-dns-api-token.path;
   };
 
-  # Open firewall ports for Traefik. 8082 is the internal metrics endpoint —
-  # reachable only over the container bridge (cloudflared forwards :443 only).
-  networking.firewall.allowedTCPPorts = [ 443 8082 ];
+  # 443 from containers only (hairpin); cloudflared reaches it over loopback,
+  # so the LAN never needs it. Metrics on 8082 for the prometheus container.
+  networking.firewall.extraInputRules = ''
+    iifname "ve-*" tcp dport 443 accept
+  '';
+  networking.firewall.interfaces."ve-prometheus".allowedTCPPorts = [ 8082 ];
 }

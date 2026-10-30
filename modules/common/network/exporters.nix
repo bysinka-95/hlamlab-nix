@@ -28,9 +28,9 @@ lib.mkIf config.hlamlab.observability.enable {
     ];
   };
 
-  # Both bound to 0.0.0.0 and firewalled open so the prometheus container scrapes
-  # them at the gateway address (same pattern as traefik :8082 / cloudflared
-  # :60123). cloudflared forwards none of these, so they stay LAN-internal.
-  # Containers' own exporters listen on :9101 and open their own firewall.
-  networking.firewall.allowedTCPPorts = [ 8080 9100 ];
+  # Both bound to 0.0.0.0, but the firewall opens them to the prometheus
+  # container only, which scrapes them at the gateway address (same as traefik
+  # :8082 / cloudflared :60123). Containers' own exporters listen on :9101 and
+  # open their own firewall.
+  networking.firewall.interfaces."ve-prometheus".allowedTCPPorts = [ 8080 9100 ];
 }

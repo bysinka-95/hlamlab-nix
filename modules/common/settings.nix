@@ -19,6 +19,16 @@ in
       description = "Your ZFS host ID (8 hex characters)";
     };
 
+    lanInterface = lib.mkOption {
+      type = lib.types.str;
+      default = "ens18";
+      description = ''
+        The host's LAN NIC: containers' internet egress leaves through it, and
+        it is the only interface SSH and mDNS answer on. A wrong value cuts SSH
+        (deploy-rs' magic rollback then reverts the deploy).
+      '';
+    };
+
     ldapBaseDn = lib.mkOption {
       type = lib.types.str;
       description = "LDAP base DN. Defaults to derived domain (e.g., 'dc=yourdomain,dc=com')";

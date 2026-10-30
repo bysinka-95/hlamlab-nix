@@ -23,8 +23,17 @@ These must be defined in your host's `configuration.nix`.
     # Optional: Customize the LDAP Base DN. 
     # If not set, it defaults to a domain-derived value (e.g. dc=yourdomain,dc=com)
     # ldapBaseDn = "dc=custom,dc=local";
+
+    # The host's LAN NIC (`ip -br link`). Defaults to "ens18" (Proxmox virtio).
+    # Container egress leaves through it, and it is the only interface SSH and
+    # mDNS answer on.
+    # lanInterface = "enp1s0";
   };
 ```
+
+> **A wrong `lanInterface` cuts SSH.** The firewall opens SSH on that interface only. deploy-rs'
+> magic rollback reverts such a deploy when its confirmation SSH fails, but check the NIC name
+> before the first deploy to a new machine.
 
 ## 2. Enabling and Configuring Services
 
