@@ -27,6 +27,14 @@
         mode = "0400";
         restartUnits = [ "traefik.service" ];
       };
+      # The Traefik bouncer's LAPI key; registered by crowdsec-bouncer-register.
+      crowdsec-bouncer-key = {
+        key = "crowdsec/bouncer-key";
+        owner = "traefik";
+        group = "traefik";
+        mode = "0400";
+        restartUnits = [ "crowdsec-bouncer-register.service" "traefik.service" ];
+      };
     };
   };
 }

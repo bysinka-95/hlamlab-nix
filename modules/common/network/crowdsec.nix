@@ -92,6 +92,49 @@ in
     };
   };
 
+  # Remediation: every request passes this middleware first (traefik.nix
+  # entrypoint). It fails open — a CrowdSec outage must not take the sites down.
+  services.traefik.dynamicConfigOptions.http.middlewares.crowdsec.plugin.bouncer = {
+    enabled = true;
+    crowdsecMode = "stream";
+    crowdsecLapiHost = "127.0.0.1:8180";
+    crowdsecLapiKeyFile = config.sops.secrets.crowdsec-bouncer-key.path;
+    # The client is CF-Connecting-IP, believed only from cloudflared; the
+    # containers' hairpin traffic is never checked.
+    forwardedHeadersTrustedIps = [ "127.0.0.1/32" "::1/128" ];
+    forwardedHeadersCustomName = "CF-Connecting-IP";
+    clientTrustedIps = [ "10.0.0.0/24" ];
+    crowdsecAppsecEnabled = true;
+    crowdsecAppsecHost = "127.0.0.1:7422";
+    crowdsecAppsecFailureBlock = false;
+    crowdsecAppsecUnreachableBlock = false;
+    updateMaxFailure = -1;
+    # Otherwise Traefik waits for CrowdSec at start.
+    streamStartupBlock = false;
+  };
+
+  # Registers the bouncer's key (delete + add, so a rotated key takes effect;
+  # the sops secret restarts this unit). Runs as crowdsec: cscli writes the
+  # LAPI database directly.
+  systemd.services.crowdsec-bouncer-register = {
+    requires = [ "crowdsec.service" ];
+    after = [ "crowdsec.service" ];
+    before = [ "traefik.service" ];
+    wantedBy = [ "multi-user.target" ];
+    path = [ config.services.crowdsec.package ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      User = config.services.crowdsec.user;
+      Group = config.services.crowdsec.group;
+      LoadCredential = [ "key:${config.sops.secrets.crowdsec-bouncer-key.path}" ];
+    };
+    script = ''
+      cscli bouncers delete traefik >/dev/null 2>&1 || true
+      cscli bouncers add traefik --key "$(cat "$CREDENTIALS_DIRECTORY/key")" >/dev/null
+    '';
+  };
+
   # The module links its config files with tmpfiles, so the unit itself never
   # changes and a deploy would keep running the old parsers and acquisitions.
   systemd.services.crowdsec.restartTriggers = [

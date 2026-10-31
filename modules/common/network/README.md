@@ -115,9 +115,25 @@ Cloudflare Dashboard → Zero Trust → Networks → Tunnels → your tunnel →
 - Ingress: `*.yourdomain` → `https://localhost:443`, verifying Traefik's certificate for
   `yourdomain` (`originServerName`).
 
+### CrowdSec
+
+- **Detection** ([`crowdsec.nix`](crowdsec.nix)): the engine reads Traefik's access log and
+  Authelia's journal; alerts become 4h bans. The community blocklist comes from CrowdSec's
+  central API, which in return receives this host's alerts.
+- **Remediation**: the `crowdsec` middleware (bouncer plugin) runs first on the `https`
+  entrypoint, with AppSec virtual patching. It fails open: if CrowdSec is down, traffic passes.
+  Containers (`10.0.0.0/24`) are never checked.
+
 ---
 
 ## Troubleshooting
+
+**Banned yourself (403 everywhere from one IP)**
+
+```bash
+sudo cscli decisions list            # what, why, until when
+sudo cscli decisions delete -i <ip>  # the bouncer picks it up within a minute
+```
 
 **TLS handshake / Traefik's default certificate is served**
 

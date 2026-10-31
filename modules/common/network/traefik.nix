@@ -1,6 +1,14 @@
 { config, pkgs, ... }:
 let
   domain = config.hlamlab.settings.domain;
+
+  # The CrowdSec bouncer (middleware in crowdsec.nix), pinned like any input.
+  bouncer = pkgs.fetchFromGitHub {
+    owner = "maxlerebourg";
+    repo = "crowdsec-bouncer-traefik-plugin";
+    rev = "v1.8.1";
+    hash = "sha256-cQNbrEiePPsip6acQwayQGISee2LqLbHVHzXfTfdAA4=";
+  };
 in
 {
   services.traefik = {
@@ -70,8 +78,9 @@ in
           forwardedHeaders = {
             trustedIPs = [ "127.0.0.1/32" "::1/128" ];
           };
-          # Ahead of every router's own middlewares, the dashboard's included.
-          http.middlewares = [ "real-ip@file" ];
+          # Ahead of every router's own middlewares, the dashboard's included:
+          # banned clients are turned away first (crowdsec.nix).
+          http.middlewares = [ "crowdsec@file" "real-ip@file" ];
           # TLS for every router on this entrypoint. Routers must not carry
           # their own `tls` block: even an empty one replaces this whole section.
           http.tls = {
@@ -85,7 +94,10 @@ in
 
       # Local plugin, read from ./plugins-local/src/<moduleName> under the
       # service's working directory (/var/lib/traefik; tmpfiles link below).
-      experimental.localPlugins.realip.moduleName = "hlamlab/realip";
+      experimental.localPlugins = {
+        realip.moduleName = "hlamlab/realip";
+        bouncer.moduleName = "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin";
+      };
 
       # Providers
       providers = {
@@ -159,6 +171,7 @@ in
     preStart = ''
       ln -sfn ${pkgs.linkFarm "traefik-plugins-local" [
         { name = "src/hlamlab/realip"; path = ./traefik-plugins/realip; }
+        { name = "src/github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"; path = bouncer; }
       ]} /var/lib/traefik/plugins-local
     '';
   };
