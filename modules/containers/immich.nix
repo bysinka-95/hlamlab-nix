@@ -48,7 +48,9 @@ in
             # `immich_role` carries the admin flag (see authelia.nix).
             scope = "openid email profile immich_role";
             autoRegister = true;
-            autoLaunch = false;
+            # Straight to Authelia; the button page stays at
+            # /auth/login?autoLaunch=0.
+            autoLaunch = true;
             buttonText = "Login with Authelia";
             tokenEndpointAuthMethod = "client_secret_post";
           };

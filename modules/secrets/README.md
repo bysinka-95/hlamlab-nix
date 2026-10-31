@@ -67,8 +67,6 @@ client secrets, and passwords) are kept encrypted inside `secrets.yaml` using ne
 cloudflare:
   credentials: "..."
   dns-api-token: "..."       # Let's Encrypt DNS-01 (Zone:DNS:Edit + Zone:Zone:Read, one zone)
-traefik:
-  dashboard-auth: "..."
 searx:
   env: "..."
 grafana:

@@ -121,12 +121,21 @@ in
           definitions.user_attributes.immich_role.expression = ''"admins" in groups ? "admin" : "user"'';
           definitions.user_attributes.opencloud_role.expression = ''"admins" in groups ? "opencloudAdmin" : "opencloudUser"'';
 
+          # Only the admin UIs sit behind the `authelia` middleware; the apps
+          # authenticate through OIDC (authorization_policy on each client).
           access_control = {
             default_policy = "deny";
             rules = [
               {
-                domain = "*.${settings.domain}";
-                policy = "one_factor";
+                domain = [ svc.lldap.fqdn "traefik.${settings.domain}" ];
+                policy = "two_factor";
+                subject = [ "group:admins" ];
+              }
+              {
+                domain = svc.vaultwarden.fqdn;
+                resources = [ "^/admin([/?].*)?$" ];
+                policy = "two_factor";
+                subject = [ "group:admins" ];
               }
             ];
           };
@@ -169,6 +178,10 @@ in
               };
               scopes.immich_role.claims = [ "immich_role" ];
               scopes.opencloud_role.claims = [ "opencloud_role" ];
+              # Every client is ours, declared here with fixed redirect URIs, so
+              # a consent screen guards nothing. Implicit consent also lets
+              # OpenCloud's web app sign in silently: it does so in a hidden
+              # iframe, and the consent page refuses to be framed.
               clients = [
                 {
                   client_id = "immich";
@@ -176,7 +189,8 @@ in
                   claims_policy = "immich";
                   client_secret = ''{{ secret "${svc.authelia.secrets.authelia-immich-oidc-digest.path}" }}'';
                   public = false;
-                  authorization_policy = "one_factor";
+                  authorization_policy = "two_factor";
+                  consent_mode = "implicit";
                   redirect_uris = [
                     "${svc.immich.baseUrl}/auth/login"
                     "app.immich:///oauth-callback"
@@ -190,11 +204,7 @@ in
                   client_name = "OpenCloud";
                   claims_policy = "opencloud";
                   public = true;
-                  authorization_policy = "one_factor";
-                  # The web app signs in and renews tokens in a hidden iframe.
-                  # Authelia's consent page refuses to be framed, so with a
-                  # consent step every silent attempt times out (~10 s each)
-                  # before the app falls back to a full redirect.
+                  authorization_policy = "two_factor";
                   consent_mode = "implicit";
                   redirect_uris = [
                     "${svc.opencloud.baseUrl}/"
@@ -215,7 +225,8 @@ in
                   client_name = "Vaultwarden";
                   client_secret = ''{{ secret "${svc.authelia.secrets.authelia-vaultwarden-oidc-digest.path}" }}'';
                   public = false;
-                  authorization_policy = "one_factor";
+                  authorization_policy = "two_factor";
+                  consent_mode = "implicit";
                   redirect_uris = [
                     "${svc.vaultwarden.baseUrl}/identity/connect/oidc-signin"
                   ];
@@ -234,7 +245,8 @@ in
                   claims_policy = "grafana";
                   client_secret = ''{{ secret "${svc.authelia.secrets.authelia-grafana-oidc-digest.path}" }}'';
                   public = false;
-                  authorization_policy = "one_factor";
+                  authorization_policy = "two_factor";
+                  consent_mode = "implicit";
                   redirect_uris = [
                     "${svc.grafana.baseUrl}/login/generic_oauth"
                   ];
@@ -258,4 +270,13 @@ in
     };
   };
 
+  # The gate for the admin UIs (rules in access_control above). Traefik asks
+  # Authelia directly over the private network.
+  services.traefik.dynamicConfigOptions.http.middlewares.authelia.forwardAuth = {
+    address = "http://${svc.authelia.address}/api/authz/forward-auth";
+    trustForwardHeader = true;
+    authResponseHeaders = [ "Remote-User" "Remote-Groups" "Remote-Email" "Remote-Name" ];
+    # Authelia only answers with a short redirect or error page.
+    maxResponseBodySize = 65536;
+  };
 }

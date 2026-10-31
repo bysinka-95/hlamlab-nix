@@ -8,6 +8,9 @@ in
     ip = "10.0.0.6";
     port = 3000;
 
+    # The UI is for admins only: Authelia's gate first, then LLDAP's own login.
+    traefikMiddlewares = [ "authelia" "security-headers" ];
+
     # Both are read by the lldap process itself (`*_file` settings).
     secrets = {
       lldap-jwt-secret = {

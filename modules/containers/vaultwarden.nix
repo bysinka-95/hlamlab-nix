@@ -46,4 +46,13 @@ in
     };
   };
 
+  # /admin goes through Authelia's gate; ADMIN_TOKEN stays as the second lock.
+  # Traefik prefers the longer rule, so everything else keeps the frame's
+  # router, and the apps' API paths stay ungated.
+  services.traefik.dynamicConfigOptions.http.routers.vaultwarden-admin = {
+    rule = "Host(`${svc.vaultwarden.fqdn}`) && PathPrefix(`/admin`)";
+    service = "vaultwarden";
+    entryPoints = [ "https" ];
+    middlewares = [ "authelia" "security-headers" ];
+  };
 }

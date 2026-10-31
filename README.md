@@ -29,11 +29,11 @@ the eventual host migration.
 
 ### Network Infrastructure
 
-| Service           | Binding    | URL                        | Notes                                           |
-|-------------------|------------|----------------------------|-------------------------------------------------|
-| Traefik           | :443       | https://traefik.yourdomain | Dashboard (basic auth); LE wildcard via DNS-01  |
-| Cloudflare Tunnel | (outbound) | Covers all `*.yourdomain`  | Routes → Traefik :443 (TLS verified)            |
-| Host firewall     | nftables   | —                          | LAN: SSH + mDNS only. Containers: Traefik :443  |
+| Service           | Binding    | URL                        | Notes                                                            |
+|-------------------|------------|----------------------------|------------------------------------------------------------------|
+| Traefik           | :443       | https://traefik.yourdomain | Dashboard (Authelia 2FA, `admins` group); LE wildcard via DNS-01 |
+| Cloudflare Tunnel | (outbound) | Covers all `*.yourdomain`  | Routes → Traefik :443 (TLS verified)                             |
+| Host firewall     | nftables   | —                          | LAN: SSH + mDNS only. Containers: Traefik :443                   |
 
 The LAN reaches nothing but SSH and mDNS: services are reached through the tunnel. Traefik's :443
 is open to the containers (hairpin) and to cloudflared over loopback; the metrics ports

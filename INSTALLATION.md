@@ -100,9 +100,6 @@ cloudflare:
     }
   dns-api-token: "placeholder" # Let's Encrypt DNS-01, see network README
 
-traefik:
-  dashboard-auth: "placeholder (htpasswd format: username:bcrypt_hash)"
-
 authelia:
   jwt-secret: "placeholder"
   session-secret: "placeholder"
@@ -182,10 +179,6 @@ nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use
 nix run nixpkgs#authelia -- crypto rand --length 72 --charset rfc3986 # Use for grafana-oidc-client-secret
 nix run nixpkgs#authelia -- crypto rand --length 32 --charset alphanumeric # Use for grafana-secret-key (DB encryption key)
 # grafana-admin-password: choose a strong password (break-glass only; the login form is disabled)
-
-# Generate Traefik Dashboard Auth Secret (htpasswd format)
-# Set username and password for basicAuth (default is username 'traefik-cloudflared' with a bcrypt hash)
-nix run nixpkgs#apacheHttpd -- htpasswd -B -n traefik-cloudflared # Enter a strong password when prompted; copy the printed line
 
 # Generate an RSA Keypair for the Authelia OIDC Issuer
 openssl genrsa -out private.pem 4096
@@ -308,7 +301,16 @@ ssh hlamnix@<target-ip> "sudo systemctl restart cloudflared traefik"
 
 LLDAP's built-in `admin` (password: `lldap-user-pass`) manages the directory. Keep it for
 that — don't log in to the services with it. Create yourself a separate everyday user
-in the LLDAP UI (`https://lldap.<domain>`, log in as `admin`):
+in the LLDAP UI, logged in as `admin`.
+
+`https://lldap.<domain>` only opens for members of `admins`, and on a fresh install
+there are none yet. The first time, reach the UI over SSH instead (the same works
+later as break-glass):
+
+```bash
+ssh -N -L 17170:<lldap container ip>:3000 hlamnix@<target-ip>   # 10.0.0.6 by default
+# then open http://localhost:17170
+```
 
 1. Create the user. Fill in **Display name** and **Email** — OpenCloud refuses users
    without a display name.
@@ -316,6 +318,20 @@ in the LLDAP UI (`https://lldap.<domain>`, log in as `admin`):
    `modules/containers/lldap.nix`). Members of `admins` become Grafana server admins,
    Immich admins and OpenCloud admins; everyone else gets regular accounts.
 3. Don't add it to `lldap_admin`: that group can edit the directory itself.
+
+Every login needs a second factor (TOTP). Log in at `https://auth.<domain>` and register
+an authenticator app. Authelia confirms it is you with a one-time code; there is no mail
+server, so the "email" lands in a file:
+
+```bash
+ssh hlamnix@<target-ip> "sudo nixos-container run authelia -- cat /var/lib/authelia-main/notification.txt"
+```
+
+The same goes for other users you add later: read their code there and pass it on.
+
+After that one Authelia session opens every service without asking again. `lldap.`,
+`traefik.` and Vaultwarden's `/admin` are open to `admins` only; the last still asks
+for `ADMIN_TOKEN` too.
 
 Log in to Grafana at `https://grafana.<domain>` — you are redirected straight to
 Authelia (the local login form is disabled).

@@ -100,7 +100,7 @@ Cloudflare Dashboard → Zero Trust → Networks → Tunnels → your tunnel →
   container.
     - You can disable routing entirely (`traefik.enable = false`) in the
       service configuration.
-- **Dashboard**: `https://traefik.yourdomain` (basic auth); logs at `/var/log/traefik/`
+- **Dashboard**: `https://traefik.yourdomain` (Authelia 2FA, `admins` group); logs at `/var/log/traefik/`
 
 ### Cloudflared Configuration
 

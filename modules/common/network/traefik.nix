@@ -16,7 +16,7 @@ in
       # API and Dashboard
       api = {
         dashboard = true;
-        insecure = false; # Secured via middleware in dynamic config
+        insecure = false; # Served only through the dashboard router below
       };
 
       # Logging
@@ -119,14 +119,6 @@ in
               customFrameOptionsValue = "SAMEORIGIN";
             };
           };
-
-          # Dashboard authentication
-          dashboard-auth = {
-            basicAuth = {
-              usersFile = "/var/lib/traefik/dashboard-auth";
-              realm = "Traefik Dashboard";
-            };
-          };
         };
 
         routers = {
@@ -135,7 +127,8 @@ in
             rule = "Host(`traefik.${domain}`)";
             service = "api@internal";
             entryPoints = [ "https" ];
-            middlewares = [ "dashboard-auth" "security-headers" ];
+            # Authelia's gate, `admins` only (containers/authelia.nix).
+            middlewares = [ "authelia" "security-headers" ];
           };
         };
       };
