@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, pkgs, ... }:
 let
   domain = config.hlamlab.settings.domain;
 in
@@ -70,6 +70,8 @@ in
           forwardedHeaders = {
             trustedIPs = [ "127.0.0.1/32" "::1/128" ];
           };
+          # Ahead of every router's own middlewares, the dashboard's included.
+          http.middlewares = [ "real-ip@file" ];
           # TLS for every router on this entrypoint. Routers must not carry
           # their own `tls` block: even an empty one replaces this whole section.
           http.tls = {
@@ -80,6 +82,10 @@ in
           };
         };
       };
+
+      # Local plugin, read from ./plugins-local/src/<moduleName> under the
+      # service's working directory (/var/lib/traefik; tmpfiles link below).
+      experimental.localPlugins.realip.moduleName = "hlamlab/realip";
 
       # Providers
       providers = {
@@ -105,6 +111,11 @@ in
     dynamicConfigOptions = {
       http = {
         middlewares = {
+          # The client IP from Cloudflare's CF-Connecting-IP, trusted only from
+          # cloudflared. Authelia and the apps read the first X-Forwarded-For
+          # element, which the client controls; this pins it to the real one.
+          real-ip.plugin.realip.trustedIPs = [ "127.0.0.1/32" "::1/128" ];
+
           # Security headers middleware (shared by all services)
           security-headers = {
             headers = {
@@ -142,6 +153,14 @@ in
     # lego's `_FILE` convention: the token never enters the nix store or the
     # unit's environment.
     environment.CF_DNS_API_TOKEN_FILE = config.sops.secrets.cloudflare-dns-api-token.path;
+    # Local plugins are read from ./plugins-local under the working directory
+    # (/var/lib/traefik). Linked at start, as traefik, so a plugin change
+    # changes the unit and restarts Traefik.
+    preStart = ''
+      ln -sfn ${pkgs.linkFarm "traefik-plugins-local" [
+        { name = "src/hlamlab/realip"; path = ./traefik-plugins/realip; }
+      ]} /var/lib/traefik/plugins-local
+    '';
   };
 
   # 443 from containers only (hairpin); cloudflared reaches it over loopback,

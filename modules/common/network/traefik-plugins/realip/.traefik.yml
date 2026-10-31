@@ -1,0 +1,8 @@
+displayName: Real client IP from CF-Connecting-IP
+type: middleware
+import: hlamlab/realip
+summary: Trusts CF-Connecting-IP only from the given peers (cloudflared on loopback) and drops it from everyone else.
+testData:
+  trustedIPs:
+    - 127.0.0.1/32
+    - ::1/128

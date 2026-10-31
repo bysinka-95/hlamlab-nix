@@ -39,12 +39,14 @@ in
           };
 
           limiterSettings = {
-            real_ip = {
-              x_for = 1;
+            botdetection = {
               ipv4_prefix = 32;
               ipv6_prefix = 56;
-            };
-            botdetection = {
+              # The client is the rightmost X-Forwarded-For entry that is not
+              # one of these: Traefik (the containers' gateway) and the
+              # cloudflared peer it appends. Traefik's real-ip middleware puts
+              # the CF-Connecting-IP in front of them.
+              trusted_proxies = [ "10.0.0.1/32" "127.0.0.0/8" "::1/128" ];
               ip_limit = {
                 filter_link_local = true;
                 link_token = true;

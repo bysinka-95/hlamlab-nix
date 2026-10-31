@@ -9,6 +9,7 @@ SSH, mDNS/Avahi, Traefik reverse proxy, and Cloudflare Tunnel.
 | `default.nix`     | SSH server, mDNS/Avahi, imports traefik + cloudflared          |
 | `traefik.nix`     | Core Traefik: entrypoint, LE certificate, middlewares, dashboard |
 | `cloudflared.nix` | Cloudflare Tunnel ingress → Traefik :443                       |
+| `traefik-plugins/realip/` | Local Traefik plugin: client IP from `CF-Connecting-IP` (Go, `go test`) |
 
 ---
 
@@ -100,6 +101,10 @@ Cloudflare Dashboard → Zero Trust → Networks → Tunnels → your tunnel →
   container.
     - You can disable routing entirely (`traefik.enable = false`) in the
       service configuration.
+- **Client IP**: the entrypoint's `real-ip` middleware (local plugin `realip`) sets
+  `X-Forwarded-For`/`X-Real-Ip` from Cloudflare's `CF-Connecting-IP`, but only for requests
+  from cloudflared (loopback); from containers the header is dropped, so they cannot claim a
+  client IP. Authelia, SearXNG's limiter and the apps all see the real client.
 - **Dashboard**: `https://traefik.yourdomain` (Authelia 2FA, `admins` group); logs at `/var/log/traefik/`
 
 ### Cloudflared Configuration
