@@ -1,0 +1,100 @@
+{ config, ... }:
+let
+  authelia-journal = "/var/lib/nixos-containers/authelia/var/log/journal";
+in
+{
+  # Detection: CrowdSec reads Traefik's access log (every request through the
+  # tunnel) and Authelia's journal (every login). Remediation is the Traefik
+  # bouncer, which asks the LAPI below.
+  services.crowdsec = {
+    enable = true;
+
+    hub = {
+      collections = [
+        "crowdsecurity/traefik"
+        "crowdsecurity/http-cve"
+        "crowdsecurity/base-http-scenarios"
+        "LePresidente/authelia"
+        "crowdsecurity/appsec-virtual-patching"
+        "crowdsecurity/appsec-generic-rules"
+      ];
+      parsers = [
+        # Stage 0 for the journal, then timestamps and GeoIP — the parts of
+        # crowdsecurity/linux these sources need, without sshd.
+        "crowdsecurity/syslog-logs"
+        "crowdsecurity/dateparse-enrich"
+        "crowdsecurity/geoip-enrich"
+        # Loopback and private ranges: hairpin traffic from the containers is
+        # never banned.
+        "crowdsecurity/whitelists"
+      ];
+      appsec-configs = [ "crowdsecurity/appsec-default" ];
+    };
+
+    # The access log is the traefik group's; the journal group is a module default.
+    extraGroups = [ "traefik" ];
+    readOnlyPaths = [ authelia-journal ];
+
+    settings = {
+      config.api.server = {
+        # cAdvisor holds :8080.
+        listen_uri = "127.0.0.1:8180";
+        # The community blocklist. Registering also shares this host's alerts
+        # (attacker IP + scenario) with CrowdSec.
+        online_client.credentials_path = "/var/lib/crowdsec/data/online_api_credentials.yaml";
+      };
+
+      acquisitions = [
+        {
+          filenames = [ "/var/log/traefik/access.log" ];
+          labels.type = "traefik";
+        }
+        {
+          source = "journalctl";
+          journalctl_filter = [ "--directory=${authelia-journal}" "_SYSTEMD_UNIT=authelia-main.service" ];
+          labels.type = "syslog";
+        }
+        # Inline request inspection for the Traefik bouncer (Task 12).
+        {
+          source = "appsec";
+          listen_addr = "127.0.0.1:7422";
+          appsec_config = "crowdsecurity/appsec-default";
+          name = "appsec";
+          labels.type = "appsec";
+        }
+      ];
+
+      # Stage 0 for everything that is not syslog (the access log, AppSec):
+      # the source's type label becomes the program the parsers match on. The
+      # hub no longer ships crowdsecurity/non-syslog; this is its body.
+      parsers.s00Raw = [{
+        name = "hlamlab/non-syslog";
+        filter = "evt.Line.Labels.type != 'syslog'";
+        onsuccess = "next_stage";
+        statics = [
+          { parsed = "message"; expression = "evt.Line.Raw"; }
+          { parsed = "program"; expression = "evt.Line.Labels.type"; }
+          { meta = "datasource_path"; expression = "evt.Line.Src"; }
+          { meta = "datasource_type"; expression = "evt.Line.Module"; }
+        ];
+      }];
+
+      # CrowdSec's stock profiles: an alert on an IP or a range becomes a 4h ban.
+      # Without profiles alerts never turn into decisions.
+      profiles = map
+        (scope: {
+          name = "default_${scope}_remediation";
+          filters = [ ''Alert.Remediation == true && Alert.GetScope() == "${if scope == "ip" then "Ip" else "Range"}"'' ];
+          decisions = [{ type = "ban"; duration = "4h"; }];
+          on_success = "break";
+        })
+        [ "ip" "range" ];
+    };
+  };
+
+  # The module links its config files with tmpfiles, so the unit itself never
+  # changes and a deploy would keep running the old parsers and acquisitions.
+  systemd.services.crowdsec.restartTriggers = [
+    (builtins.toJSON { inherit (config.services.crowdsec) settings hub; })
+  ];
+}

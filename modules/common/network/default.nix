@@ -34,5 +34,6 @@ in
     ./cloudflared.nix
     ./alloy.nix
     ./exporters.nix
+    ./crowdsec.nix
   ];
 }

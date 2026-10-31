@@ -9,6 +9,7 @@ SSH, mDNS/Avahi, Traefik reverse proxy, and Cloudflare Tunnel.
 | `default.nix`     | SSH server, mDNS/Avahi, imports traefik + cloudflared          |
 | `traefik.nix`     | Core Traefik: entrypoint, LE certificate, middlewares, dashboard |
 | `cloudflared.nix` | Cloudflare Tunnel ingress → Traefik :443                       |
+| `crowdsec.nix`    | CrowdSec engine: Traefik access log + Authelia journal, LAPI 127.0.0.1:8180 |
 | `traefik-plugins/realip/` | Local Traefik plugin: client IP from `CF-Connecting-IP` (Go, `go test`) |
 
 ---
