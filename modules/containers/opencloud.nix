@@ -32,9 +32,11 @@ in
         environmentFile = svc.opencloud.secrets.opencloud-sharing-secret.path;
         environment = {
           PROXY_TLS = "false";
-          INITIAL_ADMIN_PASSWORD = "admin";
 
           OC_ADD_RUN_SERVICES = "collaboration";
+          # Logins come from Authelia; the built-in IdP would be a second,
+          # password-only door.
+          OC_EXCLUDE_RUN_SERVICES = "idp";
 
           COLLABORATION_APP_NAME = "Office";
           COLLABORATION_APP_PRODUCT = "Collabora";
