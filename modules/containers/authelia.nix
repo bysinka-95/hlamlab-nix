@@ -9,6 +9,9 @@ in
     port = 9091;
     domainPrefix = "auth";
 
+    # The user directory. Everything else Authelia talks to comes to it.
+    talksTo.lldap = [ 3890 ];
+
     # The NixOS module names the instance's unit and state dir after the
     # instance, not the service.
     serviceUser = "authelia-main";
@@ -79,6 +82,9 @@ in
         settings = {
           theme = "auto";
           default_2fa_method = "totp";
+
+          # No internet egress. Containers share the host's clock anyway.
+          ntp.disable_startup_check = true;
 
           server = {
             address = "tcp://0.0.0.0:${toString svc.authelia.port}/";

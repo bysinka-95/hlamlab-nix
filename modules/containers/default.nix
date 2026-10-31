@@ -1,15 +1,15 @@
 { config, ... }:
 {
   # The host firewall is nftables: networking.firewall renders to it, and
-  # the frame's per-container FORWARD rules need it.
+  # the frame's per-container FORWARD rules need it. FORWARD drops by default;
+  # the frame allows what each service declares (talksTo, internet).
   networking.nftables.enable = true;
+  networking.firewall.filterForward = true;
 
-  # NAT so containers can reach the outside world. By source address, not
-  # interface: `ve-+` is an iptables wildcard the nftables backend would
-  # render literally, matching nothing.
+  # NAT for the containers with `internet = true` (the frame lists them in
+  # internalInterfaces).
   networking.nat = {
     enable = true;
-    internalIPs = [ "10.0.0.0/24" ];
     externalInterface = config.hlamlab.settings.lanInterface;
   };
 

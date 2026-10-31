@@ -24,6 +24,14 @@ in
     # Internal only — reached solely by Grafana. No public route.
     traefik.enable = false;
 
+    # Scrape targets inside other containers (the per-container node
+    # exporters on :9101 are allowed by the frame itself).
+    talksTo = {
+      authelia = [ 9959 ];
+      grafana = [ svc.grafana.port ];
+      loki = [ svc.loki.port ];
+    };
+
     dataDir = "/var/lib/prometheus2";
 
     containerConfig = { ... }: {

@@ -9,6 +9,12 @@ in
 
     ramLimit = "768M";
 
+    # Its two datasources.
+    talksTo = {
+      prometheus = [ svc.prometheus.port ];
+      loki = [ svc.loki.port ];
+    };
+
     secrets = {
       grafana-oidc-secret = {
         key = "grafana/oidc-client-secret";

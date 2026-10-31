@@ -13,6 +13,9 @@ in
     ramLimit = "4G";
     ramHigh = "3G";
 
+    # Machine-learning models are downloaded on first use.
+    internet = true;
+
     secrets = {
       immich-oidc-client-secret = {
         key = "immich/oidc-client-secret";

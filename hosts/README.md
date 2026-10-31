@@ -147,7 +147,9 @@ Every option under `hlamlab.services.<name>`. The `description` strings in
 | `ip`                    | `str`    | *Required*                | Container local IP address (e.g., `10.0.0.5`).                                                               |
 | `port`                  | `int`    | *Required*                | Container service port exposed to Traefik.                                                                   |
 | `domainPrefix`          | `str`    | `<name>`                  | Prefix for the domain routing (e.g., `'auth'`).                                                              |
-| `nameservers`           | `list`   | `[ "1.1.1.1" "1.0.0.1" ]` | Resolvers for internet egress only; sibling services' public names map to the host's Traefik.               |
+| `talksTo`               | `attrs`  | `{}`                      | Siblings this service calls on the private network: `{ <service> = [ <tcp ports> ]; }`. All else dropped.  |
+| `internet`              | `bool`   | `false`                   | Allow internet egress (private ranges / the home LAN stay unreachable).                                     |
+| `nameservers`           | `list`   | `[ "1.1.1.1" "1.0.0.1" ]` if `internet`, else `[]` | Resolvers for internet egress only; sibling services' public names map to the host's Traefik. |
 | `traefik.enable`        | `bool`   | `true`                    | Publish this service through Traefik.                                                                        |
 | `traefikMiddlewares`    | `list`   | `[ "security-headers" ]`  | Traefik middlewares applied to this service's router.                                                        |
 | **Derived (read-only)** |          |                           |                                                                                                              |

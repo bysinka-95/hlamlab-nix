@@ -26,6 +26,10 @@ in
 
           SIGNUPS_ALLOWED = false;
 
+          # No internet egress: the client fetches site icons itself (by
+          # redirect) instead of the server downloading them.
+          ICON_SERVICE = "duckduckgo";
+
           DATA_FOLDER = "/var/lib/vaultwarden";
 
           SSO_ENABLED = true;

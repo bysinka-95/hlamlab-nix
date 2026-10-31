@@ -8,6 +8,9 @@ in
     port = 8888;
     domainPrefix = "searxng";
 
+    # It queries the search engines.
+    internet = true;
+
     secrets = {
       searx-env = {
         key = "searx/env";

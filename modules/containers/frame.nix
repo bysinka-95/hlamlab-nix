@@ -163,13 +163,36 @@ in
           description = "CPU limit (CPUQuota) for the container";
         };
 
+        talksTo = lib.mkOption {
+          type = lib.types.attrsOf (lib.types.listOf lib.types.port);
+          default = { };
+          example = { lldap = [ 3890 ]; };
+          description = ''
+            Sibling services this one calls directly on the private network,
+            with their TCP ports. Every other container-to-container flow is
+            dropped. Calls by public name go through the host's Traefik and
+            need no entry.
+          '';
+        };
+
+        internet = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = ''
+            Allow egress to the internet. Private ranges (the home LAN) stay
+            unreachable either way.
+          '';
+        };
+
         nameservers = lib.mkOption {
           type = lib.types.listOf lib.types.str;
-          default = [ "1.1.1.1" "1.0.0.1" ];
+          default = if config.internet then [ "1.1.1.1" "1.0.0.1" ] else [ ];
+          defaultText = lib.literalExpression ''if internet then [ "1.1.1.1" "1.0.0.1" ] else [ ]'';
           description = ''
             Resolvers for the container, used for internet egress only. Sibling
             services' public names never reach them: `networking.hosts` maps
-            those to the host's Traefik.
+            those to the host's Traefik. None without `internet`, so a stray
+            lookup fails at once instead of timing out.
           '';
         };
 
@@ -231,6 +254,11 @@ in
                 svc.secrets);
 
               networking.nameservers = svc.nameservers;
+              # nspawn copies the host's resolv.conf in, and by default the
+              # container merges it: the LAN router's DNS would come first,
+              # which the firewall drops — lookups would hang instead of
+              # failing, or use the home router behind the frame's back.
+              networking.useHostResolvConf = false;
               networking.hosts.${hostAddress} = publicNames;
               networking.firewall.allowedTCPPorts = [ svc.port ];
               system.stateVersion = hostConfig.system.stateVersion;
@@ -301,6 +329,45 @@ in
         };
       })
       enabledServices;
+
+    # 1a. Traffic between containers: default drop, plus the flows each service
+    # declares. Everything is routed by the host, so filtering FORWARD gives
+    # per-flow segmentation without extra bridges. Calls by public name are
+    # host INPUT (Traefik), not FORWARD, and need nothing here.
+    assertions = lib.mapAttrsToList
+      (name: svc: {
+        assertion = lib.all (dst: cfg ? ${dst}) (lib.attrNames svc.talksTo);
+        message = "hlamlab.services.${name}.talksTo names an unknown service: ${toString (lib.attrNames svc.talksTo)}";
+      })
+      enabledServices;
+
+    networking.firewall.extraForwardRules = lib.mkMerge [
+      # Never the home LAN, internet egress or not.
+      (lib.mkBefore ''
+        iifname "ve-*" oifname "${hostConfig.hlamlab.settings.lanInterface}" ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10 } drop
+      '')
+      (lib.concatStrings (lib.mapAttrsToList
+        (src: svc: lib.concatStrings (lib.mapAttrsToList
+          (dst: ports: lib.optionalString (enabledServices ? ${dst}) ''
+            iifname "ve-${src}" oifname "ve-${dst}" tcp dport { ${lib.concatMapStringsSep ", " toString ports} } accept
+          '')
+          svc.talksTo))
+        enabledServices))
+      # The per-container exporters below are the frame's own.
+      (lib.optionalString (hostConfig.hlamlab.observability.enable && enabledServices ? prometheus) ''
+        iifname "ve-prometheus" oifname "ve-*" tcp dport 9101 accept
+      '')
+      # A missing flow shows up in the journal (and Loki) instead of failing
+      # silently; the chain's drop policy follows.
+      (lib.mkAfter ''
+        iifname "ve-*" limit rate 10/minute log prefix "hlamlab-forward-drop: "
+      '')
+    ];
+
+    # Internet egress only for services that declare it: NAT masquerades and
+    # accepts exactly these (explicit names — nftables takes no `ve-+`).
+    networking.nat.internalInterfaces = lib.mapAttrsToList (name: _: "ve-${name}")
+      (lib.filterAttrs (name: svc: svc.internet) enabledServices);
 
     # 1b. Secrets, decrypted on the host only (root, 0400) and handed to the
     # container by nspawn. A changed secret restarts that container.

@@ -88,6 +88,14 @@ in
     # hosts/README.md. No lib.mkDefault: this module is their only definer.
     storageQuota = "50G";
 
+    # Network: every container-to-container flow is dropped unless declared.
+    # List only siblings you call directly on the private network (ip:port);
+    # calls by public URL go through the host's Traefik and need nothing.
+    talksTo.postgres = [ 5432 ];
+    # Internet egress (never the home LAN). Without it the container has no
+    # resolvers, so stray lookups fail at once.
+    internet = true;
+
     # Optional: secrets from secrets.yaml, handed in as credentials (host decrypts)
     secrets = {
       myservice-env = {
@@ -115,6 +123,12 @@ in
 > It also opens the service `port` in the container firewall; declare `allowedTCPPorts` only for
 > *extra* ports (e.g. LDAP `3890`). Override `dataDir` only when the upstream module insists on
 > another path — collabora wants `/var/lib/cool`.
+>
+> The host firewall drops traffic between containers unless the source declares it in `talksTo`,
+> and internet egress unless it sets `internet = true`. A missing flow shows up in the journal as
+> `hlamlab-forward-drop:` (`journalctl -k | grep hlamlab-forward-drop`) — declare it there; never
+> widen the firewall by hand. Prometheus' scrape of the frame's per-container exporters (:9101) is
+> allowed by the frame itself.
 >
 > Secrets arrive as systemd credentials: only the host decrypts, and the container gets just its
 > own, in RAM. Reference them through `svc.<name>.secrets.<id>.path`. Set `unit` only when the
