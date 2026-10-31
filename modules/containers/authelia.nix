@@ -191,6 +191,11 @@ in
                   claims_policy = "opencloud";
                   public = true;
                   authorization_policy = "one_factor";
+                  # The web app signs in and renews tokens in a hidden iframe.
+                  # Authelia's consent page refuses to be framed, so with a
+                  # consent step every silent attempt times out (~10 s each)
+                  # before the app falls back to a full redirect.
+                  consent_mode = "implicit";
                   redirect_uris = [
                     "${svc.opencloud.baseUrl}/"
                     "${svc.opencloud.baseUrl}/oidc-callback.html"
