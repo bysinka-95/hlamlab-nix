@@ -55,3 +55,27 @@ func TestInvalidCIDRIsAnError(t *testing.T) {
 		t.Error("expected an error for an invalid CIDR")
 	}
 }
+
+// Authelia (forwardAuth, trustForwardHeader) decides on X-Forwarded-Host/-Uri/
+// -Method. Cloudflare passes the client's own on, so they must be dropped and
+// refilled by Traefik from the real request.
+func TestClientCannotChooseWhatAutheliaChecks(t *testing.T) {
+	forged := map[string]string{
+		"CF-Connecting-IP":   "203.0.113.7",
+		"X-Forwarded-Host":   "searxng.example.com",
+		"X-Forwarded-Uri":    "/public",
+		"X-Forwarded-Method": "OPTIONS",
+		"X-Forwarded-Prefix": "/x",
+	}
+	for _, peer := range []string{"127.0.0.1:40000", "10.0.0.8:40000"} {
+		got := serve(t, peer, forged)
+		if got.Get("X-Forwarded-Host") != "auth.example.com" {
+			t.Errorf("peer %s: X-Forwarded-Host = %q, want the request's host", peer, got.Get("X-Forwarded-Host"))
+		}
+		for _, h := range []string{"X-Forwarded-Uri", "X-Forwarded-Method", "X-Forwarded-Prefix"} {
+			if got.Get(h) != "" {
+				t.Errorf("peer %s: %s kept: %q", peer, h, got.Get(h))
+			}
+		}
+	}
+}

@@ -38,7 +38,17 @@ func New(_ context.Context, next http.Handler, cfg *Config, _ string) (http.Hand
 	return r, nil
 }
 
+// forwardAuth (trustForwardHeader) hands X-Forwarded-Host/-Uri/-Method to
+// Authelia as the request to check, and Cloudflare passes the client's own on.
+// Host is pinned to the real one (backends build URLs from it); the rest are
+// dropped and forwardAuth refills them from the real request.
+var authHeaders = []string{"X-Forwarded-Uri", "X-Forwarded-Method", "X-Forwarded-Prefix"}
+
 func (r *realIP) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	req.Header.Set("X-Forwarded-Host", req.Host)
+	for _, h := range authHeaders {
+		req.Header.Del(h)
+	}
 	if !r.fromTrusted(req.RemoteAddr) {
 		req.Header.Del("CF-Connecting-IP")
 	} else if ip := net.ParseIP(req.Header.Get("CF-Connecting-IP")); ip != nil {
