@@ -208,6 +208,16 @@ in
           description = "Give this service its own ZFS dataset, bind mount and snapshot schedule";
         };
 
+        privateUsers = lib.mkOption {
+          type = lib.types.enum [ "no" "pick" ];
+          default = "no";
+          description = ''
+            "pick": the container runs in its own user namespace, so its root is
+            an unprivileged uid range on the host. The data dataset is then
+            mounted idmapped, keeping its on-disk owners unchanged.
+          '';
+        };
+
         containerConfig = lib.mkOption {
           type = lib.types.unspecified;
           description = "NixOS configuration for inside the container";
@@ -226,7 +236,9 @@ in
         inherit hostAddress;
         localAddress = svc.ip;
 
-        bindMounts = lib.optionalAttrs svc.zfs.enable {
+        inherit (svc) privateUsers;
+
+        bindMounts = lib.optionalAttrs (svc.zfs.enable && svc.privateUsers == "no") {
           ${svc.dataDir} = {
             hostPath = "/var/lib/services/${name}";
             isReadOnly = false;
@@ -238,7 +250,11 @@ in
         # PID 1 sees them under /run/credentials/@system.
         extraFlags = lib.mapAttrsToList
           (id: _: "--load-credential=${id}:${hostConfig.sops.secrets."${name}/${id}".path}")
-          svc.secrets;
+          svc.secrets
+        # bindMounts has no mount options; under a user namespace the data
+        # mount needs idmap, or its files show up as nobody inside.
+        ++ lib.optional (svc.zfs.enable && svc.privateUsers != "no")
+          "--bind=/var/lib/services/${name}:${svc.dataDir}:idmap";
 
         config = { ... }: {
           imports = [ svc.containerConfig ];

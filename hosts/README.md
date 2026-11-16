@@ -143,6 +143,7 @@ Every option under `hlamlab.services.<name>`. The `description` strings in
 | **Core**                |          |                           |                                                                                                              |
 | `enable`                | `bool`   | `false`                   | Enable the service on this host.                                                                             |
 | `containerConfig`       | `module` | *Required*                | NixOS configuration for inside the container.                                                                |
+| `privateUsers`          | `enum`   | `"no"`                    | `"pick"`: own user namespace, so the container's root is an unprivileged host uid; the data dataset is mounted idmapped. |
 | **Networking**          |          |                           |                                                                                                              |
 | `ip`                    | `str`    | *Required*                | Container local IP address (e.g., `10.0.0.5`).                                                               |
 | `port`                  | `int`    | *Required*                | Container service port exposed to Traefik.                                                                   |

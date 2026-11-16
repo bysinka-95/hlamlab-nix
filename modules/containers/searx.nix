@@ -11,6 +11,8 @@ in
     # It queries the search engines.
     internet = true;
 
+    privateUsers = "pick";
+
     secrets = {
       searx-env = {
         key = "searx/env";
