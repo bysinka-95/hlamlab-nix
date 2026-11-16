@@ -118,8 +118,9 @@ Cloudflare Dashboard → Zero Trust → Networks → Tunnels → your tunnel →
 ### CrowdSec
 
 - **Detection** ([`crowdsec.nix`](crowdsec.nix)): the engine reads Traefik's access log and
-  Authelia's journal; alerts become 4h bans. The community blocklist comes from CrowdSec's
-  central API, which in return receives this host's alerts.
+  Authelia's journal; alerts become 4h bans. The central API (community blocklist) is off, so
+  nothing about the host or its visitors is sent to CrowdSec. Metrics on `:6060` for the
+  prometheus container; Grafana dashboard **Crowdsec Overview**.
 - **Remediation**: the `crowdsec` middleware (bouncer plugin) runs first on the `https`
   entrypoint, with AppSec virtual patching. It fails open: if CrowdSec is down, traffic passes.
   Containers (`10.0.0.0/24`) are never checked.

@@ -83,6 +83,10 @@ in
             static_configs = [{ targets = [ "10.0.0.1:60123" ]; }];
           }
           {
+            job_name = "crowdsec";
+            static_configs = [{ targets = [ "10.0.0.1:6060" ]; }];
+          }
+          {
             job_name = "prometheus";
             static_configs = [{ targets = [ "127.0.0.1:${toString svc.prometheus.port}" ]; }];
           }

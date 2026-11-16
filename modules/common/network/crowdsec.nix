@@ -36,12 +36,16 @@ in
     readOnlyPaths = [ authelia-journal ];
 
     settings = {
-      config.api.server = {
-        # cAdvisor holds :8080.
-        listen_uri = "127.0.0.1:8180";
-        # The community blocklist. Registering also shares this host's alerts
-        # (attacker IP + scenario) with CrowdSec.
-        online_client.credentials_path = "/var/lib/crowdsec/data/online_api_credentials.yaml";
+      # The Central API (community blocklist) stays off, the module default:
+      # nothing about this host or its visitors leaves it.
+      # cAdvisor holds :8080.
+      config.api.server.listen_uri = "127.0.0.1:8180";
+      # Metrics, for the prometheus container only (firewall below).
+      config.prometheus = {
+        enabled = true;
+        level = "full";
+        listen_addr = "0.0.0.0";
+        listen_port = 6060;
       };
 
       acquisitions = [
@@ -134,6 +138,8 @@ in
       cscli bouncers add traefik --key "$(cat "$CREDENTIALS_DIRECTORY/key")" >/dev/null
     '';
   };
+
+  networking.firewall.interfaces."ve-prometheus".allowedTCPPorts = [ 6060 ];
 
   # The module links its config files with tmpfiles, so the unit itself never
   # changes and a deploy would keep running the old parsers and acquisitions.

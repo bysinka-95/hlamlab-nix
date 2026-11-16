@@ -79,3 +79,4 @@ cAdvisor labels every cgroup with a single `id` = its full path. There is **no**
   use the cAdvisor dashboards for real per-container CPU/memory usage.
 - **13639** Loki logs / quick search.
 - **17346** Traefik official.
+- **crowdsec-overview** — CrowdSec's own v5 Overview ([crowdsecurity/grafana-dashboards](https://github.com/crowdsecurity/grafana-dashboards)), job `crowdsec`.
