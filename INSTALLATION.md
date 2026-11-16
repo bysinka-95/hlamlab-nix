@@ -100,6 +100,9 @@ cloudflare:
     }
   dns-api-token: "placeholder" # Let's Encrypt DNS-01, see network README
 
+crowdsec:
+  bouncer-key: "placeholder" # Traefik bouncer's key for the CrowdSec LAPI
+
 authelia:
   jwt-secret: "placeholder"
   session-secret: "placeholder"
@@ -185,6 +188,9 @@ openssl genrsa -out private.pem 4096
 # Copy the contents of private.pem into authelia-oidc-issuer-private-key, keeping the indentation
 cat private.pem
 rm private.pem
+
+# CrowdSec: the Traefik bouncer's LAPI key (registered automatically at boot)
+nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for crowdsec-bouncer-key
 
 # Authelia's own LLDAP bind user (read-only; lldap-bootstrap creates it)
 nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for authelia-ldap-password

@@ -67,6 +67,8 @@ client secrets, and passwords) are kept encrypted inside `secrets.yaml` using ne
 cloudflare:
   credentials: "..."
   dns-api-token: "..."       # Let's Encrypt DNS-01 (Zone:DNS:Edit + Zone:Zone:Read, one zone)
+crowdsec:
+  bouncer-key: "..."         # Traefik bouncer's LAPI key; rotating it re-registers the bouncer
 searx:
   env: "..."
 grafana:
