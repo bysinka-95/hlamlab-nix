@@ -210,11 +210,12 @@ in
 
         privateUsers = lib.mkOption {
           type = lib.types.enum [ "no" "pick" ];
-          default = "no";
+          default = "pick";
           description = ''
             "pick": the container runs in its own user namespace, so its root is
             an unprivileged uid range on the host. The data dataset is then
-            mounted idmapped, keeping its on-disk owners unchanged.
+            mounted idmapped, keeping its on-disk owners unchanged. "no" only
+            for a service that needs real host root.
           '';
         };
 

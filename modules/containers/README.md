@@ -130,10 +130,10 @@ in
 > widen the firewall by hand. Prometheus' scrape of the frame's per-container exporters (:9101) is
 > allowed by the frame itself.
 >
-> With `privateUsers = "pick"` the container gets its own user namespace: root inside is an
+> Every container gets its own user namespace: root inside is an
 > unprivileged uid range on the host (`machinectl show <name>` / `/proc/<leader>/uid_map`). The
 > root filesystem and the data dataset are mounted idmapped, so files keep their on-disk owners
-> and nothing is chowned.
+> and nothing is chowned. `privateUsers = "no"` opts out, for a service that needs real host root.
 >
 > Secrets arrive as systemd credentials: only the host decrypts, and the container gets just its
 > own, in RAM. Reference them through `svc.<name>.secrets.<id>.path`. Set `unit` only when the
