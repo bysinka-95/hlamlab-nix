@@ -1,5 +1,6 @@
-{ config, ... }:
+{ config, lib, ... }:
 let
+  authelia = config.hlamlab.services.authelia.enable or false;
   authelia-journal = "/var/lib/nixos-containers/authelia/var/log/journal";
 in
 {
@@ -14,10 +15,9 @@ in
         "crowdsecurity/traefik"
         "crowdsecurity/http-cve"
         "crowdsecurity/base-http-scenarios"
-        "LePresidente/authelia"
         "crowdsecurity/appsec-virtual-patching"
         "crowdsecurity/appsec-generic-rules"
-      ];
+      ] ++ lib.optional authelia "LePresidente/authelia";
       parsers = [
         # Stage 0 for the journal, then timestamps and GeoIP — the parts of
         # crowdsecurity/linux these sources need, without sshd.
@@ -33,7 +33,9 @@ in
 
     # The access log is the traefik group's; the journal group is a module default.
     extraGroups = [ "traefik" ];
-    readOnlyPaths = [ authelia-journal ];
+    # "-": missing is fine — before the container's first start, or on a host
+    # without Authelia.
+    readOnlyPaths = lib.optional authelia "-${authelia-journal}";
 
     settings = {
       # The Central API (community blocklist) stays off, the module default:
@@ -53,11 +55,11 @@ in
           filenames = [ "/var/log/traefik/access.log" ];
           labels.type = "traefik";
         }
-        {
-          source = "journalctl";
-          journalctl_filter = [ "--directory=${authelia-journal}" "_SYSTEMD_UNIT=authelia-main.service" ];
-          labels.type = "syslog";
-        }
+      ] ++ lib.optional authelia {
+        source = "journalctl";
+        journalctl_filter = [ "--directory=${authelia-journal}" "_SYSTEMD_UNIT=authelia-main.service" ];
+        labels.type = "syslog";
+      } ++ [
         # Inline request inspection for the Traefik bouncer (Task 12).
         {
           source = "appsec";
@@ -121,10 +123,14 @@ in
   # the sops secret restarts this unit). Runs as crowdsec: cscli writes the
   # LAPI database directly.
   systemd.services.crowdsec-bouncer-register = {
+    # Runs again on every crowdsec start, so a failed first start (hub download,
+    # missing journal) does not leave the bouncer unregistered — which, failing
+    # open, would go unnoticed.
     requires = [ "crowdsec.service" ];
     after = [ "crowdsec.service" ];
+    partOf = [ "crowdsec.service" ];
+    wantedBy = [ "crowdsec.service" ];
     before = [ "traefik.service" ];
-    wantedBy = [ "multi-user.target" ];
     path = [ config.services.crowdsec.package ];
     serviceConfig = {
       Type = "oneshot";
