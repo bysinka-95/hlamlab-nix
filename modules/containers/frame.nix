@@ -411,6 +411,10 @@ in
             reservation = svc.storageReservation;
             compression = "lz4";
             atime = "off";
+            # Container root writes here as host uid 0 (idmapped mount). The
+            # kernel ignores setuid bits on this dataset, so a setuid file the
+            # container leaves cannot give root on the host.
+            setuid = "off";
           };
         };
       })
