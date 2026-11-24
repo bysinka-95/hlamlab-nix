@@ -57,7 +57,7 @@ container can reach the metrics ports: 6060, 8080, 8082, 9100 and 60123.
 | searx       | 10.0.0.8:8888  | https://searxng.yourdomain   | /var/lib/services/searx       | 100% | 512M → 1G        | 10G / 1G         |
 | grafana     | 10.0.0.9:3000  | https://grafana.yourdomain   | /var/lib/services/grafana     | 100% | 512M → 768M      | 10G / 1G         |
 | prometheus  | 10.0.0.10:9090 | internal only (via Grafana)  | /var/lib/services/prometheus  | 100% | 512M → 1G        | 20G / 2G         |
-| loki        | 10.0.0.11:3100 | internal only (via Grafana)  | /var/lib/services/loki        | 100% | 256M → 512M      | 20G / 2G         |
+| loki        | 10.0.0.11:3100 | internal only (via Grafana)  | /var/lib/services/loki        | 100% | 512M → 768M      | 20G / 2G         |
 | —           | 10.0.0.12+     | —                            | —                             | —    | —                | —                |
 
 The host gateway uses **10.0.0.1**. The next free IP is **10.0.0.12**.

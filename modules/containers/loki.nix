@@ -10,8 +10,8 @@ in
     storageQuota = "20G";
     storageReservation = "2G";
 
-    ramLimit = "512M";
-    ramHigh = "256M";
+    ramLimit = "768M";
+    ramHigh = "512M";
 
     # Internal only — receives pushes from the host Alloy, queried by Grafana.
     traefik.enable = false;

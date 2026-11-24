@@ -209,3 +209,43 @@ The datasets have `setuid=off`. Root in the container writes to the data mount a
 leaves there cannot give root on the host.
 
 The [ZFS README](../common/zfs/README.md) explains datasets and snapshots.
+
+### PostgreSQL: collation version mismatch
+
+After a nixpkgs update with a new glibc, PostgreSQL in a container logs this warning every
+30 seconds:
+
+```
+WARNING:  database "immich" has a collation version mismatch
+DETAIL:  The database was created using collation version 2.42, but the operating system provides version 2.44.
+```
+
+Text indexes that use the old sort order can give wrong results. Rebuild them, then record the new
+version. Do this for each database in the container (`immich`, `postgres`, `template1`):
+
+```bash
+sudo nixos-container run immich -- su postgres -c \
+  "psql -d immich -c 'REINDEX DATABASE immich' -c 'ALTER DATABASE immich REFRESH COLLATION VERSION'"
+```
+
+`REINDEX` locks each table for a short time. On a large database, do it when nobody uses the
+service.
+
+### OpenCloud: config after a major upgrade
+
+The module runs `opencloud init` only when `/etc/opencloud/opencloud.yaml` does not exist. A new
+major version can need new keys in that file (9.x needs `auth_guest.service_account`). Without
+them, the new service uses defaults and its feature does not work. After a major upgrade, read the
+upstream upgrade guide, then add the missing keys:
+
+```bash
+sudo nixos-container root-login opencloud
+OC=$(systemctl show opencloud -p ExecStart --value | grep -o '/nix/store/[^ ]*/bin/opencloud' | head -1)
+cd /etc/opencloud && cp -a opencloud.yaml /root/opencloud.yaml.bak
+$OC init --diff --insecure false --config-path /etc/opencloud   # writes opencloud.config.patch
+patch opencloud.yaml < opencloud.config.patch
+rm opencloud.config.patch opencloud.yaml.*.backup
+systemctl restart opencloud
+```
+
+The patch file contains secrets. Do not copy it out of the container.
