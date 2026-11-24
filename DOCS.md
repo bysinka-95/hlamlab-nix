@@ -1,11 +1,12 @@
-# Documentation Index
+# Documentation index
 
-| Module/Path                                                          | Contents                                                            |
-|:---------------------------------------------------------------------|:--------------------------------------------------------------------|
-| [README.md](README.md)                                               | Architecture, service inventory, deploy / upgrade / rollback.       |
-| [INSTALLATION.md](INSTALLATION.md)                                   | Fresh host installation (nixos-anywhere) and initial setup.         |
-| [hosts/README.md](hosts/README.md)                                   | Complete guide for configuring host settings and container options. |
-| [modules/common/network/README.md](modules/common/network/README.md) | SSH, mDNS, Traefik infrastructure, Cloudflare Tunnel setup.         |
-| [modules/common/zfs/README.md](modules/common/zfs/README.md)         | ZFS architecture, snapshot/scrub management, replication.           |
-| [modules/containers/README.md](modules/containers/README.md)         | Service module anatomy, service lifecycle checklist (add/remove).   |
-| [modules/secrets/README.md](modules/secrets/README.md)               | sops-nix usage, key rotation, managing encrypted files.             |
+| Module/Path                                                                          | Contents                                                              |
+|:-------------------------------------------------------------------------------------|:----------------------------------------------------------------------|
+| [README.md](README.md)                                                               | Architecture, services, deploy, upgrade and rollback                  |
+| [INSTALLATION.md](INSTALLATION.md)                                                   | New host install (nixos-anywhere), first setup and checks             |
+| [hosts/README.md](hosts/README.md)                                                   | Host settings and all container options                               |
+| [modules/common/network/README.md](modules/common/network/README.md)                 | SSH, mDNS, Traefik, Cloudflare Tunnel, CrowdSec                       |
+| [modules/common/zfs/README.md](modules/common/zfs/README.md)                         | ZFS datasets, snapshots, scrubs, replication                          |
+| [modules/containers/README.md](modules/containers/README.md)                         | Service modules and how to add a service                              |
+| [modules/containers/dashboards/README.md](modules/containers/dashboards/README.md)   | Grafana dashboards and how to add one                                 |
+| [modules/secrets/README.md](modules/secrets/README.md)                               | sops-nix, age keys, encrypted files                                   |

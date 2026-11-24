@@ -1,17 +1,17 @@
-# Installation Guide
+# Installation guide
 
-Getting this config onto a fresh machine. Two different tools, one each:
+This guide puts the configuration on a new machine. It uses two tools:
 
-| Stage                       | Tool               | Why                                                                                                                       |
-|-----------------------------|--------------------|---------------------------------------------------------------------------------------------------------------------------|
-| First install, bare machine | **nixos-anywhere** | Partitions the disk (disko) and installs NixOS over SSH from the installer ISO. There is nothing to deploy *to* yet.      |
-| Every deploy after that     | **deploy-rs**      | Builds on the target, activates with auto-rollback if the host goes unreachable. See [README § Deploy](README.md#deploy). |
+| Stage                       | Tool               | Why                                                                                                                 |
+|-----------------------------|--------------------|---------------------------------------------------------------------------------------------------------------------|
+| First install, bare machine | **nixos-anywhere** | It partitions the disk (disko) and installs NixOS over SSH from the installer ISO. There is no system to deploy to. |
+| Each deploy after that      | **deploy-rs**      | It builds on the target and rolls back if the host becomes unreachable. See [README § Deploy](README.md#deploy).    |
 
-Do not reach for nixos-anywhere again after Part 2 — it repartitions the disk.
+Do not run nixos-anywhere again after Part 2. It partitions the disk again and deletes all data.
 
 ---
 
-## Part 1: Pre-Installation
+## Part 1: Before the install
 
 ### 1. Add your SSH key
 
@@ -27,22 +27,20 @@ users.users.hlamnix.openssh.authorizedKeys.keys = [ "ssh-ed25519 AAAAC3..." ];
 nix run nixpkgs#mkpasswd -- -m sha-512
 ```
 
-Paste the output hash into `users.users.hlamnix.hashedPassword` in [
-`configuration.nix`](hosts/playground/configuration.nix).
+Put the hash into `users.users.hlamnix.hashedPassword` in
+[`configuration.nix`](hosts/playground/configuration.nix).
 
-### 3. Verify disk device
+### 3. Check the disk device
 
-Check [`hosts/playground/disk-config.nix`](hosts/playground/disk-config.nix) — default device is
-`/dev/sda`. If your
-target machine uses a different disk (e.g., NVMe drives often show as `/dev/nvme0n1`), update the
-device path
-accordingly.
+The default device in [`hosts/playground/disk-config.nix`](hosts/playground/disk-config.nix) is
+`/dev/sda`. If the target uses a different disk, change the path. NVMe disks often show as
+`/dev/nvme0n1`.
 
-### 4. Set ZFS host ID (before first install)
+### 4. Set the ZFS host ID
 
-Read the host ID from the target machine during installation, then set it in [
-`hosts/playground/configuration.nix`](hosts/playground/configuration.nix) **before** running
-`nixos-anywhere`.
+Read the host ID on the target in the installer shell. Set it in
+[`hosts/playground/configuration.nix`](hosts/playground/configuration.nix) **before** you run
+nixos-anywhere.
 
 ```bash
 # On the target machine (installer shell)
@@ -53,18 +51,25 @@ head -c 8 /etc/machine-id; echo
   hlamlab.settings.hostId = "<8-hex-chars>";
 ```
 
-> Important: do not change this value after initial installation. If the pool was created/imported
-> with a different host ID, changing `hostId` later can prevent `tank` from importing at boot.
+> Do not change this value after the install. ZFS records the host ID in the pool. With a
+> different `hostId`, `tank` can fail to import at boot.
 
-### 5. Set up secrets
+### 5. Set the LAN interface
 
-**Generate your age key:**
+Set `hlamlab.settings.lanInterface` to the name of the target's network interface. The installer
+shell shows it with `ip -br link`. The default is `ens18` (Proxmox virtio).
+
+> A wrong `lanInterface` cuts SSH. The firewall opens SSH on that interface only.
+
+### 6. Set up secrets
+
+**Make your age key:**
 
 ```bash
 # macOS
 mkdir -p ~/Library/Application\ Support/sops/age
 nix run nixpkgs#age -- -generate -o ~/Library/Application\ Support/sops/age/keys.txt
-nix run nixpkgs#age -- -y ~/Library/Application\ Support/sops/age/keys.txt  # prints public key
+nix run nixpkgs#age -- -y ~/Library/Application\ Support/sops/age/keys.txt  # prints the public key
 
 # Linux
 mkdir -p ~/.config/sops/age
@@ -77,14 +82,14 @@ nix run nixpkgs#age -- -y ~/.config/sops/age/keys.txt
 ```yaml
 keys:
   - &admin age1abc123...     # your public key from above
-  - &playground age1xyz...   # added post-install (step 3.2)
+  - &playground age1xyz...   # added after the install (Part 3, step 2)
 creation_rules:
-  - path_regex: secrets/secrets.yaml$
+  - path_regex: modules/secrets/secrets\.yaml$
     key_groups:
       - age: [*admin, *playground]
 ```
 
-**Initialize secrets file with placeholders:**
+**Create the secrets file with placeholders:**
 
 ```bash
 nix run nixpkgs#sops -- modules/secrets/secrets.yaml
@@ -141,13 +146,13 @@ opencloud:
 grafana:
   oidc-client-secret: "placeholder" # Authelia stores only its digest (authelia.grafana-oidc-digest)
   admin-password: "placeholder"     # break-glass local admin (login form disabled)
-  secret-key: "placeholder"         # Grafana DB encryption key — keep stable
+  secret-key: "placeholder"         # Grafana DB encryption key, keep it stable
 ```
 
-**Generate Application Secrets:**
+**Generate the values:**
 
-To generate secure values, we use the `authelia` CLI tool via Nix to ensure they meet length and
-complexity requirements perfectly, and `openssl` for the RSA keys:
+The `authelia` CLI makes random values with the correct length and characters. `openssl` makes
+the RSA key.
 
 ```bash
 # Generate 64-character alphanumeric secrets for Authelia
@@ -189,34 +194,35 @@ openssl genrsa -out private.pem 4096
 cat private.pem
 rm private.pem
 
-# CrowdSec: the Traefik bouncer's LAPI key (registered automatically at boot)
+# CrowdSec: the Traefik bouncer's LAPI key (registered automatically at each CrowdSec start)
 nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for crowdsec-bouncer-key
 
 # Authelia's own LLDAP bind user (read-only; lldap-bootstrap creates it)
 nix run nixpkgs#authelia -- crypto rand --length 64 --charset alphanumeric # Use for authelia-ldap-password
 ```
 
-**Authelia never holds the OIDC client secrets**, only their pbkdf2 digests — the plaintext stays
-in each client's own container. Once the client secrets are in `secrets.yaml`, derive the digests:
+Replace the placeholders in `secrets.yaml` with the generated values.
+
+**Authelia does not keep the OIDC client secrets.** It keeps only their pbkdf2 digests. The
+plaintext stays in the container of each client. When the client secrets are in `secrets.yaml`,
+make the digests:
 
 ```bash
 for c in immich vaultwarden grafana; do
   p=$(nix run nixpkgs#sops -- -d --extract "[\"$c\"][\"oidc-client-secret\"]" modules/secrets/secrets.yaml)
   nix run nixpkgs#authelia -- crypto hash generate pbkdf2 --variant sha512 --password "$p" \
-    | sed -n 's/^Digest: //p' | jq -R . \
+    | sed -n 's/^Digest: //p' | nix run nixpkgs#jq -- -R . \
     | nix run nixpkgs#sops -- set --value-stdin modules/secrets/secrets.yaml "[\"authelia\"][\"$c-oidc-digest\"]"
 done; unset p
 ```
 
-Rotating a client secret means regenerating its digest too.
+When you change a client secret, make its digest again.
 
-Replace the placeholders in your `secrets.yaml` file with the generated values.
+You can put the real Cloudflare DNS token and tunnel credentials in now. The
+[network README](modules/common/network/README.md#certificate-and-credentials) shows how to get
+them. Traefik gets its Let's Encrypt certificate itself at the first start.
 
-The Cloudflare DNS token and tunnel credentials can be real already — see
-[network README](modules/common/network/README.md#certificate-and-credentials). Traefik obtains
-its Let's Encrypt certificate by itself on first start.
-
-### 7. Validate
+### 7. Check the configuration
 
 ```bash
 nix flake check
@@ -224,19 +230,18 @@ nix flake check
 
 ---
 
-## Part 2: Installation
+## Part 2: Install
 
-Boot the target machine with the [NixOS installer ISO](https://nixos.org/download.html#nixos-iso),
-then:
+Boot the target with the [NixOS installer ISO](https://nixos.org/download.html#nixos-iso). Then
+run these commands on the target:
 
 ```bash
-# On target machine:
-ip a          # note IP
-passwd        # set temporary root password for nixos-anywhere SSH
-head -c 8 /etc/machine-id; echo # save this for hlamlab.settings.hostId (Part 1, step 4)
+ip a          # note the IP
+passwd        # set a temporary root password for nixos-anywhere SSH
+head -c 8 /etc/machine-id; echo # the value for hlamlab.settings.hostId (Part 1, step 4)
 ```
 
-From your local machine:
+Then run this on your local machine:
 
 ```bash
 nix run github:nix-community/nixos-anywhere -- \
@@ -246,22 +251,24 @@ nix run github:nix-community/nixos-anywhere -- \
   --build-on remote
 ```
 
-`--build-on remote` is required when deploying from a different architecture (e.g., ARM → x86_64).
+Use `--build-on remote` when your local machine has a different architecture, for example ARM to
+x86_64.
 
 ---
 
-## Part 3: Post-Installation
+## Part 3: After the install
 
-### 1. Get host age key
+### 1. Get the host age key
+
+The host decrypts the secrets with its SSH host key. Get the age form of that key:
 
 ```bash
-ssh hlamnix@<target-ip>
-nix-shell -p ssh-to-age --run 'cat /etc/ssh/ssh_host_ed25519_key.pub | ssh-to-age'
+ssh hlamnix@<target-ip> cat /etc/ssh/ssh_host_ed25519_key.pub | nix run nixpkgs#ssh-to-age
 ```
 
-### 2. Add host key to sops
+### 2. Add the host key to sops
 
-Add the printed `age1...` key to `.sops.yaml` as `&playground`, then:
+Add the printed `age1...` key to `.sops.yaml` as `&playground`. Then run:
 
 ```bash
 nix run nixpkgs#sops -- updatekeys modules/secrets/secrets.yaml
@@ -269,98 +276,103 @@ nix run nixpkgs#sops -- updatekeys modules/secrets/secrets.yaml
 
 ### 3. Deploy
 
-From here on every deploy is deploy-rs. The target host, SSH user, remote build and rollback
-behaviour all live in [`flake.nix`](flake.nix) under `deploy`, so the command carries no flags:
+From now on, use deploy-rs for each deploy. [`flake.nix`](flake.nix) declares the target host, the
+SSH user, the remote build and the rollback under `deploy`. The command needs no flags:
 
 ```bash
-git add -A  # Nix ignores untracked files — stage first
+git add -A  # Nix ignores untracked files, so stage them first
 nix run nixpkgs#deploy-rs -- .#playground
 ```
 
-`flake.nix` targets `playground.local` over mDNS. Avahi needs ~30s after boot, and some networks
-block mDNS entirely — override for this deploy without editing the flake:
+`flake.nix` uses the mDNS name `playground.local`. Avahi needs about 30 seconds after boot. Some
+networks block mDNS. In these cases, give the IP for this one deploy:
 
 ```bash
 nix run nixpkgs#deploy-rs -- .#playground --hostname <target-ip>
 ```
 
-If activation succeeds but the host stops answering SSH, deploy-rs does **not** confirm and the
-host rolls itself back — you get your previous generation, not a brick. See
-[README § Deploy](README.md#deploy) for `--dry-activate` / `--test` and manual rollback.
+If the activation works but the host stops answering SSH, deploy-rs does **not** confirm the
+deploy. The host then goes back to the previous generation. The
+[README § Deploy](README.md#deploy) explains `--dry-activate`, `--test` and manual rollback.
 
-### 4. Update real secrets
+### 4. Put in the real secrets
 
-Replace any remaining placeholders — the Cloudflare DNS token and tunnel credentials in
-particular. See [network README](modules/common/network/README.md#certificate-and-credentials).
+Replace all remaining placeholders, mainly the Cloudflare DNS token and the tunnel credentials.
+See the [network README](modules/common/network/README.md#certificate-and-credentials).
 
-After secrets are updated and deployed, reboot once or restart the affected services.
+Deploy. Then reboot once, or restart the services that use the changed secrets:
 
 ```bash
 # Option A: simplest and safest
 ssh hlamnix@<target-ip> "sudo reboot"
 
-# Option B: restart only related services
+# Option B: restart only the related services
 ssh hlamnix@<target-ip> "sudo systemctl restart cloudflared traefik"
 ```
 
 ### 5. Create your everyday user in LLDAP
 
-LLDAP's built-in `admin` (password: `lldap-user-pass`) manages the directory. Keep it for
-that — don't log in to the services with it. Create yourself a separate everyday user
-in the LLDAP UI, logged in as `admin`.
+The built-in LLDAP `admin` (password: `lldap-user-pass`) manages the directory. Use it only for
+that. Do not log in to the services with it. Log in to the LLDAP UI as `admin` and create a
+separate user for yourself.
 
-`https://lldap.<domain>` only opens for members of `admins`, and on a fresh install
-there are none yet. The first time, reach the UI over SSH instead (the same works
-later as break-glass):
+Only members of `admins` can open `https://lldap.<domain>`. A new install has no members yet. For
+the first time, open the UI through an SSH tunnel. The same tunnel works later as a break-glass
+path:
 
 ```bash
 ssh -N -L 17170:<lldap container ip>:3000 hlamnix@<target-ip>   # 10.0.0.6 by default
 # then open http://localhost:17170
 ```
 
-1. Create the user. Fill in **Display name** and **Email** — OpenCloud refuses users
-   without a display name.
-2. Add it to the group `admins` (created on deploy by `lldap-bootstrap` in
-   `modules/containers/lldap.nix`). Members of `admins` become Grafana server admins,
-   Immich admins and OpenCloud admins; everyone else gets regular accounts.
-3. Don't add it to `lldap_admin`: that group can edit the directory itself.
+1. Create the user. Fill in **Display name** and **Email**. OpenCloud refuses users without a
+   display name.
+2. Add the user to the group `admins`. `lldap-bootstrap` in `modules/containers/lldap.nix` creates
+   this group at deploy. Members of `admins` become Grafana server admins, Immich admins and
+   OpenCloud admins. All other users get regular accounts.
+3. Do not add the user to `lldap_admin`. Members of that group can edit the directory.
 
-Every login needs a second factor (TOTP). Log in at `https://auth.<domain>` and register
-an authenticator app. Authelia confirms it is you with a one-time code; there is no mail
-server, so the "email" lands in a file:
+Each login needs a second factor (TOTP):
+
+1. Log in at `https://auth.<domain>`.
+2. Register an authenticator app.
+3. Authelia sends a one-time code to confirm your identity. There is no mail server, so the code
+   goes into a file. Read it:
 
 ```bash
 ssh hlamnix@<target-ip> "sudo nixos-container run authelia -- cat /var/lib/authelia-main/notification.txt"
 ```
 
-The same goes for other users you add later: read their code there and pass it on.
+Do the same for each user that you add later. Read their code in this file and give it to them.
 
-After that one Authelia session opens every service without asking again. `lldap.`,
-`traefik.` and Vaultwarden's `/admin` are open to `admins` only; the last still asks
-for `ADMIN_TOKEN` too.
+After this, one Authelia session opens all services. Only members of `admins` can open `lldap.`,
+`traefik.` and the Vaultwarden `/admin` page. `/admin` also asks for `ADMIN_TOKEN`.
 
-Log in to Grafana at `https://grafana.<domain>` — you are redirected straight to
-Authelia (the local login form is disabled).
+Log in to Grafana at `https://grafana.<domain>`. Grafana sends you directly to Authelia, because
+its local login form is off.
 
-> Break-glass: if OIDC ever breaks, set `auth.disable_login_form = false` in
-> `grafana.nix` for one rebuild and log in with `admin` / `grafana-admin-password`.
+> Break-glass: if OIDC stops working, set `auth.disable_login_form = false` in `grafana.nix` for
+> one deploy. Then log in with `admin` and `grafana-admin-password`.
 
 ---
 
-## Verification
+## Checks
 
 ```bash
-ping playground.local                          # mDNS working
-ssh hlamnix@playground.local "zpool status"    # ZFS healthy
+ping playground.local                          # mDNS works
+ssh hlamnix@playground.local "zpool status"    # ZFS is healthy
 ssh hlamnix@playground.local "zfs list"        # datasets exist
-ssh hlamnix@playground.local "machinectl list" # containers running
-systemctl status traefik                       # (on host)
+ssh hlamnix@playground.local "machinectl list" # containers run
+ssh hlamnix@playground.local "systemctl --failed" # no failed units on the host
+
+# CrowdSec: the traefik bouncer exists and has a recent last pull.
+# It fails open, so this is the only sign that it does not work.
+ssh hlamnix@playground.local "sudo -u crowdsec cscli bouncers list"
 
 # Observability
-ssh hlamnix@playground.local "ls /var/log/journal/"        # host + per-container machine-id dirs
-ssh hlamnix@playground.local "journalctl -M immich -n 5"   # container logs visible from host
-ssh hlamnix@playground.local "systemctl status alloy"      # log agent healthy
-# Prometheus targets all UP (from the host, via the gateway IP):
+ssh hlamnix@playground.local "sudo journalctl -M immich -n 5"   # container logs, read from the host
+ssh hlamnix@playground.local "systemctl status alloy"      # host log agent is healthy
+# All Prometheus targets are up:
 ssh hlamnix@playground.local "curl -s 10.0.0.10:9090/api/v1/targets | grep -o '\"health\":\"[^\"]*\"' | sort | uniq -c"
 ```
 
@@ -368,43 +380,46 @@ ssh hlamnix@playground.local "curl -s 10.0.0.10:9090/api/v1/targets | grep -o '\
 
 ## Troubleshooting
 
-**SSH fails post-install** — verify target is booted (`ping <ip>`); check `systemctl status sshd`
-via console.
+**SSH fails after the install.** Check that the target booted (`ping <ip>`). On the console, run
+`systemctl status sshd`. Check that `lanInterface` is the name of the real interface.
 
-**`playground.local` not resolving** — wait 30s after boot for Avahi; use IP directly in the
-meantime.
+**`playground.local` does not resolve.** Wait 30 seconds after boot for Avahi. Use the IP until
+then.
 
-**Secrets decryption fails** — verify age key is at the right path (macOS:
-`~/Library/Application Support/sops/age/keys.txt`; Linux: `~/.config/sops/age/keys.txt`).
-Check key is in `.sops.yaml` (`grep age1 .sops.yaml`), then re-run `sops updatekeys`.
+**Secrets do not decrypt.** Check that your age key is at the correct path. On macOS, that is
+`~/Library/Application Support/sops/age/keys.txt`. On Linux, it is `~/.config/sops/age/keys.txt`.
+Check that `.sops.yaml` contains the key (`grep age1 .sops.yaml`). Then run `sops updatekeys`
+again.
 
-**ZFS pool not importing** — `sudo zpool import -f tank`. Verify `networking.hostId` was set before
-first install and has not changed since installation.
+**The ZFS pool does not import.** Run `sudo zpool import -f tank`. Check that you set
+`networking.hostId` before the first install and did not change it since.
 
-**Disk errors** — `sudo wipefs -a /dev/sda` (⚠ destroys all data), then re-run nixos-anywhere.
+**Disk errors.** `sudo wipefs -a /dev/sda` **deletes all data on the disk**. After it, run
+nixos-anywhere again.
 
-**deploy-rs: your change isn't in the build** — Nix cannot see untracked files. `git add -A` and
-redeploy. `Git tree ... is dirty` is only a warning; *untracked* is the silent failure.
+**deploy-rs: your change is not in the build.** Nix does not see untracked files. Run `git add -A`
+and deploy again. `Git tree ... is dirty` is only a warning. An *untracked* file is the silent
+failure.
 
-**deploy-rs: `Failed to confirm the deployment`** — activation worked but the confirmation SSH
-never landed, so the host rolled back. Either the change broke connectivity (that is the feature
-working), or the box was still busy starting containers. Bump `confirmTimeout` in `flake.nix`, or
-re-run with `--confirm-timeout 300`.
+**deploy-rs: `Failed to confirm the deployment`.** The activation worked, but the confirmation SSH
+did not connect, so the host rolled back. The change broke the network (the rollback then did its
+job), or the host was still busy with the start of the containers. Increase `confirmTimeout` in
+`flake.nix`, or deploy again with `--confirm-timeout 300`.
 
-**deploy-rs: sudo prompts or permission denied** — activation runs as `root` via passwordless
-sudo (`security.sudo.extraRules` in `hosts/playground/configuration.nix`). If you removed that
-rule, set `interactiveSudo = true;` on the node in `flake.nix` instead.
+**deploy-rs: sudo asks for a password, or permission denied.** The activation runs as `root`
+through passwordless sudo (`security.sudo.extraRules` in `hosts/playground/configuration.nix`). If
+you deleted that rule, set `interactiveSudo = true;` on the node in `flake.nix`.
 
-**`systemd-machined.socket: ... already active, refusing`** — nspawn containers D-Bus-activate
-machined before switch-to-configuration starts its socket unit; the failed unit then fails the
-whole switch and deploy-rs rolls back. Handled by
-`systemd.suppressedSystemUnits = [ "systemd-machined.socket" ]` in the host config. Do not "fix"
-it by masking `systemd-machined.service` — masking it while it runs makes systemd drop its
-watchdog pings and SIGABRT it three minutes later, and takes `machinectl` with it.
+**`systemd-machined.socket: ... already active, refusing`.** The nspawn containers start machined
+through D-Bus before `switch-to-configuration` starts its socket unit. The socket unit then fails,
+the switch fails and deploy-rs rolls back. The host config prevents this with
+`systemd.suppressedSystemUnits = [ "systemd-machined.socket" ]`. Do not mask
+`systemd-machined.service` instead. If you mask it while it runs, systemd ignores its watchdog
+pings and kills it three minutes later. `machinectl` then stops working too.
 
 ---
 
 ## Next steps
 
-Day-to-day deploys, upgrading nixpkgs, and rollback: [README § Deploy](README.md#deploy) and
+For deploys, nixpkgs upgrades and rollback, see [README § Deploy](README.md#deploy) and
 [README § Upgrading](README.md#upgrading).

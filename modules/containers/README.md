@@ -1,7 +1,7 @@
-# Container Services
+# Container services
 
-Each service is one flat `<name>.nix` file defining the container, Traefik routing, ZFS dataset,
-and system user through the `hlamlab.services.<name>` submodule the frame provides.
+Each service is one `<name>.nix` file. It declares the container, the Traefik route, the ZFS
+dataset and the service user through the `hlamlab.services.<name>` options of the frame.
 
 ## Structure
 
@@ -10,38 +10,36 @@ modules/containers/
 ├── default.nix           # Imports all service definitions and the container frame
 ├── frame.nix             # Core abstraction for containerized services
 ├── <service>.nix         # Complete service definition using hlamlab.services.<name>
+├── dashboards/           # Grafana dashboards (see dashboards/README.md)
 └── README.md
 ```
 
-> **Note**: For a full reference of available options (like resource limits, networking, ZFS settings, and host-specific options), see [**`hosts/README.md`**](../../hosts/README.md).
+> [**`hosts/README.md`**](../../hosts/README.md) lists all options: resource limits, networking,
+> ZFS and the host settings.
 
----
+All services run in NixOS containers (systemd-nspawn). `frame.nix` creates for each service:
 
-# Container Service Modules
+- the ZFS dataset and its Sanoid snapshot schedule,
+- the systemd limits of the container,
+- the hosts entry and the Traefik route,
+- the service user and the data mount,
+- the firewall rules and the secrets.
 
-All services run in native NixOS containers, isolated from the host.
+## References to other services
 
-## Service Anatomy
+A service often needs the URL or address of another service: an OIDC issuer, a redirect URI, a
+datasource, an LDAP backend, a WOPI host, a CSP entry or a scrape target. **Use the derived values
+of that service.** Do not write a literal such as `https://auth.${domain}` or `10.0.0.11:3100`.
+Each `hlamlab.services.<name>` has three read-only values:
 
-Each service resides in a dedicated file (e.g., `modules/containers/myservice.nix`) and leverages the
-`frame.nix` abstraction. This frame automatically handles ZFS datasets, Sanoid snapshots,
-systemd limits, DNS, Traefik routing, and users based on a simple set of attributes.
-
-## Cross-service references — never hardcode another service's prefix, IP, or port
-
-When one service needs another's URL or address (OIDC issuer, redirect URI, datasource, LDAP
-backend, WOPI host, CSP entry, scrape target…), **reference the target service's derived handles**
-instead of writing a literal like `https://auth.${domain}` or `10.0.0.11:3100`. The frame exposes
-three read-only handles on every `hlamlab.services.<name>`:
-
-| Handle     | Value                                          | Use for                                                                  |
+| Value      | Contents                                       | Use for                                                                  |
 |------------|------------------------------------------------|--------------------------------------------------------------------------|
 | `.fqdn`    | `<domainPrefix>.<settings.domain>` (bare host) | cookie domains, `server_name`, `IDP_DOMAIN`, CSP hosts                   |
-| `.baseUrl` | `https://<fqdn>`                               | OIDC issuer/redirect URIs, `externalDomain`, any public URL              |
-| `.address` | `<ip>:<port>` (internal)                       | datasource URLs, Prometheus targets, direct container-to-container calls |
+| `.baseUrl` | `https://<fqdn>`                               | OIDC issuer and redirect URIs, `externalDomain`, any public URL          |
+| `.address` | `<ip>:<port>` (internal)                       | datasource URLs, Prometheus targets, direct calls between containers     |
 
-Bind `svc = config.hlamlab.services;` at the top of the module (`let svc = config.hlamlab.services; in`)
-and reference siblings through it:
+Bind `svc = config.hlamlab.services;` at the top of the module
+(`let svc = config.hlamlab.services; in`). Then use it for the other services:
 
 ```nix
 # ✅ follows a prefix/IP change automatically
@@ -55,23 +53,20 @@ issuerUrl = "https://auth.${config.hlamlab.settings.domain}";
 url = "http://10.0.0.10:9090";
 ```
 
-Only use `config.hlamlab.settings.domain` directly for the **whole domain** itself (wildcard ACL
-rules `*.<domain>`, session cookie scope, email addresses) — not for a specific service's host.
+Use `config.hlamlab.settings.domain` directly only for the **whole domain**: wildcard ACL rules
+(`*.<domain>`), the session cookie scope, email addresses. Do not use it for the host of one
+service.
 
-## Adding a Service
-
-**Follow these 3 steps:**
+## Add a service
 
 ### 1. Update `README.md`
 
-Add the new service to the **Application Containers** table in the main [
-`README.md`](../../README.md). Assign an available IP and note the required storage quota.
+Add the service to the **Application containers** table in the main
+[`README.md`](../../README.md). Give it a free IP and write down its storage quota.
 
-### 2. Create the Module
+### 2. Create the module
 
-In `modules/containers/`, create `<name>.nix`.
-
-**`<name>.nix`** (App configuration):
+Create `modules/containers/<name>.nix`:
 
 ```nix
 { config, ... }:
@@ -83,9 +78,8 @@ in
     ip = "10.0.0.N"; # Check main README.md for the next available IP
     port = 8080;
 
-    # Set only what differs from the frame's defaults. domainPrefix, nameservers,
-    # storageQuota/Reservation, cpuLimit, ramLimit/High all have sane ones — see
-    # hosts/README.md. No lib.mkDefault: this module is their only definer.
+    # Set only what differs from the frame's defaults (see hosts/README.md).
+    # No lib.mkDefault: this module is the only place that sets these values.
     storageQuota = "50G";
 
     # Network: every container-to-container flow is dropped unless declared.
@@ -117,86 +111,74 @@ in
 }
 ```
 
-> The frame gives you the ZFS dataset, its snapshot schedule, the host state directory, and the
-> bind mount onto `dataDir` (`/var/lib/myservice` by default) chowned to `serviceUser` — so no
-> `bindMounts` entry, no `tmpfiles` rule, and no `StateDirectory=` added just to fix ownership.
-> It also opens the service `port` in the container firewall; declare `allowedTCPPorts` only for
-> *extra* ports (e.g. LDAP `3890`). Override `dataDir` only when the upstream module insists on
-> another path — collabora wants `/var/lib/cool`.
->
-> The host firewall drops traffic between containers unless the source declares it in `talksTo`,
-> and internet egress unless it sets `internet = true`. A missing flow shows up in the journal as
-> `hlamlab-forward-drop:` (`journalctl -k | grep hlamlab-forward-drop`) — declare it there; never
-> widen the firewall by hand. Prometheus' scrape of the frame's per-container exporters (:9101) is
-> allowed by the frame itself.
->
-> Every container gets its own user namespace: root inside is an
-> unprivileged uid range on the host (`machinectl show <name>` / `/proc/<leader>/uid_map`). The
-> root filesystem and the data dataset are mounted idmapped, so files keep their on-disk owners
-> and nothing is chowned. `privateUsers = "no"` opts out, for a service that needs real host root.
->
-> Secrets arrive as systemd credentials: only the host decrypts, and the container gets just its
-> own, in RAM. Reference them through `svc.<name>.secrets.<id>.path`. Set `unit` only when the
-> service's own non-root process reads the file (a `*_file` setting, `$__file{}`); root-read paths
-> (`EnvironmentFile=`, `LoadCredential=`, the NixOS modules' `*File` options) need none. Changing a
-> secret restarts the whole container.
+The frame does the rest:
 
-### 3. Register and Enable
+- **Storage.** It creates the ZFS dataset, the snapshot schedule and the host directory. It mounts
+  the dataset on `dataDir` (`/var/lib/myservice` by default), owned by `serviceUser`. You need no
+  `bindMounts` entry, no `tmpfiles` rule and no `StateDirectory=` for ownership. Change `dataDir`
+  only if the upstream module needs a different path. Collabora needs `/var/lib/cool`.
+- **Container firewall.** It opens the service `port` in the container. Use `allowedTCPPorts`
+  only for *extra* ports, for example LDAP `3890`.
+- **Host firewall.** It drops traffic between containers unless the source declares it in
+  `talksTo`. It drops internet traffic unless the service sets `internet = true`. A missing flow
+  shows in the kernel log as `hlamlab-forward-drop:` (`journalctl -k | grep hlamlab-forward-drop`).
+  Declare the flow in `talksTo`. Do not change the firewall by hand. The frame itself allows
+  Prometheus to collect the container exporters (:9101).
+- **User namespace.** Each container has its own user namespace. Root in the container is an
+  unprivileged uid range on the host (`machinectl show <name>`, `/proc/<leader>/uid_map`). The
+  root file system and the data dataset are mounted idmapped, so files keep their owners on disk
+  and nothing is chowned. Set `privateUsers = "no"` only for a service that needs real host root.
+- **Secrets.** Secrets come in as systemd credentials. Only the host decrypts them. The container
+  gets only its own secrets, in RAM. Use `svc.<name>.secrets.<id>.path`. Set `unit` only when the
+  non-root process of the service reads the file (a `*_file` setting, `$__file{}`). Root reads
+  `EnvironmentFile=`, `LoadCredential=` and the `*File` options of NixOS modules, so these need no
+  `unit`. A change to a secret restarts the whole container.
 
-Add `./myservice.nix` to the imports list in [`modules/containers/default.nix`](default.nix).
+### 3. Register and enable
 
-To actually enable the service on a specific host, edit the host's configuration (e.g.,
+Add `./myservice.nix` to the imports in [`modules/containers/default.nix`](default.nix).
+
+To run the service on a host, enable it in the host configuration (for example
 `hosts/playground/configuration.nix`):
 
 ```nix
 hlamlab.services.myservice.enable = true;
 ```
 
-Host-level overrides of anything else are possible but unused today — the service module owns its
-own values. See [`hosts/README.md`](../../hosts/README.md) for the full option table.
+The host can override any other value, but no host does this now. The service module sets its own
+values. [`hosts/README.md`](../../hosts/README.md) has the full option table.
 
 ---
 
-## Container Operations
+## Container operations
 
 ```bash
 machinectl list                                           # list containers
 sudo nixos-container root-login <name>                    # shell into container
 systemctl status container@<name>                         # status
 sudo nixos-container run <name> -- journalctl -u <svc> -f # live logs
+sudo nixos-container start <name>                         # start (stop works the same way)
 ```
 
 ---
 
-## Current Services
+## Current services
 
-See [main README](../../README.md#current-services) — IPs, ports, URLs, storage, resource limits,
-ZFS datasets.
+The [main README](../../README.md#current-services) lists the IPs, ports, URLs, storage, resource
+limits and ZFS datasets.
 
-## Authelia Declarative Provisioning
+## Authelia
 
-Manage Authelia users, groups, and OAuth2 systems in `modules/containers/authelia.nix`.
-Changes are applied automatically on deploy.
-
----
-
-## Container Management
-
-```bash
-machinectl list                                           # list containers
-sudo nixos-container root-login <name>                    # shell into container
-systemctl status container@<name>                         # status
-sudo nixos-container run <name> -- journalctl -u <svc> -f # live logs
-sudo nixos-container start/stop <name>
-```
+`modules/containers/authelia.nix` declares the OIDC clients and the access rules. Users and
+groups are in LLDAP. A deploy applies the changes.
 
 ---
 
-## Resource Limits
+## Resource limits
 
-Limits are defined in the service definition (e.g., `myservice.nix`) and applied by the frame to
-`container@<name>.service` as `CPUQuota` / `MemoryMax` / `MemoryHigh`. Every container also gets a
-fixed `MemorySwapMax=0B` and `TasksMax=512`.
+Set the limits in the service module (for example `myservice.nix`). The frame applies them to
+`container@<name>.service` as `CPUQuota`, `MemoryMax` and `MemoryHigh`. Each container also gets
+`MemorySwapMax=0B` and `TasksMax=512`.
 
 ```nix
   hlamlab.services.myservice = {
@@ -207,18 +189,23 @@ fixed `MemorySwapMax=0B` and `TasksMax=512`.
   };
 ```
 
-**Sizing guide:**
+**Sizes:**
 
-- Light (API/cache): 50% CPU, 512M RAM
-- Medium (web/db): 100%, 2G — the defaults
-- Heavy (ML/media): 200%, 4G+
+- Light (API, cache): 50% CPU, 512M RAM.
+- Medium (web app): 100% CPU, 1G RAM. These are the defaults.
+- Heavy (ML, media): 200% CPU, 4G RAM or more.
 
 ---
 
-## Persistent Storage
+## Persistent storage
 
-The frame creates the ZFS dataset, its Sanoid snapshot schedule (sized by `storageQuota` /
-`storageReservation`), and bind-mounts `/var/lib/services/<name>` onto `dataDir` inside the
-container, chowned to `serviceUser`. Use `bindMounts` only for paths *beyond* that one.
+The frame creates the ZFS dataset and its Sanoid snapshot schedule. `storageQuota` and
+`storageReservation` set the size. The frame mounts `/var/lib/services/<name>` on `dataDir` in the
+container, owned by `serviceUser`. Use `bindMounts` only for other paths. These bind mounts are not
+idmapped, so in a user namespace their files show as `nobody`.
 
-See [ZFS README](../common/zfs/README.md) for dataset creation and snapshot management.
+The datasets have `setuid=off`. Root in the container writes to the data mount as host uid 0. With
+`setuid=off`, the kernel ignores setuid bits on these files. A setuid file that a container
+leaves there cannot give root on the host.
+
+The [ZFS README](../common/zfs/README.md) explains datasets and snapshots.

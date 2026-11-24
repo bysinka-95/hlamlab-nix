@@ -1,13 +1,11 @@
-# Host Configuration Guide
+# Host configuration guide
 
-This document explains how to set up your hosts (like `hosts/playground/configuration.nix`), how to
-configure global environment settings, and how to declare, configure, and extend containerized
-services.
+This guide shows how to set up a host (for example `hosts/playground/configuration.nix`). It
+covers the global settings and the options of the container services.
 
-## 1. Global Settings (`hlamlab.settings`)
+## 1. Global settings (`hlamlab.settings`)
 
-Global settings define the cluster-wide environment that your services and Traefik router rely on.
-These must be defined in your host's `configuration.nix`.
+The services and Traefik use these settings. Set them in the `configuration.nix` of the host.
 
 ```nix
   hlamlab.settings = {
@@ -31,18 +29,18 @@ These must be defined in your host's `configuration.nix`.
   };
 ```
 
-> **A wrong `lanInterface` cuts SSH.** The firewall opens SSH on that interface only. deploy-rs'
-> magic rollback reverts such a deploy when its confirmation SSH fails, but check the NIC name
-> before the first deploy to a new machine.
+> **A wrong `lanInterface` cuts SSH.** The firewall opens SSH on that interface only. If the
+> confirmation SSH of deploy-rs fails, magic rollback reverts the deploy. Still, check the
+> interface name before the first deploy to a new machine.
 
-## 2. Enabling and Configuring Services
+## 2. Enable and configure services
 
-All services (like Authelia, Immich, OpenCloud) are disabled by default. You opt-in to running them
-on a specific host by enabling them in `hlamlab.services.<name>`.
+All services (for example Authelia, Immich, OpenCloud) are off by default. To run a service on a
+host, enable it in `hlamlab.services.<name>`.
 
-### Basic Example
+### Basic example
 
-To simply enable a service with its default resource limits, IP address, and storage quotas:
+This enables services with their default limits, IP addresses and storage quotas:
 
 ```nix
   hlamlab.services = {
@@ -51,11 +49,10 @@ To simply enable a service with its default resource limits, IP address, and sto
   };
 ```
 
-### Overriding Resource Limits & Networking
+### Override limits and networking
 
-Every service comes with sensible default resource limits and network IP addresses. If you need to
-scale up a heavy service or change its IP to avoid conflicts on a new host, you can easily override
-any property:
+Each service has default resource limits and an IP address. You can override any option from the
+host, for example to give a heavy service more resources or to change an IP that conflicts:
 
 ```nix
   hlamlab.services.immich = {
@@ -79,28 +76,27 @@ any property:
   };
 ```
 
-## 3. Advanced Configuration
+## 3. Advanced configuration
 
-Beyond the per-service defaults, you can map custom secrets and alter Traefik routing from the host.
+You can also add secrets and change the Traefik routing from the host.
 
-### Managing Secrets
+### Secrets
 
-Only the host decrypts. For every secret declared here the frame declares a host sops secret
-(root, `0400`) and hands it to the container as a systemd credential: nspawn copies it in at
-container start, into a RAM-only read-only filesystem. The container never holds a key, a sops
-file or another service's secret. Changing a secret restarts its whole container.
+Only the host decrypts secrets. For each secret declared here, the frame declares a host sops
+secret (owner root, mode `0400`). nspawn copies it into the container at start, as a systemd
+credential, into a read-only file system in RAM. The container has no key, no sops file and no
+secret of another service. A change to a secret restarts its whole container.
 
-Reference a secret through its read-only `path`, e.g. `svc.myservice.secrets.myservice-api-key.path`.
+Use the read-only `path` of a secret, for example `svc.myservice.secrets.myservice-api-key.path`.
 
-*Note: You usually declare these inside the service definition (`modules/containers/<name>.nix`),
-but you can extend them from the host.*
+*Usually you declare secrets in the service module (`modules/containers/<name>.nix`). You can also
+add them from the host.*
 
 ```nix
   hlamlab.services.myservice = {
     enable = true;
     
     secrets = {
-      # The attribute name is arbitrary, but conventionally represents the secret's purpose
       # The attribute name is the credential id (no `/`)
       myservice-api-key = {
         # The key path in your secrets.yaml file
@@ -114,7 +110,7 @@ but you can extend them from the host.*
   };
 ```
 
-### Network and Traefik Overrides
+### Network and Traefik overrides
 
 ```nix
   hlamlab.services.customapp = {
@@ -133,45 +129,45 @@ but you can extend them from the host.*
   };
 ```
 
-## Complete Reference Table
+## Reference table
 
-Every option under `hlamlab.services.<name>`. The `description` strings in
-`modules/containers/frame.nix` are the source of truth; this table mirrors them.
+This table lists all options under `hlamlab.services.<name>`. The `description` strings in
+`modules/containers/frame.nix` are the source of truth.
 
 | Option                  | Type     | Default                   | Description                                                                                                  |
 |-------------------------|----------|---------------------------|--------------------------------------------------------------------------------------------------------------|
 | **Core**                |          |                           |                                                                                                              |
 | `enable`                | `bool`   | `false`                   | Enable the service on this host.                                                                             |
-| `containerConfig`       | `module` | *Required*                | NixOS configuration for inside the container.                                                                |
-| `privateUsers`          | `enum`   | `"pick"`                  | `"pick"`: own user namespace, so the container's root is an unprivileged host uid; the data dataset is mounted idmapped. `"no"` only for a service that needs real host root. |
+| `containerConfig`       | `module` | *Required*                | NixOS configuration inside the container.                                                                    |
+| `privateUsers`          | `enum`   | `"pick"`                  | `"pick"`: own user namespace. Root in the container is an unprivileged host uid. The data dataset is mounted idmapped. Use `"no"` only for a service that needs real host root. |
 | **Networking**          |          |                           |                                                                                                              |
-| `ip`                    | `str`    | *Required*                | Container local IP address (e.g., `10.0.0.5`).                                                               |
-| `port`                  | `int`    | *Required*                | Container service port exposed to Traefik.                                                                   |
-| `domainPrefix`          | `str`    | `<name>`                  | Prefix for the domain routing (e.g., `'auth'`).                                                              |
-| `talksTo`               | `attrs`  | `{}`                      | Siblings this service calls on the private network: `{ <service> = [ <tcp ports> ]; }`. All else dropped.  |
-| `internet`              | `bool`   | `false`                   | Allow internet egress (private ranges / the home LAN stay unreachable).                                     |
-| `nameservers`           | `list`   | `[ "1.1.1.1" "1.0.0.1" ]` if `internet`, else `[]` | Resolvers for internet egress only; sibling services' public names map to the host's Traefik. |
+| `ip`                    | `str`    | *Required*                | IP address of the container (for example `10.0.0.5`).                                                        |
+| `port`                  | `int`    | *Required*                | Service port that Traefik connects to.                                                                       |
+| `domainPrefix`          | `str`    | `<name>`                  | Subdomain of the service (for example `'auth'`).                                                             |
+| `talksTo`               | `attrs`  | `{}`                      | Other services that this service calls on the private network: `{ <service> = [ <tcp ports> ]; }`. The firewall drops all other traffic. |
+| `internet`              | `bool`   | `false`                   | Allow internet access. Private ranges and the home LAN stay blocked.                                         |
+| `nameservers`           | `list`   | `[ "1.1.1.1" "1.0.0.1" ]` if `internet`, else `[]` | DNS servers for internet names only. Public names of the other services resolve to the host's Traefik. |
 | `traefik.enable`        | `bool`   | `true`                    | Publish this service through Traefik.                                                                        |
-| `traefikMiddlewares`    | `list`   | `[ "security-headers" ]`  | Traefik middlewares applied to this service's router.                                                        |
+| `traefikMiddlewares`    | `list`   | `[ "security-headers" ]`  | Traefik middlewares on the router of this service.                                                           |
 | **Derived (read-only)** |          |                           |                                                                                                              |
 | `fqdn`                  | `str`    | `<domainPrefix>.<domain>` | Public hostname.                                                                                             |
 | `baseUrl`               | `str`    | `https://<fqdn>`          | Public HTTPS base URL.                                                                                       |
-| `address`               | `str`    | `<ip>:<port>`             | Internal container address.                                                                                  |
+| `address`               | `str`    | `<ip>:<port>`             | Internal address of the container.                                                                           |
 | **Resources**           |          |                           |                                                                                                              |
 | `cpuLimit`              | `str`    | `"100%"`                  | Hard CPU limit (`CPUQuota`).                                                                                 |
 | `ramLimit`              | `str`    | `"1G"`                    | Hard RAM limit (`MemoryMax`).                                                                                |
 | `ramHigh`               | `str`    | `"512M"`                  | Soft RAM limit (`MemoryHigh`).                                                                               |
 | **Storage (ZFS)**       |          |                           |                                                                                                              |
-| `zfs.enable`            | `bool`   | `true`                    | Dataset, snapshot schedule and `dataDir` bind mount for this service.                                        |
-| `dataDir`               | `str`    | `/var/lib/<name>`         | Where the state directory is mounted inside the container, chowned to `serviceUser`.                         |
-| `storageQuota`          | `str`    | `"10G"`                   | ZFS dataset maximum quota.                                                                                   |
-| `storageReservation`    | `str`    | `"1G"`                    | ZFS dataset guaranteed reservation.                                                                          |
-| `bindMounts`            | `attrs`  | `{}`                      | Bind mounts beyond the automatic `dataDir`.                                                                  |
+| `zfs.enable`            | `bool`   | `true`                    | Dataset, snapshot schedule and `dataDir` mount for this service.                                             |
+| `dataDir`               | `str`    | `/var/lib/<name>`         | Mount point of the state directory in the container. `serviceUser` owns it.                                  |
+| `storageQuota`          | `str`    | `"10G"`                   | Maximum size of the ZFS dataset.                                                                             |
+| `storageReservation`    | `str`    | `"1G"`                    | Space that ZFS keeps free for the dataset.                                                                   |
+| `bindMounts`            | `attrs`  | `{}`                      | Bind mounts in addition to `dataDir`. They are not idmapped, so in a user namespace their files show as `nobody`. |
 | **Identity**            |          |                           |                                                                                                              |
-| `serviceUser`           | `str`    | `<name>`                  | Name of the auto-created service user; owns `dataDir`.                                                       |
-| `secrets.<id>.key`      | `str`    | *Required*                | Key path in `secrets.yaml`; `<id>` is the credential id.                                                     |
-| `secrets.<id>.unit`     | `str?`   | `null`                    | Unit whose own process reads the file; it imports the credential.                                            |
-| `secrets.<id>.path`     | `str`    | *read-only*               | Path inside the container: `/run/credentials/@system/<id>`, or `/run/credentials/<unit>/<id>`.               |
+| `serviceUser`           | `str`    | `<name>`                  | Name of the service user that the frame creates. It owns `dataDir`.                                          |
+| `secrets.<id>.key`      | `str`    | *Required*                | Key path in `secrets.yaml`. `<id>` is the credential id.                                                     |
+| `secrets.<id>.unit`     | `str?`   | `null`                    | Unit whose own process reads the file. This unit imports the credential.                                     |
+| `secrets.<id>.path`     | `str`    | *read-only*               | Path in the container: `/run/credentials/@system/<id>`, or `/run/credentials/<unit>/<id>`.                   |
 
-Set only what differs from these defaults, and without `lib.mkDefault` — a service module is the
-only place its own values are ever set.
+Set only the values that differ from these defaults. Do not use `lib.mkDefault`. The service
+module is the only place that sets its own values.

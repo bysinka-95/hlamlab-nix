@@ -1,91 +1,100 @@
 # Hlamlab NixOS homelab
 
-Flake-based NixOS configuration for the homelab. `playground` is the current Proxmox VM target used
-to iterate toward
-the eventual host migration.
+A flake-based NixOS configuration for a homelab. The host `playground` is a Proxmox VM. It is the
+test bed for the move to the final host.
 
 ## Repo layout
 
-- [`flake.nix`](flake.nix): Flake inputs, `nixosConfigurations`, and `deploy-rs` targets.
-- [`modules/common/`](modules/common): Shared defaults (nix settings, allowUnfree, SSH policy, base
-  packages, GC, auto-upgrades) and settings definitions.
-- [`modules/common/network/`](modules/common/network): Network services (Traefik reverse proxy with
-  usersFile auth, Cloudflare Tunnel, mDNS).
-- [`modules/common/zfs/`](modules/common/zfs): ZFS configuration (declarative datasets, snapshots,
-  weekly scrubbing).
-- [`modules/secrets/`](modules/secrets): sops-nix configuration and encrypted secrets. Only secret
-  keys live inside `secrets.yaml`.
-- [`modules/containers/`](modules/containers): Flat service configuration files using the
-  `hlamlab.services` container `frame.nix`.
-- [`hosts/playground/`](hosts/playground)
-    - [`configuration.nix`](hosts/playground/configuration.nix): System config (boot, networking,
-      users). This is where services are explicitly enabled.
-    - [`disk-config.nix`](hosts/playground/disk-config.nix): Disko ZFS layout for `/dev/sda` (GPT +
-      ESP + ZFS pool).
-    - [`hardware-configuration.nix`](hosts/playground/hardware-configuration.nix): Generated
-      hardware profile; replace/regenerate per machine.
+- [`flake.nix`](flake.nix): flake inputs, `nixosConfigurations` and the `deploy-rs` targets.
+- [`modules/common/`](modules/common): shared defaults (Nix settings, SSH policy, base packages,
+  garbage collection) and the `hlamlab.settings` options.
+- [`modules/common/network/`](modules/common/network): Traefik, Cloudflare Tunnel, CrowdSec, the
+  host firewall, mDNS, the host log agent and the host exporters.
+- [`modules/common/zfs/`](modules/common/zfs): ZFS datasets, snapshots and weekly scrubs.
+- [`modules/secrets/`](modules/secrets): sops-nix setup and the encrypted `secrets.yaml`.
+- [`modules/containers/`](modules/containers): one file per service. Each file uses the
+  `hlamlab.services` options from `frame.nix`.
+- [`hosts/playground/`](hosts/playground):
+    - [`configuration.nix`](hosts/playground/configuration.nix): boot, users and host settings.
+      You enable services here.
+    - [`disk-config.nix`](hosts/playground/disk-config.nix): the disko ZFS layout for `/dev/sda`
+      (GPT, ESP and a ZFS pool).
+    - [`hardware-configuration.nix`](hosts/playground/hardware-configuration.nix): the generated
+      hardware profile. Generate a new one for each machine.
 
-## Current Services
+## Current services
 
-### Network Infrastructure
+### Network infrastructure
 
 | Service           | Binding        | URL                        | Notes                                                            |
 |-------------------|----------------|----------------------------|------------------------------------------------------------------|
-| Traefik           | :443           | https://traefik.yourdomain | Dashboard (Authelia 2FA, `admins` group); LE wildcard via DNS-01 |
-| Cloudflare Tunnel | (outbound)     | Covers all `*.yourdomain`  | Routes → Traefik :443 (TLS verified)                             |
-| Host firewall     | nftables       | —                          | LAN: SSH + mDNS only. Containers: Traefik :443                   |
-| CrowdSec          | 127.0.0.1:8180 | —                          | LAPI on the host; reads Traefik and Authelia logs                |
+| Traefik           | :443           | https://traefik.yourdomain | Dashboard (Authelia 2FA, `admins` group). LE wildcard via DNS-01 |
+| Cloudflare Tunnel | (outbound)     | All `*.yourdomain`         | Sends all requests to Traefik :443 and checks its certificate    |
+| Host firewall     | nftables       | —                          | LAN: SSH and mDNS only. Containers: Traefik :443                 |
+| CrowdSec          | 127.0.0.1:8180 | —                          | LAPI on the host. Reads the Traefik and Authelia logs            |
 
-The LAN reaches nothing but SSH and mDNS: services are reached through the tunnel. Traefik's :443
-is open to the containers (hairpin) and to cloudflared over loopback; the metrics ports
-(8080, 8082, 9100, 60123) to the prometheus container only.
+The LAN can reach only SSH and mDNS. All web traffic comes through the tunnel. Traefik's port 443
+is open to cloudflared over loopback and to the containers (hairpin). Only the prometheus
+container can reach the metrics ports: 6060, 8080, 8082, 9100 and 60123.
 
-- **Traefik** — [`modules/common/network/traefik.nix`](modules/common/network/traefik.nix):
-  the `https` entrypoint with a Let's Encrypt wildcard (DNS-01 through the Cloudflare API), shared
-  `security-headers` middleware, dashboard router.
-  Logs: `/var/log/traefik/traefik.log` and `/var/log/traefik/access.log`.
-- **Cloudflare Tunnel** — [
-  `modules/common/network/cloudflared.nix`](modules/common/network/cloudflared.nix): routes all
-  `*.yourdomain` → `https://localhost:443`, verifying Traefik's certificate. Credentials managed
-  via sops-nix. See [Network README](modules/common/network/README.md) for the certificate setup.
+- **Traefik** ([`traefik.nix`](modules/common/network/traefik.nix)) has one `https` entrypoint. It
+  gets a Let's Encrypt wildcard certificate through DNS-01 and the Cloudflare API. Logs:
+  `/var/log/traefik/traefik.log` and `/var/log/traefik/access.log`.
+- **Cloudflare Tunnel** ([`cloudflared.nix`](modules/common/network/cloudflared.nix)) sends
+  `*.yourdomain` to `https://localhost:443` and checks Traefik's certificate. sops-nix holds its
+  credentials. The [network README](modules/common/network/README.md) explains the setup.
 
-### Application Containers
+### Application containers
 
-| Service     | IP:Port        | URL                          | Storage Path                  | CPU  | RAM (high → max) | ZFS Quota / Res |
-|-------------|----------------|------------------------------|-------------------------------|------|------------------|-----------------|
-| opencloud   | 10.0.0.2:9200  | https://opencloud.yourdomain | /var/lib/services/opencloud   | 100% | 1.5G → 2G        | 50G / 10G       |
-| immich      | 10.0.0.3:2283  | https://immich.yourdomain    | /var/lib/services/immich      | 200% | 3G → 4G          | 300G / 10G      |
-| collabora   | 10.0.0.4:9980  | https://collabora.yourdomain | /var/lib/services/collabora   | 100% | 1G → 1.5G        | 20G / 5G        |
-| authelia    | 10.0.0.5:9091  | https://auth.yourdomain      | /var/lib/services/authelia    | 100% | 512M → 1G        | 10G / 1G        |
-| lldap       | 10.0.0.6:3000  | https://lldap.yourdomain     | /var/lib/services/lldap       | 100% | 512M → 1G        | 10G / 1G        |
-| vaultwarden | 10.0.0.7:8222  | https://vault.yourdomain     | /var/lib/services/vaultwarden | 100% | 512M → 1G        | 10G / 1G        |
-| searx       | 10.0.0.8:8888  | https://searxng.yourdomain   | /var/lib/services/searx       | 100% | 512M → 1G        | 10G / 1G        |
-| grafana     | 10.0.0.9:3000  | https://grafana.yourdomain   | /var/lib/services/grafana     | 100% | 512M → 768M      | 10G / 1G        |
-| prometheus  | 10.0.0.10:9090 | internal only (via Grafana)  | /var/lib/services/prometheus  | 100% | 512M → 1G        | 20G / 2G        |
-| loki        | 10.0.0.11:3100 | internal only (via Grafana)  | /var/lib/services/loki        | 100% | 256M → 512M      | 20G / 2G        |
-| —           | 10.0.0.12+     | —                            | —                             | —    | —                | —               |
+| Service     | IP:Port        | URL                          | Storage path                  | CPU  | RAM (high → max) | ZFS quota / res. |
+|-------------|----------------|------------------------------|-------------------------------|------|------------------|------------------|
+| opencloud   | 10.0.0.2:9200  | https://opencloud.yourdomain | /var/lib/services/opencloud   | 100% | 1.5G → 2G        | 50G / 10G        |
+| immich      | 10.0.0.3:2283  | https://immich.yourdomain    | /var/lib/services/immich      | 200% | 3G → 4G          | 300G / 10G       |
+| collabora   | 10.0.0.4:9980  | https://collabora.yourdomain | /var/lib/services/collabora   | 100% | 1G → 1.5G        | 20G / 5G         |
+| authelia    | 10.0.0.5:9091  | https://auth.yourdomain      | /var/lib/services/authelia    | 100% | 512M → 1G        | 10G / 1G         |
+| lldap       | 10.0.0.6:3000  | https://lldap.yourdomain     | /var/lib/services/lldap       | 100% | 512M → 1G        | 10G / 1G         |
+| vaultwarden | 10.0.0.7:8222  | https://vault.yourdomain     | /var/lib/services/vaultwarden | 100% | 512M → 1G        | 10G / 1G         |
+| searx       | 10.0.0.8:8888  | https://searxng.yourdomain   | /var/lib/services/searx       | 100% | 512M → 1G        | 10G / 1G         |
+| grafana     | 10.0.0.9:3000  | https://grafana.yourdomain   | /var/lib/services/grafana     | 100% | 512M → 768M      | 10G / 1G         |
+| prometheus  | 10.0.0.10:9090 | internal only (via Grafana)  | /var/lib/services/prometheus  | 100% | 512M → 1G        | 20G / 2G         |
+| loki        | 10.0.0.11:3100 | internal only (via Grafana)  | /var/lib/services/loki        | 100% | 256M → 512M      | 20G / 2G         |
+| —           | 10.0.0.12+     | —                            | —                             | —    | —                | —                |
 
-**IP 10.0.0.1** is reserved for the host gateway. **Next available:** 10.0.0.12.
+The host gateway uses **10.0.0.1**. The next free IP is **10.0.0.12**.
 
-**Observability** — Prometheus (metrics, 30d) + Loki (logs, 30d) + Grafana (OIDC via
-Authelia only), enabled by `hlamlab.observability.enable`.
+Each container has its own user namespace. Its root user is an unprivileged uid on the host.
 
-- **Metrics** are pulled from three sources. On the host (`modules/common/network/exporters.nix`):
-  **node_exporter** (`:9100`, job `node`) for machine
-  CPU/mem/load/disk — collected once, since nspawn shares the host `/proc` — and **cAdvisor**
-  (`:8080`) reading the cgroup tree, the only source of real per-container CPU/mem/net/IO. Inside
-  each container (`frame.nix`): a **node_exporter** on `:9101` (job `node-container`) cut down with
-  `--collector.disable-defaults` to `systemd`, `filesystem` and `netdev` — the three collectors
-  that *are* namespaced, giving per-service systemd unit state, ZFS dataset usage and netns
-  counters that nothing on the host can see. Traefik, Authelia, and cloudflared are scraped too.
-- **Logs** — a host-level **Alloy** captures the host journal (incl. `container@<name>` spawn
-  wrappers) and Traefik's files. Each container additionally runs its **own Alloy** that ships
-  its private journal — the real service logs (`immich-server.service` &c.) that nspawn never
-  surfaces to the host — to Loki, labelled `job=<container>`. Filter by that job then `unit` in
-  Grafana's Log Viewer. Both agents render the same river config from
-  `modules/common/network/alloy-config.nix`.
+### Observability
 
-### ZFS Datasets
+`hlamlab.observability.enable` turns on Prometheus (metrics, 30 days), Loki (logs, 30 days) and
+Grafana (login through Authelia only).
+
+**Metrics** come from three places:
+
+- The host runs one **node_exporter** (`:9100`, job `node`) for machine CPU, memory, load and disk.
+  One copy is enough, because nspawn containers share the host `/proc`.
+- The host runs **cAdvisor** (`:8080`). It reads the cgroup tree and is the only source of real
+  CPU, memory, network and IO numbers per container.
+- Each container runs a **node_exporter** on `:9101` (job `node-container`) with three collectors:
+  `systemd`, `filesystem` and `netdev`. These show unit state, dataset usage and network counters
+  that the host cannot see.
+
+Prometheus also collects metrics from Traefik, Authelia, cloudflared and CrowdSec.
+
+**Logs**:
+
+- The host **Alloy** agent reads the host journal (with the `container@<name>` units) and the
+  Traefik log files.
+- Each container runs its **own Alloy** agent. It reads the container's private journal and sends
+  it to the host agent on port 3500, with the label `job=<container>`. The host agent forwards all
+  logs to Loki. No container can reach Loki, so no container can read the logs of another.
+- In Grafana's log viewer, filter by `job`, then by `unit`.
+- Both agents use the config in `modules/common/network/alloy-config.nix`.
+
+The host agent accepts the labels that a container sends. A compromised container can therefore
+write log lines with the label of a different container. It still cannot read any logs.
+
+### ZFS datasets
 
 | Dataset                   | Mount                         | Quota | Reservation | Compression |
 |---------------------------|-------------------------------|-------|-------------|-------------|
@@ -105,26 +114,24 @@ Authelia only), enabled by `hlamlab.observability.enable`.
 | tank/services/loki        | /var/lib/services/loki        | 20G   | 2G          | lz4         |
 | tank/backups              | /var/backups                  | —     | —           | gzip        |
 
-For ZFS management commands, snapshot operations, and adding new datasets, see
-[ZFS Module Documentation](modules/common/zfs/README.md).
-For container management commands and how to add new services, see
-[Container Module Documentation](modules/containers/README.md).
+The service datasets have `setuid=off`. The [ZFS README](modules/common/zfs/README.md) has the
+management and snapshot commands. The [container README](modules/containers/README.md) shows how
+to add a service.
 
 ## Prerequisites
 
-- Nix with flakes enabled on the build machine.
-- SSH reachability to the target (root or nixos user) and your SSH public key present on the target.
-- For fresh installs: access to the target disk (`/dev/sda` assumed) and ability to reboot.
-- Tools (run straight from Nix, nothing to install):
-    - `nixos-anywhere` — first install onto a bare machine.
-    - `deploy-rs` — every deploy after that. Auto-rollback included.
-- Default admin user: `hlamnix` (wheel/networkmanager). Set its hashed password in [
-  `hosts/playground/configuration.nix`](hosts/playground/configuration.nix)
-  by replacing `<replace-with-mkpasswd-sha-512>` with the output of `mkpasswd -m sha-512`.
+- Nix with flakes on the build machine.
+- SSH access to the target, as root or as the `nixos` user, with your public key on it.
+- For a new install: access to the target disk (`/dev/sda` by default) and permission to reboot.
+- Two tools, both run from Nix with no install:
+    - `nixos-anywhere` for the first install on a bare machine.
+    - `deploy-rs` for every deploy after that. It rolls back a deploy that cuts SSH.
+- The admin user is `hlamnix` (groups `wheel` and `networkmanager`). Put your own password hash
+  into `hashedPassword` in [`configuration.nix`](hosts/playground/configuration.nix). Make the
+  hash with `mkpasswd -m sha-512`.
 
-Before deploying, edit the host configuration file with your host's values:
-
-**Edit [`hosts/playground/configuration.nix`](hosts/playground/configuration.nix)**:
+Before the first deploy, put your values into
+[`hosts/playground/configuration.nix`](hosts/playground/configuration.nix):
 
 ```nix
   hlamlab.settings = {
@@ -134,55 +141,54 @@ Before deploying, edit the host configuration file with your host's values:
   };
 ```
 
-**Note**: Do not commit actual private keys or decrypted credentials.
+Do not commit private keys or decrypted credentials.
 
 ## Installation
 
-See **[INSTALLATION.md](INSTALLATION.md)** for the complete guide (pre-install config,
-nixos-anywhere, post-install
-steps, and troubleshooting).
+[INSTALLATION.md](INSTALLATION.md) has the full guide: configuration before the install,
+nixos-anywhere, the steps after the install, and troubleshooting.
 
 ## Deploy
 
-Deploys go through **deploy-rs**. Run from the repo root after editing configs:
+All deploys use **deploy-rs**. Run this from the repo root after you edit the configuration:
 
 ```sh
-git add -A                            # Nix ignores untracked files — stage first
+git add -A                            # Nix ignores untracked files, so stage them first
 nix run nixpkgs#deploy-rs -- .#playground
 ```
 
-That is the whole command. Everything it needs — target hostname, SSH user, activation user,
-remote build, timeouts, rollback — is declared in [`flake.nix`](flake.nix) under `deploy`, not
-passed on the command line.
+You need no flags. [`flake.nix`](flake.nix) declares the target hostname, the SSH user, the
+activation user, the remote build, the timeouts and the rollback under `deploy`.
 
-### What it does
+### What a deploy does
 
-1. Runs `nix flake check` on the repo.
-2. Builds the system closure **on `playground` itself** (`remoteBuild = true`) — the workstation
-   is aarch64-darwin and cannot build x86_64-linux.
-3. SSHes in as `hlamnix`, activates the profile as `root` via passwordless sudo.
-4. **Magic rollback**: after activation it reconnects over SSH to confirm the host is still
-   reachable. No confirmation within `confirmTimeout` → the host rolls itself back automatically.
-   This is the safety net a plain `nixos-rebuild switch` does not have: a change that breaks
-   sshd, the firewall, or networking undoes itself instead of locking you out.
+1. It runs `nix flake check` on the repo.
+2. It builds the system **on `playground`** (`remoteBuild = true`). The workstation is
+   aarch64-darwin and cannot build x86_64-linux.
+3. It connects over SSH as `hlamnix` and activates the new system as `root` through
+   passwordless sudo.
+4. **Magic rollback**: after the activation, deploy-rs connects again over SSH. If it cannot
+   connect within `confirmTimeout`, the host goes back to the previous generation. A plain
+   `nixos-rebuild switch` has no such check. A change that breaks sshd, the firewall or the
+   network therefore reverts itself and does not lock you out.
 
 ### Useful flags
 
-| Flag             | Effect                                                                                                  |
-|------------------|---------------------------------------------------------------------------------------------------------|
-| `--dry-activate` | Build and push the closure, print what activation *would* change, change nothing                        |
-| `--test`         | Activate now, but leave the bootloader pointing at the current generation (reboot = back to known-good) |
-| `--boot`         | Opposite: stage for next boot without activating now                                                    |
-| `-i`             | Confirm interactively before anything is pushed                                                         |
-| `-s`             | Skip the `nix flake check` pre-flight (faster iteration; only when you just ran it)                     |
-| `-d`             | Debug logs, when a deploy hangs or fails opaquely                                                       |
+| Flag             | Effect                                                                                       |
+|------------------|----------------------------------------------------------------------------------------------|
+| `--dry-activate` | Build and copy the system, then show what activation would change. Change nothing            |
+| `--test`         | Activate now, but keep the current generation in the bootloader. A reboot goes back to it    |
+| `--boot`         | Set the new generation for the next boot. Do not activate it now                             |
+| `-i`             | Ask for confirmation before deploy-rs copies anything                                        |
+| `-s`             | Skip `nix flake check`. Use it only if you ran the check a moment ago                        |
+| `-d`             | Debug logs, for a deploy that stops or fails without a clear error                           |
 
-Safe escalation for a risky change: `--dry-activate` → `--test` → plain deploy.
+For a risky change, use this order: `--dry-activate`, then `--test`, then a plain deploy.
 
 ### Rollback
 
-Magic rollback covers *unreachable*. For a host that is reachable but misbehaving, roll back
-on the host:
+Magic rollback acts only when the host becomes unreachable. If the host answers but works badly,
+roll it back on the host:
 
 ```sh
 ssh hlamnix@playground.local
@@ -190,41 +196,41 @@ sudo nix-env --profile /nix/var/nix/profiles/system --rollback
 sudo /nix/var/nix/profiles/system/bin/switch-to-configuration switch
 ```
 
-Or pick an older generation from the GRUB menu at boot. List them with
+You can also select an older generation in the GRUB menu at boot. To list the generations, run
 `sudo nix-env --profile /nix/var/nix/profiles/system --list-generations`.
 
 ### Expected warnings
 
-These are normal and not a problem:
+These warnings are normal:
 
-| Warning                                                      | Meaning                                                                                                                           |
-|--------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
-| `unknown flake output 'deploy'`                              | Nix has no schema for deploy-rs' `deploy` attribute. Cosmetic.                                                                    |
-| `The check omitted these incompatible systems: x86_64-linux` | `nix flake check` on macOS cannot realise Linux derivations, so it skips the deploy checks. They run on a Linux builder or in CI. |
-| `Git tree ... is dirty`                                      | You have uncommitted changes. Fine — but **untracked** files are invisible to Nix, hence the `git add -A` above.                  |
+| Warning                                                      | Meaning                                                                                                    |
+|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| `unknown flake output 'deploy'`                              | Nix has no schema for the `deploy` attribute of deploy-rs. Cosmetic.                                        |
+| `The check omitted these incompatible systems: x86_64-linux` | `nix flake check` on macOS cannot build Linux derivations, so it skips them. A Linux builder runs them.     |
+| `Git tree ... is dirty`                                      | You have uncommitted changes. That is fine. Nix does not see **untracked** files, so run `git add -A`.      |
 
 ## Upgrading
 
-This repo is a flake, so there is no `nixos-rebuild --upgrade` and no channels. **Everything —
-kernel, systemd, and every containerised service — is pinned by `flake.lock`.** Upgrading means
-moving that lock, then deploying.
+This repo is a flake. It has no channels and no `nixos-rebuild --upgrade`. `flake.lock` pins
+**everything**: the kernel, systemd and each service in the containers. To upgrade, update the lock
+file and deploy.
 
-### Packages and services (the common case)
+### Packages and services
 
-Bump nixpkgs only. That upgrades Immich, Vaultwarden, Grafana, Traefik, the kernel — everything
-that comes from nixpkgs — while leaving disko/sops-nix/deploy-rs where they are:
+Update only nixpkgs. This upgrades Immich, Vaultwarden, Grafana, Traefik, the kernel and all other
+packages from nixpkgs. disko, sops-nix and deploy-rs stay at their versions.
 
 ```sh
 nix flake update nixpkgs
 git add flake.lock
-nix run nixpkgs#deploy-rs -- .#playground --dry-activate   # look before you leap
+nix run nixpkgs#deploy-rs -- .#playground --dry-activate   # read the list of restarts first
 nix run nixpkgs#deploy-rs -- .#playground
 ```
 
-`--dry-activate` lists which units will restart. If a service jumped a major version, check its
-release notes first — nixpkgs will happily hand you Immich v2 on a v1 database.
+`--dry-activate` shows the units that will restart. If a service moves to a new major version,
+read its release notes first. nixpkgs does not stop you from running Immich v2 on a v1 database.
 
-### Everything (flake inputs)
+### All flake inputs
 
 ```sh
 nix flake update            # all inputs: nixpkgs, disko, disko-zfs, sops-nix, deploy-rs
@@ -232,55 +238,45 @@ git add flake.lock
 nix run nixpkgs#deploy-rs -- .#playground
 ```
 
-Riskier than the above — module interfaces move, not just package versions. Individual inputs:
-`nix flake update disko sops-nix`.
+This is riskier than a nixpkgs update, because module options change too. To update some inputs
+only, name them: `nix flake update disko sops-nix`.
 
-Roll back a bad update with `git checkout flake.lock` and redeploy. The lock file is the record
-of what is running; commit it with the change that caused it.
+If an update breaks the host, run `git checkout flake.lock` and deploy again. The lock file is the
+record of what runs on the host. Commit it together with the change that needs it.
 
-### Automatic upgrades — off, and why
+### No automatic upgrades
 
-`modules/common/nix.nix` declares `system.autoUpgrade` but leaves it **disabled**. Enabling it
-would have the host pull `github:bysinka-95/hlamlab-nix#playground` nightly at 04:00 and rebuild
-itself unattended. Three reasons that is currently wrong here:
+The host has no `system.autoUpgrade`, for two reasons:
 
-- It tracks the **pushed** repo, not your working copy. Any deploy-rs deploy of unpushed local
-  changes would survive only until 04:00.
-- The committed `hosts/playground/configuration.nix` still holds placeholder settings
-  (`domain = "yourdomain.com"`, `hostId = "1a23bc45"`). Activating that generation would give the
-  host the wrong `networking.hostId`, and the next boot would fail to `zpool import tank`.
-- There is no equivalent of deploy-rs' magic rollback. A broken commit you pushed applies
-  unattended with nothing to catch it. `allowReboot` is `false`, so kernel and initrd updates
-  would be built but never actually booted until you reboot by hand.
+- It would build the last **pushed** commit, not your working copy. Each unpushed deploy would
+  then last only until the next automatic run.
+- It has no magic rollback. A broken commit would apply with nothing to stop it.
 
-Re-enable only after pushing a commit that reproduces the running host exactly.
-
-To make the host track only what you deploy, set `system.autoUpgrade.enable = false;` in
-`modules/common/nix.nix`.
-
-Unrelated but adjacent: the same file runs weekly GC (`--delete-older-than 14d`), which also
-prunes the old generations you would roll back to. Don't count on a three-week-old generation
-still being there.
+The weekly garbage collection in `modules/common/nix.nix` also deletes old system generations. Do
+not expect a generation from some weeks ago to still be there.
 
 ## Misc
 
-- **Add a new host**: copy `hosts/playground/`, adjust hostname/disk/hardware config, add to
-  `nixosConfigurations` *and* `deploy.nodes` in `flake.nix`, install with nixos-anywhere.
-- **Disk layout**: GPT on `/dev/sda` — 1M BIOS boot, 512M ESP, ZFS pool. Edit [
-  `disk-config.nix`](hosts/playground/disk-config.nix) to change.
+- **Add a new host**: copy `hosts/playground/` and change the hostname, the disk and the hardware
+  configuration. Add the host to `nixosConfigurations` *and* to `deploy.nodes` in `flake.nix`.
+  Install it with nixos-anywhere.
+- **Disk layout**: GPT on `/dev/sda` with a 1M BIOS boot partition, a 512M ESP and the ZFS pool.
+  Edit [`disk-config.nix`](hosts/playground/disk-config.nix) to change it.
 - **Secrets**: see [modules/secrets/README.md](modules/secrets/README.md).
-- **Validate**: `nix eval .#deploy.nodes.playground.profiles.system.path` — forces every
-  container's config, which `nix flake check` alone does not. Logs on host: `journalctl -b`.
+- **Check the configuration**: `nix eval .#deploy.nodes.playground.profiles.system.path` evaluates
+  the configuration of each container. `nix flake check` alone does not. On the host, read the logs
+  with `journalctl -b`.
 
 ## Documentation
 
-See the full [documentation index](DOCS.md) for module-specific guides.
+[DOCS.md](DOCS.md) lists all guides.
 
-| File                                                                 | Contents                                                                                    |
-|:---------------------------------------------------------------------|:--------------------------------------------------------------------------------------------|
-| [README.md](README.md)                                               | Repo layout, current services (IPs, ports, URLs, ZFS datasets), deploy + upgrade + rollback |
-| [INSTALLATION.md](INSTALLATION.md)                                   | Fresh install: pre-install config, nixos-anywhere, post-install, verification               |
-| [modules/common/network/README.md](modules/common/network/README.md) | SSH, mDNS, Traefik + Cloudflare Tunnel, Let's Encrypt certificate                           |
-| [modules/common/zfs/README.md](modules/common/zfs/README.md)         | ZFS datasets, snapshots, backup/replication, management commands                            |
-| [modules/containers/README.md](modules/containers/README.md)         | Container structure, service skeletons, resource limits, persistent storage                 |
-| [modules/secrets/README.md](modules/secrets/README.md)               | sops-nix setup, age keys, secrets vs config variables                                       |
+| File                                                                 | Contents                                                                             |
+|:---------------------------------------------------------------------|:-------------------------------------------------------------------------------------|
+| [README.md](README.md)                                               | Repo layout, services (IPs, ports, URLs, ZFS datasets), deploy, upgrade and rollback |
+| [INSTALLATION.md](INSTALLATION.md)                                   | New install: configuration, nixos-anywhere, steps after the install, checks          |
+| [hosts/README.md](hosts/README.md)                                   | Host settings and all `hlamlab.services` options                                     |
+| [modules/common/network/README.md](modules/common/network/README.md) | SSH, mDNS, Traefik, Cloudflare Tunnel, Let's Encrypt, CrowdSec                       |
+| [modules/common/zfs/README.md](modules/common/zfs/README.md)         | ZFS datasets, snapshots, backup and replication, commands                            |
+| [modules/containers/README.md](modules/containers/README.md)         | Service modules, how to add a service, resource limits, storage                      |
+| [modules/secrets/README.md](modules/secrets/README.md)               | sops-nix setup, age keys, secrets and plain settings                                 |

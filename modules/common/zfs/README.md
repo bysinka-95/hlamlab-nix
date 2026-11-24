@@ -1,47 +1,49 @@
-# ZFS Storage Module
+# ZFS storage module
 
-Declarative ZFS dataset management via Disko and disko-zfs.
+Disko and disko-zfs manage the ZFS datasets from the configuration.
 
-- **Single source of truth**: all datasets in [
-  `hosts/playground/disk-config.nix`](../../../hosts/playground/disk-config.nix)
-- **Automatic management**: disko-zfs applies changes on every deploy — no manual `zfs create`
-- **Snapshots**: hourly/daily/weekly/monthly via sanoid
-- **Compression**: lz4; **Integrity**: weekly scrubbing
+- **Dataset declarations**: the base datasets (`root`, `nix`, `home`, `services`,
+  `backups`) are in [`hosts/playground/disk-config.nix`](../../../hosts/playground/disk-config.nix).
+  `modules/containers/frame.nix` adds one dataset for each enabled service.
+- **No manual `zfs create`**: disko-zfs applies the datasets and their properties at each deploy.
+- **Snapshots**: Sanoid takes hourly, daily, weekly and monthly snapshots.
+- **Compression**: lz4. **Integrity**: a scrub each week.
+- **Service datasets** have `setuid=off` (see the
+  [container README](../../containers/README.md#persistent-storage)).
 
 ---
 
-## Quick Start
+## Quick start
 
-1. During installation, read host ID from the target machine (installer shell):
+1. During the install, read the host ID on the target (installer shell):
 
 ```bash
 head -c 8 /etc/machine-id; echo
 ```
 
-2. Set it in [`hosts/playground/configuration.nix`](../../../hosts/playground/configuration.nix) **before first install**:
+2. Set it in [`hosts/playground/configuration.nix`](../../../hosts/playground/configuration.nix)
+   **before the first install**:
 
 ```nix
 hlamlab.settings.hostId = "a1b2c3d4";
 ```
 
-3. Install/deploy
+3. Install, then deploy:
 
 ```bash
 nix run nixpkgs#deploy-rs -- .#playground
 ```
 
-Important: do not change `networking.hostId` after the initial install. If it changes later, `tank`
-may fail to import during boot.
+Do not change `networking.hostId` after the install. With a different host ID, `tank` can fail to
+import at boot.
 
 ---
 
-## Adding a Service Dataset
+## Dataset for a new service
 
-When adding a new service, its ZFS dataset and sanoid schedule are created automatically by the
-`frame.nix` abstraction when you define a service using `hlamlab.services.<name>`.
-
-You simply set the storage requirements in the service definition (
-`modules/containers/<name>.nix`) or override them in the host configuration:
+The frame creates the dataset and the Sanoid schedule for each service in
+`hlamlab.services.<name>`. Set the size in the service module (`modules/containers/<name>.nix`)
+or override it from the host:
 
 ```nix
 { ... }:
@@ -49,25 +51,23 @@ You simply set the storage requirements in the service definition (
   hlamlab.services.myservice = {
     storageQuota = "100G";
     storageReservation = "20G";
-    
-    # Optional: ZFS datasets and Sanoid schedules can be disabled per service
-    # zfs.enable = false;
+
     # zfs.enable = false;   # no dataset, no snapshots, no dataDir mount
   };
 }
 ```
 
-Deploy and verify: `zfs list tank/services/myservice`
+Deploy, then check: `zfs list tank/services/myservice`
 
 ---
 
-## Current Datasets
+## Current datasets
 
-See [main README](../../../README.md#zfs-datasets) for the full dataset table.
+The [main README](../../../README.md#zfs-datasets) has the full dataset table.
 
 ---
 
-## Management Commands
+## Management commands
 
 ```bash
 # Overview
@@ -76,7 +76,7 @@ zfs list -r tank/services
 zfs list -o name,used,avail,quota,mountpoint
 
 # Properties
-zfs get quota,compressratio tank/services/immich
+zfs get quota,compressratio,setuid tank/services/immich
 
 # Pool health
 zpool status
@@ -88,7 +88,7 @@ sudo zpool scrub tank
 
 ## Snapshots
 
-**Automatic schedule** (sanoid): 24 hourly · 7 daily · 4 weekly · 12 monthly
+**Automatic schedule** (Sanoid): 24 hourly, 7 daily, 4 weekly, 12 monthly.
 
 ```bash
 # List
@@ -104,7 +104,7 @@ ls /var/lib/services/immich/.zfs/snapshot/
 
 ---
 
-## Backup / Replication
+## Backup and replication
 
 ```bash
 # Initial send
@@ -116,21 +116,22 @@ sudo zfs snapshot tank/services/immich@backup-new
 sudo zfs send -R -i @backup tank/services/immich@backup-new | ssh backup-server sudo zfs receive backup-tank/immich
 ```
 
-For automated replication, add `services.syncoid` in `modules/common/zfs/default.nix`.
+For automatic replication, add `services.syncoid` in `modules/common/zfs/default.nix`.
 
 ---
 
 ## Troubleshooting
 
-**Dataset not mounting** — `sudo zfs mount tank/services/myservice`; check `zfs get mountpoint`.
+**A dataset does not mount.** Run `sudo zfs mount tank/services/myservice`. Check
+`zfs get mountpoint`.
 
-**Pool not importing at boot (`tank/root` unavailable)** — verify `networking.hostId` was set before
-first install and has not changed since.
+**The pool does not import at boot (`tank/root` unavailable).** Check that you set
+`networking.hostId` before the first install and did not change it since.
 
-**Quota exceeded** — increase `quota` in `disk-config.nix`, then redeploy.
+**The quota is full.** Increase `storageQuota` in the service module, then deploy.
 
-**Snapshot space** — `zfs list -t snapshot -o name,used -s used`; destroy old ones with
-`zfs destroy`.
+**Snapshots use too much space.** List them with `zfs list -t snapshot -o name,used -s used`.
+Delete old ones with `zfs destroy`.
 
-**New dataset not created** — check syntax in `disk-config.nix`, verify disko-zfs in `flake.nix`,
-check rebuild output.
+**A new dataset is missing.** Check the service has `enable = true` and `zfs.enable = true`. For a
+base dataset, check `disk-config.nix`. Read the deploy output for disko-zfs errors.
