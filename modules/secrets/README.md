@@ -68,7 +68,7 @@ grafana:
 # ...
 ```
 
-The plain build-time settings (`domain`, `tunnelId`, `hostId`, `lanInterface`) are in the host
+The plain build-time settings (`domain`, `tunnelId`, `hostId`, `lanInterface`, `lanAddress`) are in the host
 configuration. [`modules/common/settings.nix`](../common/settings.nix) declares them.
 
 ---

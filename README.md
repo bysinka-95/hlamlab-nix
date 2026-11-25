@@ -30,11 +30,12 @@ test bed for the move to the final host.
 |-------------------|----------------|----------------------------|------------------------------------------------------------------|
 | Traefik           | :443           | https://traefik.yourdomain | Dashboard (Authelia 2FA, `admins` group). LE wildcard via DNS-01 |
 | Cloudflare Tunnel | (outbound)     | All `*.yourdomain`         | Sends all requests to Traefik :443 and checks its certificate    |
-| Host firewall     | nftables       | —                          | LAN: SSH and mDNS only. Containers: Traefik :443                 |
+| Host firewall     | nftables       | —                          | LAN: SSH, mDNS, DNS (+ :443 with `lanAddress`). Containers: :443 |
 | CrowdSec          | 127.0.0.1:8180 | —                          | LAPI on the host. Reads the Traefik and Authelia logs            |
 
-The LAN can reach only SSH and mDNS. All web traffic comes through the tunnel. Traefik's port 443
-is open to cloudflared over loopback and to the containers (hairpin). Only the prometheus
+The LAN can reach SSH, mDNS and DNS (port 53, forwarded to the blocky container). Web traffic from
+the internet comes through the tunnel. Traefik's port 443 is open to cloudflared over loopback and
+to the containers (hairpin). If `lanAddress` is set, 443 is also open on the LAN (see Blocky below). Only the prometheus
 container can reach the metrics ports: 6060, 8080, 8082, 9100 and 60123.
 
 - **Traefik** ([`traefik.nix`](modules/common/network/traefik.nix)) has one `https` entrypoint. It
@@ -58,9 +59,10 @@ container can reach the metrics ports: 6060, 8080, 8082, 9100 and 60123.
 | grafana     | 10.0.0.9:3000  | https://grafana.yourdomain   | /var/lib/services/grafana     | 100% | 512M → 768M      | 10G / 1G         |
 | prometheus  | 10.0.0.10:9090 | internal only (via Grafana)  | /var/lib/services/prometheus  | 100% | 512M → 1G        | 20G / 2G         |
 | loki        | 10.0.0.11:3100 | internal only (via Grafana)  | /var/lib/services/loki        | 100% | 512M → 768M      | 20G / 2G         |
-| —           | 10.0.0.12+     | —                            | —                             | —    | —                | —                |
+| blocky      | 10.0.0.12:4000 | LAN DNS on the host's :53    | — (no state)                  | 100% | 512M → 1G        | —                |
+| —           | 10.0.0.13+     | —                            | —                             | —    | —                | —                |
 
-The host gateway uses **10.0.0.1**. The next free IP is **10.0.0.12**.
+The host gateway uses **10.0.0.1**. The next free IP is **10.0.0.13**.
 
 Each container has its own user namespace. Its root user is an unprivileged uid on the host.
 

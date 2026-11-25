@@ -72,6 +72,10 @@ in
         # (hairpin). No :80 — nothing outside the tunnel ever spoke plain HTTP.
         https = {
           address = ":443";
+          # Cloudflare tells browsers the sites speak HTTP/3. At home (split
+          # horizon) they then try QUIC on the LAN address first, so Traefik
+          # answers it too. UDP 443 opens on the LAN only with lanAddress.
+          http3 = { };
           # Only cloudflared's X-Forwarded-For is kept (Cloudflare appends the
           # real client IP to it). Containers are not trusted: they could forge
           # any client IP.

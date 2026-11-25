@@ -26,6 +26,11 @@ The services and Traefik use these settings. Set them in the `configuration.nix`
     # Container egress leaves through it, and it is the only interface SSH and
     # mDNS answer on.
     # lanInterface = "enp1s0";
+
+    # The host's LAN IPv4 address (reserve it in the DHCP settings of the router). With the
+    # blocky service on, Blocky answers the domain with it and 443 opens on
+    # the LAN, so devices at home skip Cloudflare.
+    # lanAddress = "192.168.1.10";
   };
 ```
 

@@ -61,6 +61,11 @@ shell shows it with `ip -br link`. The default is `ens18` (Proxmox virtio).
 
 > A wrong `lanInterface` cuts SSH. The firewall opens SSH on that interface only.
 
+Optional: if you enable the `blocky` service, set `hlamlab.settings.lanAddress` to the target's LAN
+address. Reserve that address for the target in the DHCP settings of the router. Then devices that use Blocky reach
+the services at home without Cloudflare. The
+[network README](modules/common/network/README.md#lan-dns-blocky) explains it.
+
 ### 6. Set up secrets
 
 **Make your age key:**

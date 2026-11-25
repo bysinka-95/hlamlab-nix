@@ -34,6 +34,7 @@
     prometheus.enable = true;
     searx.enable = true;
     vaultwarden.enable = true;
+    blocky.enable = true;
   };
 
   # Bootloader

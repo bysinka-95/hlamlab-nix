@@ -30,6 +30,7 @@ in
       authelia = [ 9959 ];
       grafana = [ svc.grafana.port ];
       loki = [ svc.loki.port ];
+      blocky = [ svc.blocky.port ];
     };
 
     dataDir = "/var/lib/prometheus2";
@@ -103,6 +104,10 @@ in
           {
             job_name = "authelia";
             static_configs = [{ targets = [ "${svc.authelia.ip}:9959" ]; }];
+          }
+          {
+            job_name = "blocky";
+            static_configs = [{ targets = [ svc.blocky.address ]; }];
           }
         ];
       };

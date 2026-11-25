@@ -26,5 +26,6 @@
     ./grafana.nix
     ./prometheus.nix
     ./loki.nix
+    ./blocky.nix
   ];
 }

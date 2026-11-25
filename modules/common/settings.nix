@@ -29,6 +29,18 @@ in
       '';
     };
 
+    lanAddress = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "192.168.1.10";
+      description = ''
+        The host's IPv4 address on the LAN (reserve it in the DHCP settings of the router).
+        If set and Blocky is enabled, Blocky answers the domain and its
+        subdomains with this address, and Traefik's 443 opens on the LAN, so
+        devices at home reach the services without Cloudflare.
+      '';
+    };
+
     ldapBaseDn = lib.mkOption {
       type = lib.types.str;
       description = "LDAP base DN. Defaults to derived domain (e.g., 'dc=yourdomain,dc=com')";

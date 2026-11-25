@@ -13,6 +13,7 @@ Grafana loads each `*.json` file in this directory (see `grafana.nix`).
 | `traefik-dashboard.json`   | grafana.com 17346                        | Traefik                                                                                        |
 | `cloudflare-tunnel.json`   | grafana.com 17457                        | cloudflared tunnel                                                                             |
 | `crowdsec-overview.json`   | CrowdSec v5 Overview, changed for 1.8    | CrowdSec: decisions, alerts, parsers, buckets, AppSec (job `crowdsec`)                         |
+| `blocky.json`              | grafana.com 13768                        | Blocky: queries, blocked share, clients, cache, list sizes (job `blocky`)                      |
 
 In `homelab-overview`, the variables `$container`, `$service` and `$search` filter the whole board.
 
@@ -24,6 +25,10 @@ container, use the cAdvisor dashboards.
 [crowdsecurity/grafana-dashboards](https://github.com/crowdsecurity/grafana-dashboards). The
 upstream file is for CrowdSec 1.5. This copy uses the bucket counter name of 1.8, shows 0 instead
 of an old value when there are no decisions, and has an extra AppSec panel.
+
+`blocky.json` has a constant variable `blocky_url` for the links that turn blocking on and off.
+Its `${VAR_BLOCKY_URL}` placeholder is replaced with the container address. The browser cannot
+reach that address, so the links do not work.
 
 ## Datasource UIDs are fixed
 

@@ -56,6 +56,32 @@ Linux clients need `avahi-daemon` and `libnss-mdns`. macOS has Bonjour built in.
 
 ---
 
+## LAN DNS (Blocky)
+
+The `blocky` container ([`blocky.nix`](../../containers/blocky.nix)) is a DNS server for the LAN:
+
+- **Blocking**: Blocky answers `0.0.0.0` for ad and tracker domains (hagezi Pro list, downloaded
+  at each start and every 4 hours).
+- **Resolution**: Unbound in the same container resolves all other names from the root servers and
+  checks DNSSEC. No outside resolver sees your queries.
+- **Split horizon**: if `hlamlab.settings.lanAddress` is set, Blocky answers `yourdomain` and all
+  its subdomains with that address. Port 443 then opens on the LAN, so devices at home reach
+  Traefik directly, with the same Let's Encrypt certificate. Cloudflare is not in that path.
+
+The host forwards port 53 (UDP and TCP) from the LAN to the container. Blocky sees the address of
+each device. The metrics go to Prometheus (job `blocky`). The Grafana dashboard is **Blocky**.
+
+To test it before you change the router, set the host's LAN address as the DNS server on one
+device. Then check:
+
+```bash
+dig +short @<lanAddress> yourdomain                # <lanAddress>
+dig +short @<lanAddress> googlesyndication.com     # 0.0.0.0
+dig +short @<lanAddress> example.com               # a public address
+```
+
+---
+
 ## Cloudflare Tunnel and Traefik
 
 ### Architecture
