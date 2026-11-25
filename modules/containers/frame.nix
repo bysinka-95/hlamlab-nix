@@ -437,6 +437,10 @@ in
     # 5. Resource Limits
     systemd.services = lib.mapAttrs'
       (name: svc: lib.nameValuePair "container@${name}" {
+        # The deploy that adds a service creates its dataset in disko-zfs. A
+        # container that starts first binds the empty parent directory, and
+        # the dataset then mounts over it without idmap.
+        after = lib.optional svc.zfs.enable "disko-zfs.service";
         serviceConfig = {
           CPUQuota = svc.cpuLimit;
           MemoryMax = svc.ramLimit;
