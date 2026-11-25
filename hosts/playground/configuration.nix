@@ -35,6 +35,7 @@
     searx.enable = true;
     vaultwarden.enable = true;
     blocky.enable = true;
+    gotify.enable = true;
   };
 
   # Bootloader

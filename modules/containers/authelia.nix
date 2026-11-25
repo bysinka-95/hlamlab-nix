@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, lib, ... }:
 let
   settings = config.hlamlab.settings;
   svc = config.hlamlab.services;
@@ -47,6 +47,11 @@ in
       };
       authelia-grafana-oidc-digest = {
         key = "authelia/grafana-oidc-digest";
+        unit = "authelia-main.service";
+      };
+    } // lib.optionalAttrs svc.gotify.enable {
+      authelia-gotify-oidc-digest = {
+        key = "authelia/gotify-oidc-digest";
         unit = "authelia-main.service";
       };
       authelia-oidc-hmac-secret = {
@@ -257,7 +262,24 @@ in
                   # service that accepts Authelia's JWTs — OpenCloud included.
                   token_endpoint_auth_method = "client_secret_basic";
                 }
-              ];
+              ] ++ lib.optional svc.gotify.enable {
+                client_id = "gotify";
+                client_name = "Gotify";
+                client_secret = ''{{ secret "${svc.authelia.secrets.authelia-gotify-oidc-digest.path}" }}'';
+                public = false;
+                authorization_policy = "two_factor";
+                consent_mode = "implicit";
+                redirect_uris = [
+                  "${svc.gotify.baseUrl}/auth/oidc/callback"
+                  # The Android app: Gotify passes it on and exchanges the code itself.
+                  "gotify://oidc/callback"
+                ];
+                scopes = [ "openid" "profile" "email" "groups" ];
+                require_pkce = true;
+                pkce_challenge_method = "S256";
+                userinfo_signed_response_alg = "none";
+                token_endpoint_auth_method = "client_secret_basic";
+              };
             };
           };
         };

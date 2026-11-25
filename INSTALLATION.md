@@ -126,6 +126,7 @@ authelia:
   immich-oidc-digest: "placeholder"      # pbkdf2 digests of the clients' secrets, see below
   vaultwarden-oidc-digest: "placeholder"
   grafana-oidc-digest: "placeholder"
+  gotify-oidc-digest: "placeholder"
 
 immich:
   oidc-client-secret: "placeholder"
@@ -152,6 +153,10 @@ grafana:
   oidc-client-secret: "placeholder" # Authelia stores only its digest (authelia.grafana-oidc-digest)
   admin-password: "placeholder"     # break-glass local admin (login form disabled)
   secret-key: "placeholder"         # Grafana DB encryption key, keep it stable
+
+gotify:
+  oidc-client-secret: "placeholder" # Authelia stores only its digest (authelia.gotify-oidc-digest)
+  admin-password: "placeholder"     # local admin, break-glass (web sign-in is through Authelia)
 ```
 
 **Generate the values:**
@@ -193,6 +198,10 @@ nix run nixpkgs#authelia -- crypto rand --length 72 --charset rfc3986 # Use for 
 nix run nixpkgs#authelia -- crypto rand --length 32 --charset alphanumeric # Use for grafana-secret-key (DB encryption key)
 # grafana-admin-password: choose a strong password (break-glass only; the login form is disabled)
 
+# Generate Gotify secrets
+nix run nixpkgs#authelia -- crypto rand --length 72 --charset rfc3986 # Use for gotify-oidc-client-secret
+nix run nixpkgs#authelia -- crypto rand --length 32 --charset alphanumeric # Use for gotify-admin-password
+
 # Generate an RSA Keypair for the Authelia OIDC Issuer
 openssl genrsa -out private.pem 4096
 # Copy the contents of private.pem into authelia-oidc-issuer-private-key, keeping the indentation
@@ -213,7 +222,7 @@ plaintext stays in the container of each client. When the client secrets are in 
 make the digests:
 
 ```bash
-for c in immich vaultwarden grafana; do
+for c in immich vaultwarden grafana gotify; do
   p=$(nix run nixpkgs#sops -- -d --extract "[\"$c\"][\"oidc-client-secret\"]" modules/secrets/secrets.yaml)
   nix run nixpkgs#authelia -- crypto hash generate pbkdf2 --variant sha512 --password "$p" \
     | sed -n 's/^Digest: //p' | nix run nixpkgs#jq -- -R . \
@@ -358,6 +367,10 @@ its local login form is off.
 
 > Break-glass: if OIDC stops working, set `auth.disable_login_form = false` in `grafana.nix` for
 > one deploy. Then log in with `admin` and `grafana-admin-password`.
+
+In Gotify at `https://gotify.<domain>`, select **Authelia** to log in. Members of `admins` become
+Gotify admins. The local user `admin` with `gotify-admin-password` is for break-glass. The Gotify
+Android app logs in with a Gotify user and keeps a client token.
 
 ---
 

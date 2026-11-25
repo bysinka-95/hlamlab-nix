@@ -27,5 +27,6 @@
     ./prometheus.nix
     ./loki.nix
     ./blocky.nix
+    ./gotify.nix
   ];
 }
