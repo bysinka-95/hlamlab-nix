@@ -157,6 +157,10 @@ grafana:
 gotify:
   oidc-client-secret: "placeholder" # Authelia stores only its digest (authelia.gotify-oidc-digest)
   admin-password: "placeholder"     # local admin, break-glass (web sign-in is through Authelia)
+
+gatus:
+  env: |
+    GOTIFY_TOKEN=placeholder # token of the Gatus app in Gotify, set it after the install
 ```
 
 **Generate the values:**
@@ -371,6 +375,18 @@ its local login form is off.
 In Gotify at `https://gotify.<domain>`, select **Authelia** to log in. Members of `admins` become
 Gotify admins. The local user `admin` with `gotify-admin-password` is for break-glass. The Gotify
 Android app logs in with a Gotify user and keeps a client token.
+
+Gatus sends its alerts to Gotify. Messages go to the user that owns the app, so create the app with
+your own user:
+
+1. In Gotify, open **Apps**, then **Create Application**. Use the name `Gatus`.
+2. Store its token. The command does not show the token:
+
+```bash
+read -rs t; printf 'GOTIFY_TOKEN=%s' "$t" | nix run nixpkgs#jq -- -R . | nix run nixpkgs#sops -- set --value-stdin modules/secrets/secrets.yaml '["gatus"]["env"]'; unset t
+```
+
+3. Deploy. The status page is `https://status.<domain>` (Authelia, group `admins`).
 
 ---
 

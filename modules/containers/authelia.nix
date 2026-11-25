@@ -132,7 +132,7 @@ in
             default_policy = "deny";
             rules = [
               {
-                domain = [ svc.lldap.fqdn "traefik.${settings.domain}" ];
+                domain = [ svc.lldap.fqdn "traefik.${settings.domain}" svc.gatus.fqdn ];
                 policy = "two_factor";
                 subject = [ "group:admins" ];
               }

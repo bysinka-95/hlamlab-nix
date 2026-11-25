@@ -28,5 +28,6 @@
     ./loki.nix
     ./blocky.nix
     ./gotify.nix
+    ./gatus.nix
   ];
 }

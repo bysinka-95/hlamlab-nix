@@ -36,6 +36,7 @@
     vaultwarden.enable = true;
     blocky.enable = true;
     gotify.enable = true;
+    gatus.enable = true;
   };
 
   # Bootloader

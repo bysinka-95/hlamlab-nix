@@ -61,9 +61,10 @@ container can reach the metrics ports: 6060, 8080, 8082, 9100 and 60123.
 | loki        | 10.0.0.11:3100 | internal only (via Grafana)  | /var/lib/services/loki        | 100% | 512M → 768M      | 20G / 2G         |
 | blocky      | 10.0.0.12:4000 | LAN DNS on the host's :53    | — (no state)                  | 100% | 512M → 1G        | —                |
 | gotify      | 10.0.0.13:8080 | https://gotify.yourdomain    | /var/lib/services/gotify      | 100% | 192M → 256M      | 1G / 100M        |
-| —           | 10.0.0.14+     | —                            | —                             | —    | —                | —                |
+| gatus       | 10.0.0.14:8080 | https://status.yourdomain    | — (history in RAM)            | 100% | 192M → 256M      | —                |
+| —           | 10.0.0.15+     | —                            | —                             | —    | —                | —                |
 
-The host gateway uses **10.0.0.1**. The next free IP is **10.0.0.14**.
+The host gateway uses **10.0.0.1**. The next free IP is **10.0.0.15**.
 
 Each container has its own user namespace. Its root user is an unprivileged uid on the host.
 
