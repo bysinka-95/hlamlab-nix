@@ -104,6 +104,10 @@ in
               enable_http2 = true;
             };
 
+            # Brave changed its result page: SearXNG shows its links as random
+            # strings. Re-enable when an update fixes the engine.
+            engines = [{ name = "brave"; disabled = true; }];
+
             enabled_plugins = [
               "Basic Calculator"
               "Hash plugin"
