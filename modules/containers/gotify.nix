@@ -58,8 +58,13 @@ in
         };
       };
 
+      # Gotify exits when it cannot reach Authelia at start (after a host
+      # boot, Traefik can come up later). Retry until it can, with no limit.
+      systemd.services.gotify-server.unitConfig.StartLimitIntervalSec = 0;
+
       # A fixed user, so the ZFS dataset on dataDir has a stable owner.
       systemd.services.gotify-server.serviceConfig = {
+        RestartSec = "5s";
         DynamicUser = lib.mkForce false;
         User = svc.gotify.serviceUser;
         Group = svc.gotify.serviceUser;
